@@ -1,187 +1,12 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C.I.R.C.U.I.T.O.</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<?php
+$page_title = 'C.I.R.C.U.I.T.O';
+require_once 'includes/header.php';
+?>
 
-        body {
-            background-color: #141414;
-            color: #ffffff;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            min-height: 100vh;
-        }
-
-        /* ══════════════════════════════════════════
-           NAVBAR
-        ══════════════════════════════════════════ */
-        .navbar {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            padding: 0 40px;
-            height: 64px;
-            background-color: #141414;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            border-bottom: 1px solid #222;
-        }
-
-        .nav-logo {
-            font-family: 'Courier New', monospace;
-            font-size: 1.15rem;
-            font-weight: 900;
-            letter-spacing: 0.06em;
-            color: #ffffff;
-            text-decoration: none;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        /* Barra de pesquisa */
-        .nav-search {
-            flex: 1;
-            max-width: 520px;
-            position: relative;
-        }
-
-        .nav-search input {
-            width: 100%;
-            padding: 10px 44px 10px 18px;
-            background-color: #2a2a2a;
-            border: 1.5px solid #333;
-            border-radius: 50px;
-            color: #ffffff;
-            font-size: 0.875rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .nav-search input::placeholder { color: #666; }
-        .nav-search input:focus { border-color: #555; }
-
-        .nav-search button {
-            position: absolute;
-            right: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #aaa;
-            padding: 0;
-            display: flex;
-            align-items: center;
-        }
-
-        /* Ações do nav */
-        .nav-actions {
-            margin-left: auto;
-            display: flex;
-            align-items: center;
-            gap: 28px;
-        }
-
-        .nav-action-btn {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            background: none;
-            border: none;
-            color: #ffffff;
-            font-size: 0.875rem;
-            cursor: pointer;
-            text-decoration: none;
-            white-space: nowrap;
-            transition: color 0.15s;
-        }
-
-        .nav-action-btn:hover { color: #cccccc; }
-
-        .nav-action-btn svg {
-            width: 22px;
-            height: 22px;
-            flex-shrink: 0;
-        }
-
-        /* Usuário + dropdown */
-        .nav-user {
-            position: relative;
-        }
-
-        .nav-user-btn {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: none;
-            border: none;
-            color: #ffffff;
-            cursor: pointer;
-            font-size: 0.875rem;
-            text-align: left;
-        }
-
-        .nav-user-btn svg {
-            width: 26px;
-            height: 26px;
-            flex-shrink: 0;
-        }
-
-        .nav-user-btn .greeting { line-height: 1.3; }
-
-        .nav-user-btn .greeting span {
-            display: block;
-            color: #aaa;
-            font-size: 0.78rem;
-        }
-
-        .dropdown {
-            display: none;
-            position: absolute;
-            top: calc(100% + 14px);
-            right: 0;
-            background-color: #1e1e1e;
-            border: 1px solid #2e2e2e;
-            border-radius: 12px;
-            min-width: 200px;
-            overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-        }
-
-        .nav-user.open .dropdown { display: block; }
-
-        .dropdown a {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 20px;
-            color: #ffffff;
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: background-color 0.15s;
-            border-bottom: 1px solid #2a2a2a;
-        }
-
-        .dropdown a:last-child { border-bottom: none; }
-        .dropdown a:hover { background-color: #2a2a2a; }
-
-        .dropdown a svg {
-            width: 18px;
-            height: 18px;
-            color: #aaa;
-            flex-shrink: 0;
-        }
-
-        /* ══════════════════════════════════════════
-           CONTEÚDO PRINCIPAL
-        ══════════════════════════════════════════ */
+<style>
+    /* ══════════════════════════════════════════
+       CONTEÚDO PRINCIPAL
+    ══════════════════════════════════════════ */
         .main {
             padding: 32px 40px 60px;
         }
@@ -387,6 +212,38 @@
 
             .how-to-title { font-size: 1.9rem; }
         }
+
+        .site-footer {
+            border-top: 1px solid #222;
+            padding: 18px 40px 22px;
+            color: #7a7a7a;
+            font-size: 0.85rem;
+            letter-spacing: 0.04em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .site-footer .github-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #7a7a7a;
+            transition: color 0.15s;
+        }
+
+        .site-footer .github-link:hover {
+            color: #a0a0a0;
+        }
+
+        .site-footer .github-link svg {
+            width: 17px;
+            height: 17px;
+        }
+
+        @media (max-width: 860px) {
+            .site-footer { padding: 16px 20px 20px; }
+        }
     </style>
 </head>
 <body>
@@ -394,6 +251,7 @@
 <?php
 /* ── Dados de exemplo (substituir por queries reais) ── */
 $usuario_nome = 'Emanuel Ziegler';
+$usuario_tipo_conta = 'Aluno (developer/test)';
 
 $categorias = [
     [
@@ -443,7 +301,7 @@ $categorias = [
 
     <div class="nav-actions">
 
-        <a href="/carrinho.php" class="nav-action-btn">
+        <a href="pages_aluno/carrinho.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
@@ -452,7 +310,7 @@ $categorias = [
             Carrinho
         </a>
 
-        <a href="/pedidos.php" class="nav-action-btn">
+        <a href="pages_aluno/pedido.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -477,7 +335,7 @@ $categorias = [
             </button>
 
             <div class="dropdown" role="menu">
-                <a href="/perfil.php" role="menuitem">
+                <a href="pages_aluno/profile.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -485,7 +343,7 @@ $categorias = [
                     </svg>
                     Acessar perfil
                 </a>
-                <a href="/notificacoes.php" role="menuitem">
+                <a href="pages_aluno/notificacoes.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -507,6 +365,16 @@ $categorias = [
 
     </div>
 </nav>
+
+<script>
+    function toggleDropdown() {
+        document.getElementById('navUser').classList.toggle('open');
+    }
+    document.addEventListener('click', function (e) {
+        const navUser = document.getElementById('navUser');
+        if (!navUser.contains(e.target)) navUser.classList.remove('open');
+    });
+</script>
 
 <!-- ══════════════════ CONTEÚDO ══════════════════ -->
 <main class="main">
@@ -594,17 +462,17 @@ $categorias = [
 
 </main>
 
+<footer class="site-footer">
+    <span>C.I.R.C.U.I.T.O.</span>
+    <span style="color: #666; font-size: 0.8rem;">• <?= htmlspecialchars($usuario_tipo_conta) ?></span>
+    <a class="github-link" href="https://github.com/" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.5 0-.24-.01-1.03-.01-1.87-2.78.62-3.37-1.2-3.37-1.2-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.58 2.36 1.12 2.94.86.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.09 0-1.13.39-2.06 1.03-2.79-.1-.26-.45-1.31.1-2.74 0 0 .84-.28 2.75 1.07A9.3 9.3 0 0 1 12 6.98c.85 0 1.71.12 2.51.35 1.9-1.35 2.74-1.07 2.74-1.07.55 1.43.2 2.48.1 2.74.64.73 1.03 1.66 1.03 2.79 0 3.96-2.34 4.82-4.57 5.08.36.32.69.95.69 1.93 0 1.39-.01 2.5-.01 2.85 0 .27.18.6.69.5A10.24 10.24 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"/>
+        </svg>
+    </a>
+</footer>
+
 <script>
-    /* Dropdown do usuário */
-    function toggleDropdown() {
-        document.getElementById('navUser').classList.toggle('open');
-    }
-
-    document.addEventListener('click', function (e) {
-        const navUser = document.getElementById('navUser');
-        if (!navUser.contains(e.target)) navUser.classList.remove('open');
-    });
-
     /* Scroll do carrossel */
     function scrollCarousel(id, direction) {
         document.getElementById(id).scrollBy({ left: direction * 272, behavior: 'smooth' });
