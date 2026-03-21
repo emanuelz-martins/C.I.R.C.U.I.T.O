@@ -1,6 +1,16 @@
 <?php
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+if (empty($_SESSION['auth_user']) || !is_array($_SESSION['auth_user'])) {
+    header('Location: login.php');
+    exit;
+}
+
 $page_title = 'C.I.R.C.U.I.T.O';
 require_once 'includes/header.php';
+//http://localhost/C.I.R.C.U.I.T.O/src/views/ldap_control/ldaptest.php (pagina adm para criar acesso)
 ?>
 
 <style>
@@ -249,9 +259,10 @@ require_once 'includes/header.php';
 <body>
 
 <?php
-/* ── Dados de exemplo (substituir por queries reais) ── */
-$usuario_nome = 'Emanuel Ziegler';
-$usuario_tipo_conta = 'Aluno (developer/test)';
+/* ── Dados do usuário autenticado (via sessão) ── */
+$authUser = $_SESSION['auth_user'] ?? [];
+$usuario_nome = is_array($authUser) ? (string) ($authUser['nome'] ?? $usuario_nome) : $usuario_nome;
+$usuario_tipo_conta = is_array($authUser) ? (string) ($authUser['perfil'] ?? $usuario_tipo_conta) : $usuario_tipo_conta;
 
 $categorias = [
     [
@@ -351,7 +362,7 @@ $categorias = [
                     </svg>
                     Notificações
                 </a>
-                <a href="/logout.php" role="menuitem">
+                <a href="logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>

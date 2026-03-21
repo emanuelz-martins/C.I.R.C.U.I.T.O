@@ -1,3 +1,48 @@
+<?php
+declare(strict_types=1);
+//http://localhost/C.I.R.C.U.I.T.O/src/views/ldap_control/ldaptest.php (pagina adm para criar acesso)
+session_start();
+
+require_once __DIR__ . '/../src/config/database.php';
+
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $loginInput = trim((string) ($_POST['cpf'] ?? ''));
+    $senhaInput = (string) ($_POST['senha'] ?? '');
+
+    if ($loginInput === '' || $senhaInput === '') {
+        $error = 'Preencha login/CPF e senha.';
+    } else {
+        try {
+            $pdo = db();
+
+            $stmt = $pdo->prepare('SELECT id_user, nome, login, hash_senha, tipo_perfil, bloqueado FROM Usuario WHERE login = :login LIMIT 1');
+            $stmt->execute(['login' => $loginInput]);
+            $user = $stmt->fetch();
+
+            if (!$user || (int) $user['bloqueado'] === 1) {
+                $error = 'Usuário não encontrado ou bloqueado.';
+            } elseif (!password_verify($senhaInput, (string) $user['hash_senha'])) {
+                $error = 'Senha inválida.';
+            } else {
+                $_SESSION['auth_user'] = [
+                    'id' => (int) $user['id_user'],
+                    'nome' => (string) $user['nome'],
+                    'login' => (string) $user['login'],
+                    'perfil' => (string) $user['tipo_perfil'],
+                    'origem' => 'local_dev',
+                ];
+
+                header('Location: index.php');
+                exit;
+            }
+        } catch (Throwable $e) {
+            $error = 'Erro ao conectar no banco. Verifique o .env e o MySQL do XAMPP.';
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -275,7 +320,7 @@
                 <div class="error-msg"><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="/login.php" autocomplete="off">
+            <form method="POST" action="login.php" autocomplete="off">
 
                 <label class="field-label" for="cpf">CPF:</label>
                 <div class="field-wrapper">

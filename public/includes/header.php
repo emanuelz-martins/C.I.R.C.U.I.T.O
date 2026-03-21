@@ -1,7 +1,12 @@
 <?php
-/* ── Dados de usuário (substituir por queries/sessão reais) ── */
-$usuario_nome = $usuario_nome ?? 'Emanuel Ziegler';
-$usuario_tipo_conta = $usuario_tipo_conta ?? 'Aluno (developer/test)';
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+$authUser = $_SESSION['auth_user'] ?? [];
+
+$usuario_nome = $usuario_nome ?? (is_array($authUser) ? (string) ($authUser['nome'] ?? 'Usuário') : 'Usuário');
+$usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($authUser['perfil'] ?? 'Conta local') : 'Conta local');
 ?>
 
 <!DOCTYPE html>
