@@ -135,6 +135,8 @@ require_once 'includes/header.php';
             flex-direction: column;
             transition: border-color 0.2s, transform 0.15s;
             cursor: pointer;
+            text-decoration: none;
+            color: inherit;
         }
 
         .component-card:hover {
@@ -276,21 +278,22 @@ $categorias = [
         'id'    => 'eletronicos',
         'nome'  => 'Componentes eletrônicos básicos',
         'itens' => [
-            ['nome' => 'Resistor 220Ω – 1/4W',            'descricao' => 'Peça usada para limitar corrente em circuitos.',    'estoque' => 150, 'img' => null],
-            ['nome' => 'Capacitor Eletrolítico 100µF 25V', 'descricao' => 'Armazena carga elétrica.',                         'estoque' => 60,  'img' => null],
-            ['nome' => 'LED 5mm Vermelho',                 'descricao' => 'Diodo emissor de luz para sinalização.',           'estoque' => 120, 'img' => null],
-            ['nome' => 'Transistor NPN BC547',             'descricao' => 'Usado para amplificação e chaveamento de sinais.', 'estoque' => 45,  'img' => null],
-            ['nome' => 'Diodo 1N4007',                     'descricao' => 'Retificador de uso geral.',                       'estoque' => 200, 'img' => null],
+            /* id_comp: substituir pelo id real do banco quando integrar */
+            ['id' => 1, 'nome' => 'Resistor 220Ω – 1/4W',            'descricao' => 'Peça usada para limitar corrente em circuitos.',    'estoque' => 150, 'img' => null],
+            ['id' => 2, 'nome' => 'Capacitor Eletrolítico 100µF 25V', 'descricao' => 'Armazena carga elétrica.',                         'estoque' => 60,  'img' => null],
+            ['id' => 3, 'nome' => 'LED 5mm Vermelho',                 'descricao' => 'Diodo emissor de luz para sinalização.',           'estoque' => 120, 'img' => null],
+            ['id' => 4, 'nome' => 'Transistor NPN BC547',             'descricao' => 'Usado para amplificação e chaveamento de sinais.', 'estoque' => 45,  'img' => null],
+            ['id' => 5, 'nome' => 'Diodo 1N4007',                     'descricao' => 'Retificador de uso geral.',                       'estoque' => 200, 'img' => null],
         ],
     ],
     [
         'id'    => 'ferramentas',
         'nome'  => 'Ferramentas',
         'itens' => [
-            ['nome' => 'Ferro de Solda 30W',    'descricao' => 'Para soldagem de componentes eletrônicos.',  'estoque' => 8,  'img' => null],
-            ['nome' => 'Alicate de Corte',      'descricao' => 'Serve para cortar fios e terminais com precisão.', 'estoque' => 12, 'img' => null],
-            ['nome' => 'Multímetro Digital',    'descricao' => 'Mede tensão, corrente e resistência.',      'estoque' => 6,  'img' => null],
-            ['nome' => 'Protoboard 830 pontos', 'descricao' => 'Base para montagem de circuitos sem solda.','estoque' => 20, 'img' => null],
+            ['id' => 6,  'nome' => 'Ferro de Solda 30W',    'descricao' => 'Para soldagem de componentes eletrônicos.',       'estoque' => 8,  'img' => null],
+            ['id' => 7,  'nome' => 'Alicate de Corte',      'descricao' => 'Serve para cortar fios e terminais com precisão.','estoque' => 12, 'img' => null],
+            ['id' => 8,  'nome' => 'Multímetro Digital',    'descricao' => 'Mede tensão, corrente e resistência.',            'estoque' => 6,  'img' => null],
+            ['id' => 9,  'nome' => 'Protoboard 830 pontos', 'descricao' => 'Base para montagem de circuitos sem solda.',      'estoque' => 20, 'img' => null],
         ],
     ],
 ];
@@ -437,7 +440,7 @@ $categorias = [
 
             <div class="carousel-track" id="carousel-<?= $categoria['id'] ?>">
                 <?php foreach ($categoria['itens'] as $item): ?>
-                <div class="component-card">
+                <a class="component-card" href="pages_aluno/item.php?id=<?= (int) $item['id'] ?>">
 
                     <?php if (!empty($item['img'])): ?>
                         <img class="card-img"
@@ -458,16 +461,16 @@ $categorias = [
                         <div class="card-name"><?= htmlspecialchars($item['nome']) ?></div>
                         <div class="card-desc"><?= htmlspecialchars($item['descricao']) ?></div>
                         <div class="card-stock"><?= $item['estoque'] ?> unidades em estoque</div>
-                        <a href="#" class="btn-add-cart">
+                        <span class="btn-add-cart" onclick="event.preventDefault()">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                             </svg>
-                            Adicionar ao carrinho
-                        </a>
+                            Ver detalhes
+                        </span>
                     </div>
-                </div>
+                </a>
                 <?php endforeach; ?>
             </div>
 
