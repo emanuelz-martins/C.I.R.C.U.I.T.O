@@ -156,6 +156,12 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 		.erro { margin-top: 14px; padding: 10px; background: #3a1616; border: 1px solid #7a2d2d; border-radius: 6px; }
 		.muted { color: #aaa; font-size: 0.92rem; }
 		code { color: #9cdcfe; }
+		.admin-link { display: block; padding: 14px 20px; color: white; text-decoration: none; border-radius: 6px; text-align: center; font-weight: 600; transition: background-color 0.2s, transform 0.1s; }
+		.admin-link:hover { transform: translateY(-2px); }
+		.admin-link.aluno { background-color: #3b82f6; }
+		.admin-link.aluno:hover { background-color: #2563eb; }
+		.admin-link.lab { background-color: #8b5cf6; }
+		.admin-link.lab:hover { background-color: #7c3aed; }
 		@media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
 	</style>
 </head>
@@ -257,6 +263,21 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 				<p class="muted">Nenhuma sessão local ativa.</p>
 			<?php endif; ?>
 		</div>
+
+		<?php if (is_array($usuarioSessao) && (string) $usuarioSessao['perfil'] === 'admin'): ?>
+		<div class="card full">
+			<h2>5) Painel de Administrador</h2>
+			<p class="muted">Você tem acesso a todos os painéis. Escolha qual você deseja acessar:</p>
+			<div style="display: flex; gap: 12px; flex-direction: column;">
+				<a href="/C.I.R.C.U.I.T.O/public/index.php" class="admin-link aluno">
+					→ Ir para Painel Aluno
+				</a>
+				<a href="/C.I.R.C.U.I.T.O/public/pages_laboratorista/index.php" class="admin-link lab">
+					→ Ir para Painel Laboratorista
+				</a>
+			</div>
+		</div>
+		<?php endif; ?>
 	</div>
 </body>
 <script>

@@ -46,8 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $perfil = (string) $user['tipo_perfil'];
                     if ($perfil === 'laboratorista') {
                         header('Location: pages_laboratorista/index.php');
+                    } elseif ($perfil === 'admin') {
+                        header('Location: ../src/views/ldap_control/ldaptest.php');
                     } else {
-                        // Estudante e Admin vão para index.php (admin será tratado depois)
+                        // Estudante
                         header('Location: index.php');
                     }
                     exit;
