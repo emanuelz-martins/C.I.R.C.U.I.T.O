@@ -15,27 +15,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Preencha login/CPF e senha.';
     } else {
         try {
-            $pdo = db();
-
-            $stmt = $pdo->prepare('SELECT id_user, nome, login, hash_senha, tipo_perfil, bloqueado FROM Usuario WHERE login = :login LIMIT 1');
-            $stmt->execute(['login' => $loginInput]);
-            $user = $stmt->fetch();
-
-            if (!$user || (int) $user['bloqueado'] === 1) {
-                $error = 'Usuário não encontrado ou bloqueado.';
-            } elseif (!password_verify($senhaInput, (string) $user['hash_senha'])) {
-                $error = 'Senha inválida.';
+            // Remover caracteres não numéricos e formatar CPF
+            $cpf_limpo = preg_replace('/\D/', '', $loginInput);
+            if (mb_strlen($cpf_limpo) !== 11) {
+                $error = 'CPF inválido. Deve conter exatamente 11 dígitos.';
             } else {
-                $_SESSION['auth_user'] = [
-                    'id' => (int) $user['id_user'],
-                    'nome' => (string) $user['nome'],
-                    'login' => (string) $user['login'],
-                    'perfil' => (string) $user['tipo_perfil'],
-                    'origem' => 'local_dev',
-                ];
+                // Formatar CPF para busca no banco
+                $cpf_formatado = preg_replace('/^(\d{3})(\d{3})(\d{3})(\d{2})$/', '$1.$2.$3-$4', $cpf_limpo);
 
-                header('Location: index.php');
-                exit;
+                $pdo = db();
+
+                $stmt = $pdo->prepare('SELECT id_user, nome, login, hash_senha, tipo_perfil, bloqueado FROM Usuario WHERE login = :login LIMIT 1');
+                $stmt->execute(['login' => $cpf_formatado]);
+                $user = $stmt->fetch();
+
+                if (!$user || (int) $user['bloqueado'] === 1) {
+                    $error = 'Usuário não encontrado ou bloqueado.';
+                } elseif (!password_verify($senhaInput, (string) $user['hash_senha'])) {
+                    $error = 'Senha inválida.';
+                } else {
+                    $_SESSION['auth_user'] = [
+                        'id' => (int) $user['id_user'],
+                        'nome' => (string) $user['nome'],
+                        'login' => (string) $user['login'],
+                        'perfil' => (string) $user['tipo_perfil'],
+                        'origem' => 'local_dev',
+                    ];
+
+                    // Redirecionar com base no tipo de perfil
+                    $perfil = (string) $user['tipo_perfil'];
+                    if ($perfil === 'laboratorista') {
+                        header('Location: pages_laboratorista/index.php');
+                    } else {
+                        // Estudante e Admin vão para index.php (admin será tratado depois)
+                        header('Location: index.php');
+                    }
+                    exit;
+                }
             }
         } catch (Throwable $e) {
             $error = 'Erro ao conectar no banco. Verifique o .env e o MySQL do XAMPP.';

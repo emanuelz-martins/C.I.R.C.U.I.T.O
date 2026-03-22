@@ -8,6 +8,13 @@ if (empty($_SESSION['auth_user']) || !is_array($_SESSION['auth_user'])) {
     exit;
 }
 
+// Proteger painel de aluno: apenas estudantes e admins podem acessar
+$user_perfil = (string) ($_SESSION['auth_user']['perfil'] ?? 'desconhecido');
+if ($user_perfil === 'laboratorista') {
+    header('Location: pages_laboratorista/index.php');
+    exit;
+}
+
 $page_title = 'C.I.R.C.U.I.T.O';
 require_once 'includes/header.php';
 //http://localhost/C.I.R.C.U.I.T.O/src/views/ldap_control/ldaptest.php (pagina adm para criar acesso)

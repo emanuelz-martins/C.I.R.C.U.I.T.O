@@ -1,5 +1,5 @@
 <?php
-//ISSO É APENAS UM TESTE PARA CONSEGUIR LOGAR NO SERVIDOR LDAP, quadno nos migrar pro original vamos apagar esse arquivo mudar a prioridade para o ldap puxar as informações de login do usuario
+//ISSO É APENAS UM TESTE PARA CONSEGUIR LOGAR NO SERVIDOR LDAP, quadno nos migrar pro original vamos apagar esse arquivo mudar a prioridade para o ldap puxar as informações de login do usuario que tem no servidor do iff dos aluno
 declare(strict_types=1);
 
 session_start();
@@ -17,11 +17,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		if ($acao === 'ldap_test') {
 			$usuario = trim((string) ($_POST['usuario_ldap'] ?? ''));
 			$senha = (string) ($_POST['senha_ldap'] ?? '');
+			$tipo_conta = (string) ($_POST['tipo_conta_ldap'] ?? 'estudante');
 
 			$ok = authLdap($usuario, $senha);
 
 			if ($ok) {
-				$mensagem = 'LDAP OK: usuário e senha válidos no servidor institucional.';
+				$dominio = match($tipo_conta) {
+					'admin' => 'ADMIN - Acesso total (alunos, laboratoristas e bloqueios)',
+					'laboratorista' => 'LABORATORISTA - Painel de controle do laboratório',
+					default => 'ESTUDANTE - Painel de reservas e empréstimos',
+				};
+				$mensagem = "LDAP OK: usuário e senha válidos no servidor institucional.\nDomínio: {$dominio}";
 				$tipoMensagem = 'ok';
 			} else {
 				$mensagem = 'LDAP falhou: usuário/senha inválidos ou configuração LDAP indisponível.';
@@ -31,12 +37,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 		if ($acao === 'local_register') {
 			$nome = trim((string) ($_POST['nome_local'] ?? ''));
-			$login = trim((string) ($_POST['login_local'] ?? ''));
+			$cpf = trim((string) ($_POST['cpf_local'] ?? ''));
 			$senha = (string) ($_POST['senha_local'] ?? '');
+			$tipo_perfil = (string) ($_POST['tipo_perfil_local'] ?? 'estudante');
 
-			if ($nome === '' || $login === '' || $senha === '') {
-				throw new RuntimeException('Preencha nome, login e senha para cadastro local.');
+			if ($nome === '' || $cpf === '' || $senha === '') {
+				throw new RuntimeException('Preencha nome, CPF e senha para cadastro local.');
 			}
+
+			// Validar formato do CPF (XXX.XXX.XXX-XX ou XXXXXXXXXXX)
+			$cpf_limpo = preg_replace('/\D/', '', $cpf);
+			if (mb_strlen($cpf_limpo) !== 11) {
+				throw new RuntimeException('CPF deve conter exatamente 11 dígitos.');
+			}
+
+			// Formatar CPF para armazenar como XXX.XXX.XXX-XX
+			$cpf_formatado = preg_replace('/^(\d{3})(\d{3})(\d{3})(\d{2})$/', '$1.$2.$3-$4', $cpf_limpo);
 
 			if (mb_strlen($senha) < 6) {
 				throw new RuntimeException('Senha local deve ter pelo menos 6 caracteres.');
@@ -45,10 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$pdo = db();
 
 			$stmt = $pdo->prepare('SELECT id_user FROM Usuario WHERE login = :login LIMIT 1');
-			$stmt->execute(['login' => $login]);
+			$stmt->execute(['login' => $cpf_formatado]);
 
 			if ($stmt->fetch()) {
-				throw new RuntimeException('Já existe um usuário local com esse login.');
+				throw new RuntimeException('Já existe um usuário local com esse CPF.');
 			}
 
 			$hash = password_hash($senha, PASSWORD_DEFAULT);
@@ -60,12 +76,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 			$insert->execute([
 				'nome' => $nome,
-				'login' => $login,
+				'login' => $cpf_formatado,
 				'hash_senha' => $hash,
-				'tipo_perfil' => 'estudante',
+				'tipo_perfil' => $tipo_perfil,
 			]);
 
-			$mensagem = 'Usuário local criado com sucesso. Agora use o login local abaixo.';
+			$dominio = match($tipo_perfil) {
+				'admin' => 'ADMIN - Acesso total (alunos, laboratoristas e bloqueios)',
+				'laboratorista' => 'LABORATORISTA - Painel de controle do laboratório',
+				default => 'ESTUDANTE - Painel de reservas e empréstimos',
+			};
+
+			$mensagem = "Usuário local criado com sucesso!\nDomínio: {$dominio}\nCPF: {$cpf_formatado}\nAgora use o login abaixo.";
 			$tipoMensagem = 'ok';
 		}
 
@@ -120,7 +142,7 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Painel de Testes de Autenticação</title>
+	<title>Painel de ADMIN temporario</title>
 	<style>
 		body { font-family: Arial, sans-serif; background: #111; color: #eee; padding: 24px; }
 		.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
@@ -140,9 +162,9 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 <body>
 	<div class="wrap">
 		<div class="card full">
-			<h1>Painel de testes (LDAP + login local temporário)</h1>
+			<h1>Painel de testes (LDAP + login local)</h1>
 			<p class="muted">
-				Uso recomendado agora: testar e desenvolver com login local, e depois trocar para LDAP institucional no servidor oficial.
+				Basicamente vai simular o ldap lá do iff criando a conta local ai no teu computador. Consegue gerenciar o tipo da conta: Admin, Aluno ou Laboratorista.
 			</p>
 			<?php if ($mensagem !== null): ?>
 				<div class="<?= $tipoMensagem === 'ok' ? 'ok' : 'erro' ?>">
@@ -153,11 +175,18 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 
 		<div class="card">
 			<h2>1) Teste LDAP</h2>
-			<p class="muted">Valida credenciais contra o servidor LDAP institucional.</p>
+			<p class="muted">Valida credenciais com o servidor LDAP institucional. (vai funcionar apenas quanto estiver conectado ao LDAP do IFFar)</p>
 			<form method="post">
 				<input type="hidden" name="acao" value="ldap_test">
 				<label for="usuario_ldap">Usuário institucional</label>
 				<input id="usuario_ldap" name="usuario_ldap" type="text" required>
+
+				<label for="tipo_conta_ldap">Tipo de Conta</label>
+				<select id="tipo_conta_ldap" name="tipo_conta_ldap" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #121212; color: #fff;">
+					<option value="estudante">Estudante - Painel de reservas e empréstimos</option>
+					<option value="laboratorista">Laboratorista - Painel de controle</option>
+					<option value="admin">Admin - Acesso total</option>
+				</select>
 
 				<label for="senha_ldap">Senha</label>
 				<input id="senha_ldap" name="senha_ldap" type="password" required>
@@ -174,8 +203,15 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 				<label for="nome_local">Nome</label>
 				<input id="nome_local" name="nome_local" type="text" required>
 
-				<label for="login_local">Login</label>
-				<input id="login_local" name="login_local" type="text" required>
+				<label for="cpf_local">CPF</label>
+				<input id="cpf_local" name="cpf_local" type="text" placeholder="Ex: 111.111.111-11" maxlength="14" required>
+
+				<label for="tipo_perfil_local">Tipo de Conta</label>
+				<select id="tipo_perfil_local" name="tipo_perfil_local" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #121212; color: #fff;">
+					<option value="estudante">Estudante - Painel de reservas e empréstimos</option>
+					<option value="laboratorista">Laboratorista - Painel de controle</option>
+					<option value="admin">Admin - Acesso total</option>
+				</select>
 
 				<label for="senha_local">Senha (mín. 6)</label>
 				<input id="senha_local" name="senha_local" type="password" required>
@@ -188,8 +224,8 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 			<h2>3) Login local (DEV)</h2>
 			<form method="post">
 				<input type="hidden" name="acao" value="local_login">
-				<label for="login_local_login">Login</label>
-				<input id="login_local_login" name="login_local_login" type="text" required>
+				<label for="login_local_login">CPF</label>
+				<input id="login_local_login" name="login_local_login" type="text" placeholder="Ex: 111.111.111-11" maxlength="14" required>
 
 				<label for="senha_local_login">Senha</label>
 				<input id="senha_local_login" name="senha_local_login" type="password" required>
@@ -204,6 +240,14 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 				<p><strong>Logado como:</strong> <?= htmlspecialchars((string) $usuarioSessao['nome'], ENT_QUOTES, 'UTF-8') ?></p>
 				<p><strong>Login:</strong> <?= htmlspecialchars((string) $usuarioSessao['login'], ENT_QUOTES, 'UTF-8') ?></p>
 				<p><strong>Perfil:</strong> <?= htmlspecialchars((string) $usuarioSessao['perfil'], ENT_QUOTES, 'UTF-8') ?></p>
+				<?php
+					$dominio = match($usuarioSessao['perfil']) {
+						'admin' => 'ADMIN - Acesso total (alunos, laboratoristas e bloqueios)',
+						'laboratorista' => 'LABORATORISTA - Painel de controle do laboratório',
+						default => 'ESTUDANTE - Painel de reservas e empréstimos',
+					};
+				?>
+				<p><strong>Domínio:</strong> <?= htmlspecialchars($dominio, ENT_QUOTES, 'UTF-8') ?></p>
 				<p><strong>Origem:</strong> <?= htmlspecialchars((string) $usuarioSessao['origem'], ENT_QUOTES, 'UTF-8') ?></p>
 				<form method="post">
 					<input type="hidden" name="acao" value="local_logout">
@@ -215,4 +259,23 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 		</div>
 	</div>
 </body>
+<script>
+	// Máscara de CPF para cadastro
+	document.getElementById('cpf_local').addEventListener('input', function () {
+		let v = this.value.replace(/\D/g, '').slice(0, 11);
+		if (v.length > 8) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/, '$1.$2.$3-$4');
+		else if (v.length > 5) v = v.replace(/^(\d{3})(\d{3})(\d{1,3})$/, '$1.$2.$3');
+		else if (v.length > 2) v = v.replace(/^(\d{3})(\d{1,3})$/, '$1.$2');
+		this.value = v;
+	});
+
+	// Máscara de CPF para login
+	document.getElementById('login_local_login').addEventListener('input', function () {
+		let v = this.value.replace(/\D/g, '').slice(0, 11);
+		if (v.length > 8) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/, '$1.$2.$3-$4');
+		else if (v.length > 5) v = v.replace(/^(\d{3})(\d{3})(\d{1,3})$/, '$1.$2.$3');
+		else if (v.length > 2) v = v.replace(/^(\d{3})(\d{1,3})$/, '$1.$2');
+		this.value = v;
+	});
+</script>
 </html>

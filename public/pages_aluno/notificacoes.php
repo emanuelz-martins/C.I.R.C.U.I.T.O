@@ -1,4 +1,7 @@
 <?php
+require_once '../includes/auth_check.php';
+checkAccess(['estudante', 'admin']);
+
 $page_title = 'Notificações';
 require_once '../includes/header.php';
 
