@@ -2,13 +2,39 @@
 require_once '../includes/auth_check.php';
 checkAccess(['laboratorista', 'admin']);
 
+require_once '../../src/config/database.php';
+
 $page_title = 'Dashboard';
 require_once '../includes/header.php';
 
-/* ── Dados de exemplo (substituir por queries reais) ── */
-$emprestimos_em_andamento = 10;
-$esperando_avaliacao      = 2;
+/* ── Estatísticas: serão carregadas do BD ── */
+$emprestimos_em_andamento = 0;
+$esperando_avaliacao      = 0;
 $devolucoes_em_atraso     = 0;
+$db_ok = false;
+
+try {
+    $pdo = db();
+    
+    /* TODO: Implementar consultas ao banco para buscar estatísticas */
+    /*
+    // Pedidos em andamento
+    $stmt = $pdo->query('SELECT COUNT(*) as total FROM Pedido WHERE status_pedido = "em-andamento"');
+    $emprestimos_em_andamento = $stmt->fetch()['total'] ?? 0;
+    
+    // Pedidos aguardando avaliação
+    $stmt = $pdo->query('SELECT COUNT(*) as total FROM Pedido WHERE status_pedido = "pendente"');
+    $esperando_avaliacao = $stmt->fetch()['total'] ?? 0;
+    
+    // Devoluções em atraso
+    $stmt = $pdo->query('SELECT COUNT(*) as total FROM Pedido WHERE status_pedido = "em-andamento" AND data_entrega < NOW()');
+    $devolucoes_em_atraso = $stmt->fetch()['total'] ?? 0;
+    */
+    
+    $db_ok = true;
+} catch (Throwable) {
+    /* BD indisponível */
+}
 ?>
 
 <style>

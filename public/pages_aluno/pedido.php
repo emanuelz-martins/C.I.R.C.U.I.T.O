@@ -2,29 +2,81 @@
 require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
+require_once '../../src/config/database.php';
+
+/* ── Dados do pedido: serão carregados do BD ── */
+$id_pedido = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$id_pedido = ($id_pedido && $id_pedido > 0) ? $id_pedido : null;
+
 $page_title = 'Pedido';
 require_once '../includes/header.php';
 
-/* ── Dados de exemplo (substituir por queries reais) ── */
-$pedido = [
-    'numero'         => '003',
-    'status'         => 'em-andamento',
-    'data_entrega'   => '19/12/2025',
-    'itens'          => [
-        [
-            'categoria'  => 'Componentes eletrônicos básicos',
-            'nome'       => 'LED 5mm Vermelho',
-            'descricao'  => 'Diodo emissor de luz para sinalização.',
-            'imagem'     => '../assets/img/led-vermelho.png',
-            'quantidade' => 5,
-        ],
-    ],
-    'historico'      => [
-        ['data' => '11/12/2025', 'status' => 'em-andamento',      'status_label' => 'Em andamento'],
-        ['data' => '10/12/2025', 'status' => 'pronto-para-retirada', 'status_label' => 'Pronto para retirada'],
-        ['data' => '10/12/2025', 'status' => 'em-separacao',      'status_label' => 'Em separação'],
-    ],
-];
+$pedido = null;
+$db_ok = false;
+
+try {
+    $pdo = db();
+    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
+    
+    /* TODO: Implementar consulta ao banco para buscar pedido do usuário */
+    /*
+    $stmt = $pdo->prepare('
+        SELECT
+            p.id_pedido,
+            p.numero_pedido,
+            p.status_pedido,
+            p.data_entrega,
+            p.data_criacao
+        FROM Pedido p
+        WHERE p.id_pedido = :id_pedido
+        AND p.id_user = :id_user
+        LIMIT 1
+    ');
+    $stmt->execute(['id_pedido' => $id_pedido, 'id_user' => $id_usuario]);
+    $pedido = $stmt->fetch();
+    
+    if (!$pedido) {
+        $pedido = null;
+    }
+    
+    /* Buscar itens do pedido */
+    /*
+    $stmt_itens = $pdo->prepare('
+        SELECT
+            c.id_comp,
+            c.nome,
+            c.descricao,
+            c.imagem_url,
+            cat.nome AS categoria_nome,
+            bp.quantidade
+        FROM BemPedido bp
+        JOIN Componente c ON c.id_comp = bp.id_comp
+        JOIN Categoria cat ON cat.id_cat = c.id_cat
+        WHERE bp.id_pedido = :id_pedido
+    ');
+    $stmt_itens->execute(['id_pedido' => $id_pedido]);
+    $pedido['itens'] = $stmt_itens->fetchAll();
+    */
+    
+    /* Buscar histórico de atualizações */
+    /*
+    $stmt_historico = $pdo->prepare('
+        SELECT
+            data_atualizacao,
+            status_anterior,
+            status_novo
+        FROM LogAuditoria
+        WHERE id_pedido = :id_pedido
+        ORDER BY data_atualizacao DESC
+    ');
+    $stmt_historico->execute(['id_pedido' => $id_pedido]);
+    $pedido['historico'] = $stmt_historico->fetchAll();
+    */
+    
+    $db_ok = true;
+} catch (Throwable) {
+    /* BD indisponível */
+}
 
 $etapas = [
     ['key' => 'enviado',             'label' => 'Enviado'],
@@ -358,7 +410,7 @@ $etapas = [
                     </svg>
                     Acessar perfil
                 </a>
-                <a href="../notificacoes.php" role="menuitem">
+                <a href="./notificacoes.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -396,8 +448,14 @@ $etapas = [
 <main class="main">
 
     <!-- Cabeçalho -->
+    <?php if (!$db_ok || !$pedido): ?>
+    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
+        <h2 style="color: #ef4444; margin-bottom: 8px;">Pedido não encontrado</h2>
+        <p>Não foi possível carregar os dados deste pedido. Verifique a conexão com o MySQL ou volte à página anterior.</p>
+    </div>
+    <?php else: ?>
     <div class="page-header">
-        <h1 class="page-title">Pedido #<?= htmlspecialchars($pedido['numero']) ?></h1>
+        <h1 class="page-title">Pedido #<?= htmlspecialchars($pedido['numero'] ?? $pedido['numero_pedido'] ?? '') ?></h1>
         <a href="javascript:history.back()" class="btn-back" aria-label="Voltar">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -409,19 +467,19 @@ $etapas = [
     <!-- Estado atual -->
     <div class="estado-header">
         <h2 class="section-title">Estado atual do pedido</h2>
-        <span class="data-entrega">Data de entrega: <?= htmlspecialchars($pedido['data_entrega']) ?></span>
+        <span class="data-entrega">Data de entrega: <?= htmlspecialchars($pedido['data_entrega'] ?? 'N/A') ?></span>
     </div>
 
     <div class="status-bar">
         <?php foreach ($etapas as $etapa): ?>
-            <div class="status-step <?= $pedido['status'] === $etapa['key'] ? 'active' : '' ?>">
+            <div class="status-step <?= ($pedido['status'] ?? '') === $etapa['key'] ? 'active' : '' ?>">
                 <?= htmlspecialchars($etapa['label']) ?>
             </div>
         <?php endforeach; ?>
     </div>
 
     <!-- Renovação -->
-    <?php if ($pedido['status'] === 'em-andamento'): ?>
+    <?php if (($pedido['status'] ?? '') === 'em-andamento'): ?>
     <div class="renovacao-bloco">
         <p class="renovacao-texto">
             Precisa de um prazo maior? <strong>Solicite renovação e espere a confirmação do responsável</strong>.
@@ -434,6 +492,7 @@ $etapas = [
     <!-- Itens do pedido -->
     <h2 class="section-title">Itens do pedido</h2>
 
+    <?php if (isset($pedido['itens']) && !empty($pedido['itens'])): ?>
     <?php foreach ($pedido['itens'] as $item): ?>
     <div class="item-card">
         <?php if (!empty($item['imagem']) && file_exists(__DIR__ . '/' . $item['imagem'])): ?>
@@ -457,10 +516,14 @@ $etapas = [
         <span class="item-quantidade">Quantidade: <?= (int)$item['quantidade'] ?></span>
     </div>
     <?php endforeach; ?>
+    <?php else: ?>
+    <p style="color: #888; text-align: center; padding: 20px;">Nenhum item neste pedido.</p>
+    <?php endif; ?>
 
     <!-- Histórico de atualizações -->
     <h2 class="section-title">Histórico de atualizações</h2>
 
+    <?php if (isset($pedido['historico']) && !empty($pedido['historico'])): ?>
     <div class="historico-list">
         <?php foreach ($pedido['historico'] as $entrada): ?>
         <div class="historico-card">
@@ -484,6 +547,10 @@ $etapas = [
         </div>
         <?php endforeach; ?>
     </div>
+    <?php else: ?>
+    <p style="color: #888; text-align: center; padding: 20px;">Nenhuma atualização registrada ainda.</p>
+    <?php endif; ?>
+    <?php endif; ?>
 
 </main>
 

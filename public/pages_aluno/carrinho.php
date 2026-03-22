@@ -2,28 +2,45 @@
 require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
+require_once '../../src/config/database.php';
+
 $page_title = 'Carrinho';
 require_once '../includes/header.php';
 
-/* ── Dados de exemplo (substituir por queries reais) ── */
-$itens = [
-    [
-        'id'        => 1,
-        'categoria' => 'Componentes eletrônicos básicos',
-        'nome'      => 'LED 5mm Vermelho',
-        'descricao' => 'Diodo emissor de luz para sinalização.',
-        'imagem'    => '',
-        'quantidade'=> 1,
-    ],
-    [
-        'id'        => 2,
-        'categoria' => 'Ferramentas',
-        'nome'      => 'Alicate de corte',
-        'descricao' => 'Serve para cortar fios e terminais com precisão.',
-        'imagem'    => '',
-        'quantidade'=> 1,
-    ],
-];
+/* ── Itens do carrinho: serão carregados do BD ou sessão ── */
+$itens = [];
+$db_ok = false;
+
+try {
+    $pdo = db();
+    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
+    
+    if ($id_usuario) {
+        /* TODO: Definir se o carrinho será armazenado em tabela do BD ou em sessão */
+        /* Exemplo de consulta caso seja em tabela Carrinho */
+        /*
+        $stmt = $pdo->prepare('
+            SELECT
+                c.id_comp,
+                c.nome,
+                c.descricao,
+                c.imagem_url,
+                cat.nome AS categoria_nome,
+                car.quantidade
+            FROM Carrinho car
+            JOIN Componente c ON c.id_comp = car.id_comp
+            JOIN Categoria cat ON cat.id_cat = c.id_cat
+            WHERE car.id_user = :id_user
+            ORDER BY car.data_adicao DESC
+        ');
+        $stmt->execute(['id_user' => $id_usuario]);
+        $itens = $stmt->fetchAll();
+        */
+    }
+    $db_ok = true;
+} catch (Throwable) {
+    /* BD indisponível */
+}
 ?>
 
 <style>
@@ -311,7 +328,7 @@ $itens = [
                     </svg>
                     Acessar perfil
                 </a>
-                <a href="../notificacoes.php" role="menuitem">
+                <a href="./notificacoes.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -360,7 +377,12 @@ $itens = [
     </div>
 
     <!-- Lista de itens -->
-    <?php if (empty($itens)): ?>
+    <?php if (!$db_ok): ?>
+    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
+        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+        <p>Não foi possível carregar o carrinho. Verifique a conexão com o MySQL.</p>
+    </div>
+    <?php elseif (empty($itens)): ?>
     <div class="cart-empty">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

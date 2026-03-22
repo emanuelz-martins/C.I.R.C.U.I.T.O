@@ -2,44 +2,44 @@
 require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
+require_once '../../src/config/database.php';
+
 $page_title = 'Notificações';
 require_once '../includes/header.php';
 
-/* ── Dados de exemplo (substituir por queries reais) ── */
-$notificacoes = [
-    [
-        'pedido_numero' => '004',
-        'mensagem'      => 'Mudança de estado: Em separação → <strong>Pronto para retirada</strong>',
-        'data'          => '10/12/2025',
-        'status'        => 'pronto-para-retirada',
-        'status_label'  => 'Pronto para retirada',
-        'tipo'          => 'normal',
-    ],
-    [
-        'pedido_numero' => '004',
-        'mensagem'      => '<strong>Seu pedido foi aprovado!</strong> Mudança de estado: Enviado → <em>Em separação</em>',
-        'data'          => '09/12/2025',
-        'status'        => 'em-separacao',
-        'status_label'  => 'Em separação',
-        'tipo'          => 'normal',
-    ],
-    [
-        'pedido_numero' => '004',
-        'mensagem'      => '<strong>Seu pedido foi enviado!</strong> Mudança de estado: Enviado',
-        'data'          => '07/12/2025',
-        'status'        => 'enviado',
-        'status_label'  => 'Enviado',
-        'tipo'          => 'normal',
-    ],
-    [
-        'pedido_numero' => '003',
-        'mensagem'      => 'Que pena! <strong>Seu pedido foi negado.</strong>',
-        'data'          => '05/12/2025',
-        'status'        => 'negado',
-        'status_label'  => 'Negado',
-        'tipo'          => 'negado',
-    ],
-];
+/* ── Notificações: serão carregadas do BD ── */
+$notificacoes = [];
+$db_ok = false;
+
+try {
+    $pdo = db();
+    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
+    
+    if ($id_usuario) {
+        /* TODO: Implementar consulta ao banco para buscar notificações do usuário */
+        /*
+        $stmt = $pdo->prepare('
+            SELECT
+                n.id_notif,
+                n.id_pedido,
+                p.numero_pedido,
+                n.mensagem,
+                n.data_criacao,
+                p.status_pedido,
+                n.tipo_notif
+            FROM Notificacao n
+            JOIN Pedido p ON p.id_pedido = n.id_pedido
+            WHERE n.id_user = :id_user
+            ORDER BY n.data_criacao DESC
+        ');
+        $stmt->execute(['id_user' => $id_usuario]);
+        $notificacoes = $stmt->fetchAll();
+        */
+    }
+    $db_ok = true;
+} catch (Throwable) {
+    /* BD indisponível */
+}
 ?>
 
 <style>
@@ -252,7 +252,7 @@ $notificacoes = [
             Carrinho
         </a>
 
-        <a href="../pedidos.php" class="nav-action-btn">
+        <a href="./pedido.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -335,7 +335,12 @@ $notificacoes = [
 
     <h2 class="section-title">Notificações sobre estado do pedido</h2>
 
-    <?php if (empty($notificacoes)): ?>
+    <?php if (!$db_ok): ?>
+    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
+        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+        <p>Não foi possível carregar as notificações. Verifique a conexão com o MySQL.</p>
+    </div>
+    <?php elseif (empty($notificacoes)): ?>
         <p class="notif-empty">Nenhuma notificação por enquanto.</p>
     <?php else: ?>
     <div class="notif-list">
@@ -383,7 +388,7 @@ $notificacoes = [
                 <span class="status-badge <?= htmlspecialchars($n['status']) ?>">
                     <?= htmlspecialchars($n['status_label']) ?>
                 </span>
-                <a href="./pedido.php?id=<?= urlencode($n['pedido_numero']) ?>" class="btn-details" aria-label="Ver pedido">
+                <a href="./pedido.php?id=<?= urlencode((string) ($n['id_pedido'] ?? $n['pedido_numero'] ?? '')) ?>" class="btn-details" aria-label="Ver pedido">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="8" y1="6"  x2="21" y2="6"/>

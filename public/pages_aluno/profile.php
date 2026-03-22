@@ -2,32 +2,43 @@
 require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
+require_once '../../src/config/database.php';
+
 $page_title = 'Perfil';
 require_once '../includes/header.php';
 
-/* ── Dados de exemplo (substituir por queries reais) ── */
-$usuario_role = 'Estudante';
+/* ── Dados do usuário: carregados da sessão ── */
+$usuario_role = ucfirst($_SESSION['auth_user']['perfil'] ?? 'Usuário');
 
-$pedidos = [
-    [
-        'numero'       => '003',
-        'ultima_atualizacao' => '11/12/2025',
-        'status'       => 'em-andamento',
-        'status_label' => 'Em andamento',
-    ],
-    [
-        'numero'       => '002',
-        'ultima_atualizacao' => '10/09/2025',
-        'status'       => 'finalizado',
-        'status_label' => 'Finalizado',
-    ],
-    [
-        'numero'       => '001',
-        'ultima_atualizacao' => '31/07/2025',
-        'status'       => 'cancelado',
-        'status_label' => 'Cancelado',
-    ],
-];
+/* ── Pedidos: serão carregados do BD ── */
+$pedidos = [];
+$db_ok = false;
+
+try {
+    $pdo = db();
+    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
+    
+    if ($id_usuario) {
+        /* TODO: Implementar consulta ao banco para buscar pedidos do usuário */
+        /*
+        $stmt = $pdo->prepare('
+            SELECT
+                id_pedido,
+                numero_pedido,
+                status_pedido,
+                data_ultima_atualizacao
+            FROM Pedido
+            WHERE id_user = :id_user
+            ORDER BY data_criacao DESC
+        ');
+        $stmt->execute(['id_user' => $id_usuario]);
+        $pedidos = $stmt->fetchAll();
+        */
+    }
+    $db_ok = true;
+} catch (Throwable) {
+    /* BD indisponível */
+}
 ?>
 
 <style>
@@ -396,18 +407,28 @@ $pedidos = [
     <!-- Histórico de pedidos -->
     <h2 class="section-title">Histórico de pedidos</h2>
 
+    <?php if (!$db_ok): ?>
+    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
+        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+        <p>Não foi possível carregar seus pedidos. Verifique a conexão com o MySQL.</p>
+    </div>
+    <?php elseif (empty($pedidos)): ?>
+    <div style="background-color: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 16px; padding: 40px; text-align: center; color: #888;">
+        <p>Você ainda não possui pedidos realizados.</p>
+    </div>
+    <?php else: ?>
     <div class="orders-list">
         <?php foreach ($pedidos as $pedido): ?>
         <div class="order-card">
             <div class="order-info">
-                <p class="order-number">Pedido #<?= htmlspecialchars($pedido['numero']) ?></p>
-                <p class="order-date">Data da última atualização: <?= htmlspecialchars($pedido['ultima_atualizacao']) ?></p>
+                <p class="order-number">Pedido #<?= htmlspecialchars($pedido['numero'] ?? $pedido['numero_pedido'] ?? '') ?></p>
+                <p class="order-date">Data da última atualização: <?= htmlspecialchars($pedido['ultima_atualizacao'] ?? $pedido['data_ultima_atualizacao'] ?? '') ?></p>
             </div>
             <div class="order-actions">
-                <span class="status-badge <?= htmlspecialchars($pedido['status']) ?>">
-                    <?= htmlspecialchars($pedido['status_label']) ?>
+                <span class="status-badge <?= htmlspecialchars($pedido['status'] ?? $pedido['status_pedido'] ?? '') ?>">
+                    <?= htmlspecialchars($pedido['status_label'] ?? '') ?>
                 </span>
-                <a href="/pedido-detalhe.php?id=<?= htmlspecialchars($pedido['numero']) ?>" class="btn-details" aria-label="Ver detalhes do pedido">
+                <a href="/pedido-detalhe.php?id=<?= htmlspecialchars($pedido['numero'] ?? '') ?>" class="btn-details" aria-label="Ver detalhes do pedido">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="8" y1="6" x2="21" y2="6"/>
@@ -421,7 +442,10 @@ $pedidos = [
             </div>
         </div>
         <?php endforeach; ?>
-    </div></main>
+    </div>
+    <?php endif; ?>
+
+</main>
 
 <script>
     /* ── Toggle de tema ── */

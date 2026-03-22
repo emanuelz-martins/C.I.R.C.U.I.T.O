@@ -15,6 +15,64 @@ if ($user_perfil === 'laboratorista') {
     exit;
 }
 
+require_once '../src/config/database.php';
+
+/* ── Dados do usuário autenticado (via sessão) ── */
+$authUser = $_SESSION['auth_user'] ?? [];
+$usuario_nome = is_array($authUser) ? (string) ($authUser['nome'] ?? '') : '';
+$usuario_tipo_conta = is_array($authUser) ? (string) ($authUser['perfil'] ?? '') : '';
+
+/* ── Categorias e componentes: serão carregados do BD ── */
+$categorias = [];
+$db_ok = false;
+
+try {
+    $pdo = db();
+    
+    /* Busca todas as categorias com seus componentes */
+    $stmt = $pdo->prepare('
+        SELECT
+            cat.id_cat,
+            cat.nome,
+            c.id_comp,
+            c.nome AS comp_nome,
+            c.descricao,
+            c.qtd_disponivel,
+            c.imagem_url
+        FROM Categoria cat
+        LEFT JOIN Componente c ON c.id_cat = cat.id_cat
+        WHERE c.status_atual = "disponivel"
+        ORDER BY cat.nome, c.nome
+    ');
+    $stmt->execute();
+    $resultados = $stmt->fetchAll();
+    $db_ok = true;
+    
+    /* Agrupa componentes por categoria */
+    foreach ($resultados as $row) {
+        $cat_id = $row['id_cat'];
+        if (!isset($categorias[$cat_id])) {
+            $categorias[$cat_id] = [
+                'id' => $cat_id,
+                'nome' => $row['nome'],
+                'itens' => [],
+            ];
+        }
+        if (!empty($row['id_comp'])) {
+            $categorias[$cat_id]['itens'][] = [
+                'id' => $row['id_comp'],
+                'nome' => $row['comp_nome'],
+                'descricao' => $row['descricao'],
+                'estoque' => $row['qtd_disponivel'],
+                'img' => $row['imagem_url'],
+            ];
+        }
+    }
+    $categorias = array_values($categorias);
+} catch (Throwable) {
+    /* BD indisponível – será exibido aviso na página */
+}
+
 $page_title = 'C.I.R.C.U.I.T.O';
 require_once 'includes/header.php';
 //http://localhost/C.I.R.C.U.I.T.O/src/views/ldap_control/ldaptest.php (pagina adm para criar acesso)
@@ -267,44 +325,12 @@ require_once 'includes/header.php';
 </head>
 <body>
 
-<?php
-/* ── Dados do usuário autenticado (via sessão) ── */
-$authUser = $_SESSION['auth_user'] ?? [];
-$usuario_nome = is_array($authUser) ? (string) ($authUser['nome'] ?? $usuario_nome) : $usuario_nome;
-$usuario_tipo_conta = is_array($authUser) ? (string) ($authUser['perfil'] ?? $usuario_tipo_conta) : $usuario_tipo_conta;
-
-$categorias = [
-    [
-        'id'    => 'eletronicos',
-        'nome'  => 'Componentes eletrônicos básicos',
-        'itens' => [
-            /* id_comp: substituir pelo id real do banco quando integrar */
-            ['id' => 1, 'nome' => 'Resistor 220Ω – 1/4W',            'descricao' => 'Peça usada para limitar corrente em circuitos.',    'estoque' => 150, 'img' => null],
-            ['id' => 2, 'nome' => 'Capacitor Eletrolítico 100µF 25V', 'descricao' => 'Armazena carga elétrica.',                         'estoque' => 60,  'img' => null],
-            ['id' => 3, 'nome' => 'LED 5mm Vermelho',                 'descricao' => 'Diodo emissor de luz para sinalização.',           'estoque' => 120, 'img' => null],
-            ['id' => 4, 'nome' => 'Transistor NPN BC547',             'descricao' => 'Usado para amplificação e chaveamento de sinais.', 'estoque' => 45,  'img' => null],
-            ['id' => 5, 'nome' => 'Diodo 1N4007',                     'descricao' => 'Retificador de uso geral.',                       'estoque' => 200, 'img' => null],
-        ],
-    ],
-    [
-        'id'    => 'ferramentas',
-        'nome'  => 'Ferramentas',
-        'itens' => [
-            ['id' => 6,  'nome' => 'Ferro de Solda 30W',    'descricao' => 'Para soldagem de componentes eletrônicos.',       'estoque' => 8,  'img' => null],
-            ['id' => 7,  'nome' => 'Alicate de Corte',      'descricao' => 'Serve para cortar fios e terminais com precisão.','estoque' => 12, 'img' => null],
-            ['id' => 8,  'nome' => 'Multímetro Digital',    'descricao' => 'Mede tensão, corrente e resistência.',            'estoque' => 6,  'img' => null],
-            ['id' => 9,  'nome' => 'Protoboard 830 pontos', 'descricao' => 'Base para montagem de circuitos sem solda.',      'estoque' => 20, 'img' => null],
-        ],
-    ],
-];
-?>
-
 <!-- ══════════════════ NAVBAR ══════════════════ -->
 <nav class="navbar">
 
-    <a href="/index.php" class="nav-logo">C.I.R.C.U.I.T.O.</a>
+    <a href="/C.I.R.C.U.I.T.O/public/index.php" class="nav-logo">C.I.R.C.U.I.T.O.</a>
 
-    <form class="nav-search" action="/index.php" method="GET">
+    <form class="nav-search" action="/C.I.R.C.U.I.T.O/public/index.php" method="GET">
         <input
             type="text"
             name="q"
@@ -322,7 +348,7 @@ $categorias = [
 
     <div class="nav-actions">
 
-        <a href="pages_aluno/carrinho.php" class="nav-action-btn">
+        <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/carrinho.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
@@ -331,7 +357,7 @@ $categorias = [
             Carrinho
         </a>
 
-        <a href="pages_aluno/pedido.php" class="nav-action-btn">
+        <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/pedido.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -356,7 +382,7 @@ $categorias = [
             </button>
 
             <div class="dropdown" role="menu">
-                <a href="pages_aluno/profile.php" role="menuitem">
+                <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/profile.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -364,7 +390,7 @@ $categorias = [
                     </svg>
                     Acessar perfil
                 </a>
-                <a href="pages_aluno/notificacoes.php" role="menuitem">
+                <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/notificacoes.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -372,7 +398,7 @@ $categorias = [
                     </svg>
                     Notificações
                 </a>
-                <a href="logout.php" role="menuitem">
+                <a href="/C.I.R.C.U.I.T.O/public/logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -429,7 +455,18 @@ $categorias = [
     </section>
 
     <!-- Seções de categorias -->
+    <?php if (!$db_ok): ?>
+    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa; margin-bottom: 40px;">
+        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+        <p>Não foi possível carregar o catálogo. Verifique a conexão com o MySQL.</p>
+    </div>
+    <?php elseif (empty($categorias)): ?>
+    <div style="background-color: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 16px; padding: 40px; text-align: center; color: #888; margin-bottom: 40px;">
+        <p>Nenhuma categoria ou componente disponível no momento.</p>
+    </div>
+    <?php else: ?>
     <?php foreach ($categorias as $categoria): ?>
+    <?php if (!empty($categoria['itens'])): ?>
     <section class="category-section">
         <h3 class="category-title"><?= htmlspecialchars($categoria['nome']) ?></h3>
 
@@ -440,7 +477,7 @@ $categorias = [
 
             <div class="carousel-track" id="carousel-<?= $categoria['id'] ?>">
                 <?php foreach ($categoria['itens'] as $item): ?>
-                <a class="component-card" href="pages_aluno/item.php?id=<?= (int) $item['id'] ?>">
+                <a class="component-card" href="/C.I.R.C.U.I.T.O/public/pages_aluno/item.php?id=<?= (int) $item['id'] ?>">
 
                     <?php if (!empty($item['img'])): ?>
                         <img class="card-img"
@@ -479,7 +516,9 @@ $categorias = [
                     aria-label="Próximo">&#8250;</button>
         </div>
     </section>
+    <?php endif; ?>
     <?php endforeach; ?>
+    <?php endif; ?>
 
 </main>
 
