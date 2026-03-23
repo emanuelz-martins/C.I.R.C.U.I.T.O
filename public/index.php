@@ -38,6 +38,7 @@ try {
             c.nome AS comp_nome,
             c.descricao,
             c.qtd_disponivel,
+            c.qtd_max_user,
             c.imagem_url
         FROM Categoria cat
         LEFT JOIN Componente c ON c.id_cat = cat.id_cat
@@ -60,11 +61,12 @@ try {
         }
         if (!empty($row['id_comp'])) {
             $categorias[$cat_id]['itens'][] = [
-                'id' => $row['id_comp'],
-                'nome' => $row['comp_nome'],
-                'descricao' => $row['descricao'],
-                'estoque' => $row['qtd_disponivel'],
-                'img' => $row['imagem_url'],
+                'id'           => $row['id_comp'],
+                'nome'         => $row['comp_nome'],
+                'descricao'    => $row['descricao'],
+                'estoque'      => $row['qtd_disponivel'],
+                'qtd_max_user' => $row['qtd_max_user'],
+                'img'          => $row['imagem_url'],
             ];
         }
     }
@@ -497,7 +499,10 @@ require_once 'includes/header.php';
                     <div class="card-body">
                         <div class="card-name"><?= htmlspecialchars($item['nome']) ?></div>
                         <div class="card-desc"><?= htmlspecialchars($item['descricao']) ?></div>
-                        <div class="card-stock"><?= $item['estoque'] ?> unidades em estoque</div>
+                        <div class="card-stock"><?= (int)$item['estoque'] ?> unidades em estoque</div>
+                        <?php if (!empty($item['qtd_max_user']) && (int)$item['qtd_max_user'] > 0): ?>
+                        <div class="card-stock" style="color:#555">Máx. por usuário: <?= (int)$item['qtd_max_user'] ?> unid.</div>
+                        <?php endif; ?>
                         <span class="btn-add-cart" onclick="event.preventDefault()">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
