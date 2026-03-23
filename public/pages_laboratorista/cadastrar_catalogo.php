@@ -82,15 +82,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo = db();
             $pdo->prepare('
                 INSERT INTO Componente
-                    (id_cat, nome, descricao, qtd_disponivel, qtd_max_user, qtd_minima, imagem_url, status_atual)
+                    (id_cat, nome, descricao, qtd_disponivel, qtd_max_user, nivel_minimo, imagem_url, status_atual)
                 VALUES
-                    (:id_cat, :nome, :descricao, 0, :qtd_max_user, :qtd_minima, :imagem_url, "disponivel")
+                    (:id_cat, :nome, :descricao, 0, :qtd_max_user, :nivel_minimo, :imagem_url, "disponivel")
             ')->execute([
                 'id_cat'       => $id_cat,
                 'nome'         => $nome,
                 'descricao'    => $descricao_bd,
                 'qtd_max_user' => $qtd_max_user,
-                'qtd_minima'   => $qtd_minima,
+                'nivel_minimo' => $qtd_minima,
                 'imagem_url'   => $imagem_url,
             ]);
 

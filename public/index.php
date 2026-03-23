@@ -41,8 +41,7 @@ try {
             c.qtd_max_user,
             c.imagem_url
         FROM Categoria cat
-        LEFT JOIN Componente c ON c.id_cat = cat.id_cat
-        WHERE c.status_atual = "disponivel"
+        LEFT JOIN Componente c ON c.id_cat = cat.id_cat AND c.status_atual = "disponivel"
         ORDER BY cat.nome, c.nome
     ');
     $stmt->execute();
