@@ -7,9 +7,26 @@ require_once '../../src/config/database.php';
 /* ── Diretório de upload ─────────────────────── */
 $upload_dir      = __DIR__ . '/../assets/img/componentes/';
 $upload_url_base = '/C.I.R.C.U.I.T.O/public/assets/img/componentes/';
+$upload_bootstrap_error = null;
 
-if (!is_dir($upload_dir)) {
-    mkdir($upload_dir, 0755, true);
+if (!is_dir($upload_dir) && !@mkdir($upload_dir, 0755, true)) {
+    $upload_bootstrap_error = 'Diretório de upload indisponível no servidor.';
+    error_log('[catalogo-upload] Falha ao criar diretório: ' . $upload_dir);
+} elseif (is_dir($upload_dir) && !is_writable($upload_dir)) {
+    $upload_bootstrap_error = 'Diretório de upload sem permissão de escrita no servidor.';
+    error_log('[catalogo-upload] Diretório sem escrita: ' . $upload_dir);
+}
+
+function mensagemErroUpload(int $codigo): string
+{
+    return match ($codigo) {
+        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Imagem muito grande para upload.',
+        UPLOAD_ERR_PARTIAL => 'Upload incompleto. Tente novamente.',
+        UPLOAD_ERR_NO_TMP_DIR => 'Servidor sem diretório temporário para upload.',
+        UPLOAD_ERR_CANT_WRITE => 'Servidor sem permissão para gravar o arquivo.',
+        UPLOAD_ERR_EXTENSION => 'Upload bloqueado por extensão do PHP.',
+        default => 'Erro ao receber o arquivo de imagem (código ' . $codigo . ').',
+    };
 }
 
 /* ══════════════════════════════════════════
@@ -40,8 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $file = $_FILES['imagem'] ?? null;
 
     if ($file && $file['error'] !== UPLOAD_ERR_NO_FILE) {
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            $erros[] = 'Erro ao receber o arquivo de imagem (código ' . (int)$file['error'] . ').';
+        if ($upload_bootstrap_error !== null) {
+            $erros[] = $upload_bootstrap_error;
+        } elseif ($file['error'] !== UPLOAD_ERR_OK) {
+            $erros[] = mensagemErroUpload((int)$file['error']);
         } elseif ($file['size'] > 5 * 1024 * 1024) {
             $erros[] = 'Imagem muito grande. Tamanho máximo: 5 MB.';
         } else {
@@ -52,14 +71,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($mime, $mimes_aceitos, true)) {
                 $erros[] = 'Formato inválido. Use JPG, PNG, GIF ou WebP.';
             } else {
-                $ext     = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                $extPorMime = [
+                    'image/jpeg' => 'jpg',
+                    'image/png'  => 'png',
+                    'image/gif'  => 'gif',
+                    'image/webp' => 'webp',
+                ];
+                $ext     = $extPorMime[$mime] ?? 'bin';
                 $fname   = 'comp_' . uniqid('', true) . '.' . $ext;
                 $destino = $upload_dir . $fname;
 
                 if (move_uploaded_file($file['tmp_name'], $destino)) {
                     $imagem_url = $upload_url_base . $fname;
                 } else {
-                    $erros[] = 'Não foi possível salvar a imagem no servidor.';
+                    $erros[] = 'Não foi possível salvar a imagem no servidor. Verifique permissões da pasta de upload.';
+                    error_log(sprintf(
+                        '[catalogo-upload] move_uploaded_file falhou | tmp="%s" destino="%s" is_uploaded=%s dir_writable=%s',
+                        (string)($file['tmp_name'] ?? ''),
+                        $destino,
+                        is_uploaded_file((string)($file['tmp_name'] ?? '')) ? 'yes' : 'no',
+                        is_writable($upload_dir) ? 'yes' : 'no'
+                    ));
                 }
             }
         }
