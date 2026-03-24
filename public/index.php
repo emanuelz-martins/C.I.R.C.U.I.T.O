@@ -39,9 +39,10 @@ try {
             c.descricao,
             c.qtd_disponivel,
             c.qtd_max_user,
-            c.imagem_url
+            c.imagem_url,
+            c.status_atual
         FROM Categoria cat
-        LEFT JOIN Componente c ON c.id_cat = cat.id_cat AND c.status_atual = "disponivel"
+        LEFT JOIN Componente c ON c.id_cat = cat.id_cat
         ORDER BY cat.nome, c.nome
     ');
     $stmt->execute();
@@ -59,14 +60,17 @@ try {
             ];
         }
         if (!empty($row['id_comp'])) {
-            $categorias[$cat_id]['itens'][] = [
-                'id'           => $row['id_comp'],
-                'nome'         => $row['comp_nome'],
-                'descricao'    => $row['descricao'],
-                'estoque'      => $row['qtd_disponivel'],
-                'qtd_max_user' => $row['qtd_max_user'],
-                'img'          => $row['imagem_url'],
-            ];
+            /* Filtra apenas itens com status "disponivel" e estoque > 0 */
+            if (($row['status_atual'] ?? 'indisponivel') === 'disponivel' && (int)$row['qtd_disponivel'] > 0) {
+                $categorias[$cat_id]['itens'][] = [
+                    'id'           => $row['id_comp'],
+                    'nome'         => $row['comp_nome'],
+                    'descricao'    => $row['descricao'],
+                    'estoque'      => $row['qtd_disponivel'],
+                    'qtd_max_user' => $row['qtd_max_user'],
+                    'img'          => $row['imagem_url'],
+                ];
+            }
         }
     }
     $categorias = array_values($categorias);

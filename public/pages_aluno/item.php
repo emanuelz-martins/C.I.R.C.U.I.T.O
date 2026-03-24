@@ -536,8 +536,14 @@ require_once '../includes/header.php';
             <?php endif; ?>
 
             <?php
-            $disponivel = $item['status_atual'] === 'disponivel' && (int) $item['qtd_disponivel'] > 0;
-            $qtd_max    = max(1, min((int) $item['qtd_max_user'], (int) $item['qtd_disponivel']));
+            $est_disponivel = (int) $item['qtd_disponivel'] > 0;
+            $status_ok = !isset($item['status_atual']) || $item['status_atual'] === 'disponivel';
+            $disponivel = $est_disponivel && $status_ok;
+            
+            $qtd_max_user = (int) ($item['qtd_max_user'] ?? 0);
+            $qtd_estoque = (int) $item['qtd_disponivel'];
+            $qtd_max = $qtd_max_user > 0 ? min($qtd_max_user, $qtd_estoque) : $qtd_estoque;
+            $qtd_max = max(1, $qtd_max);
             ?>
 
             <?php if (!$disponivel): ?>

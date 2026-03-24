@@ -7,35 +7,49 @@ require_once '../../src/config/database.php';
 $page_title = 'Carrinho';
 require_once '../includes/header.php';
 
-/* ── Itens do carrinho: serão carregados do BD ou sessão ── */
+/* ── Itens do carrinho: carregados da sessão ── */
 $itens = [];
 $db_ok = false;
 
 try {
     $pdo = db();
-    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
     
-    if ($id_usuario) {
-        /* TODO: Definir se o carrinho será armazenado em tabela do BD ou em sessão */
-        /* Exemplo de consulta caso seja em tabela Carrinho */
-        /*
-        $stmt = $pdo->prepare('
-            SELECT
-                c.id_comp,
-                c.nome,
-                c.descricao,
-                c.imagem_url,
-                cat.nome AS categoria_nome,
-                car.quantidade
-            FROM Carrinho car
-            JOIN Componente c ON c.id_comp = car.id_comp
-            JOIN Categoria cat ON cat.id_cat = c.id_cat
-            WHERE car.id_user = :id_user
-            ORDER BY car.data_adicao DESC
-        ');
-        $stmt->execute(['id_user' => $id_usuario]);
-        $itens = $stmt->fetchAll();
-        */
+    /* Obtém itens da sessão (carrinho armazenado localmente) */
+    $carrinho_sessao = $_SESSION['carrinho'] ?? [];
+    
+    if (!empty($carrinho_sessao)) {
+        /* Busca dados completos dos componentes no BD */
+        foreach ($carrinho_sessao as $item_carrinho) {
+            $id_comp = (int) $item_carrinho['id'];
+            $quantidade = (int) ($item_carrinho['quantidade'] ?? 1);
+            
+            $stmt = $pdo->prepare('
+                SELECT
+                    c.id_comp,
+                    c.nome,
+                    c.descricao,
+                    c.imagem_url,
+                    c.qtd_disponivel,
+                    cat.nome AS categoria_nome
+                FROM Componente c
+                JOIN Categoria cat ON cat.id_cat = c.id_cat
+                WHERE c.id_comp = :id
+                LIMIT 1
+            ');
+            $stmt->execute(['id' => $id_comp]);
+            $comp = $stmt->fetch();
+            
+            if ($comp) {
+                $itens[] = [
+                    'id'         => $comp['id_comp'],
+                    'nome'       => $comp['nome'],
+                    'descricao'  => substr($comp['descricao'] ?? '', 0, 80),
+                    'imagem'     => $comp['imagem_url'],
+                    'categoria'  => $comp['categoria_nome'],
+                    'quantidade' => $quantidade,
+                ];
+            }
+        }
     }
     $db_ok = true;
 } catch (Throwable) {

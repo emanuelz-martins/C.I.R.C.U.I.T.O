@@ -18,14 +18,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($action === 'editar') {
                 $nome      = trim($_POST['nome']      ?? '');
                 $descricao = trim($_POST['descricao'] ?? '');
+                $qtd_disponivel = (int) ($_POST['qtd_disponivel'] ?? 0);
 
                 if ($nome !== '') {
                     $pdo->prepare('
                         UPDATE Componente
-                        SET nome = :nome, descricao = :descricao
+                        SET nome = :nome, descricao = :descricao, qtd_disponivel = :qtd_disponivel
                         WHERE id_comp = :id
-                    ')->execute(['nome' => $nome, 'descricao' => $descricao, 'id' => $id_comp]);
+                    ')->execute([
+                        'nome' => $nome,
+                        'descricao' => $descricao,
+                        'qtd_disponivel' => max(0, $qtd_disponivel),
+                        'id' => $id_comp
+                    ]);
                 }
+            }
+
+            elseif ($action === 'deletar') {
+                $pdo->prepare('
+                    DELETE FROM Componente
+                    WHERE id_comp = :id
+                ')->execute(['id' => $id_comp]);
             }
 
         } catch (Throwable) {
@@ -579,9 +592,44 @@ try {
                 ></textarea>
             </div>
 
+            <div class="modal-field">
+                <label class="modal-label" for="editarQtdDisponivel">Quantidade em estoque</label>
+                <input
+                    type="number"
+                    class="modal-input"
+                    id="editarQtdDisponivel"
+                    name="qtd_disponivel"
+                    min="0"
+                    placeholder="Ex.: 15"
+                    value="0"
+                >
+            </div>
+
             <div class="modal-actions">
                 <button type="button" class="btn-cancelar-modal" onclick="fecharModalEditar()">Cancelar</button>
                 <button type="submit" class="btn-salvar">Salvar alterações</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════ MODAL — DELETAR ITEM ══════════════════ -->
+<div class="modal-overlay" id="modalDeletar" role="dialog" aria-modal="true" aria-labelledby="modalDeletarTitulo">
+    <div class="modal-box">
+        <h2 class="modal-title" id="modalDeletarTitulo">Deletar item</h2>
+        <p style="color: #aaa; margin-bottom: 24px;">
+            Tem certeza que deseja remover <strong id="deletarNomeItem" style="color: #fff;"></strong>? Essa ação não pode ser desfeita.
+        </p>
+
+        <form method="POST" action="./catalogo.php">
+            <input type="hidden" name="action"  value="deletar">
+            <input type="hidden" name="id_comp" id="deletarId" value="">
+
+            <div class="modal-actions">
+                <button type="button" class="btn-cancelar-modal" onclick="fecharModalDeletar()">Cancelar</button>
+                <button type="submit" class="btn-salvar" style="background-color: #f87171; color: #fff;">
+                    Confirmar exclusão
+                </button>
             </div>
         </form>
     </div>
@@ -728,7 +776,8 @@ try {
                             onclick="abrirModalEditar(
                                 <?= (int) $item['id_comp'] ?>,
                                 <?= htmlspecialchars(json_encode($item['nome']), ENT_QUOTES) ?>,
-                                <?= htmlspecialchars(json_encode($item['descricao'] ?? ''), ENT_QUOTES) ?>
+                                <?= htmlspecialchars(json_encode($item['descricao'] ?? ''), ENT_QUOTES) ?>,
+                                <?= (int) ($item['qtd_disponivel'] ?? 0) ?>
                             )"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -737,6 +786,22 @@ try {
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                             </svg>
                             Editar item
+                        </button>
+                        <button
+                            type="button"
+                            class="menu-item"
+                            onclick="abrirModalDeletar(<?= (int) $item['id_comp'] ?>, <?= htmlspecialchars(json_encode($item['nome']), ENT_QUOTES) ?>)"
+                            style="color: #f87171;"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                 style="color: #f87171;">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                <path d="M10 11v6"/><path d="M14 11v6"/>
+                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                            </svg>
+                            Deletar item
                         </button>
                     </div>
                 </div>
@@ -785,13 +850,14 @@ try {
     });
 
     /* ── Modal de edição ─────────────────── */
-    function abrirModalEditar(id, nome, descricao) {
+    function abrirModalEditar(id, nome, descricao, qtd_disponivel) {
         document.querySelectorAll('.menu-dropdown.open')
                 .forEach(function (el) { el.classList.remove('open'); });
 
         document.getElementById('editarId').value         = id;
         document.getElementById('editarNome').value       = nome;
         document.getElementById('editarDescricao').value  = descricao;
+        document.getElementById('editarQtdDisponivel').value = qtd_disponivel;
         document.getElementById('editarNomeErro').style.display = 'none';
         document.getElementById('modalEditar').classList.add('open');
         setTimeout(function () { document.getElementById('editarNome').focus(); }, 100);
@@ -801,14 +867,34 @@ try {
         document.getElementById('modalEditar').classList.remove('open');
     }
 
+    function abrirModalDeletar(id, nome) {
+        document.querySelectorAll('.menu-dropdown.open')
+                .forEach(function (el) { el.classList.remove('open'); });
+
+        document.getElementById('deletarId').value      = id;
+        document.getElementById('deletarNomeItem').textContent = nome;
+        document.getElementById('modalDeletar').classList.add('open');
+    }
+
+    function fecharModalDeletar() {
+        document.getElementById('modalDeletar').classList.remove('open');
+    }
+
     /* Fecha ao clicar no overlay */
     document.getElementById('modalEditar').addEventListener('click', function (e) {
         if (e.target === this) fecharModalEditar();
     });
 
+    document.getElementById('modalDeletar').addEventListener('click', function (e) {
+        if (e.target === this) fecharModalDeletar();
+    });
+
     /* Fecha com Escape */
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') fecharModalEditar();
+        if (e.key === 'Escape') {
+            fecharModalEditar();
+            fecharModalDeletar();
+        }
     });
 
     /* Validação client-side */
