@@ -40,8 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit;
             }
 
-            $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem) VALUES (:u, :t, :m)')
-                ->execute(['u' => $id_user, 't' => $titulo, 'm' => $mensagem]);
+            $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
+                ->execute(['u' => $id_user, 't' => $titulo, 'm' => $mensagem, 'tp' => 'aviso']);
 
             echo json_encode(['ok' => true]);
             exit;

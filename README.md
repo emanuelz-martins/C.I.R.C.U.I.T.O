@@ -146,7 +146,7 @@ C.I.R.C.U.I.T.O/
 
 ## Banco de Dados
 
-O modelo físico completo está em [`database/seeds/schema.sql`](database/seeds/schema.sql).
+O modelo físico completo está em [`src/database/seeds/schema.sql`](src/database/seeds/schema.sql).
 
 ### Tabelas
 
@@ -159,7 +159,7 @@ O modelo físico completo está em [`database/seeds/schema.sql`](database/seeds/
 | `Termo_Uso` | Versões dos termos de uso do sistema |
 | `Termo_Aceito` | Registro de aceite dos termos por usuário |
 | `Log_Auditoria` | Log de ações realizadas no sistema |
-| `Notificacao` | Notificações enviadas aos usuários |
+| `Notificacao` | Notificações enviadas aos usuários (`tipo`: `automatica` = sistema, `aviso` = laboratorista) |
 | `Pedido` | Pedidos de empréstimo realizados |
 | `Item_Pedido` | Itens individuais de cada pedido |
 | `Ocorrencia` | Registros de danos, perdas ou inutilizações |
@@ -168,7 +168,13 @@ O modelo físico completo está em [`database/seeds/schema.sql`](database/seeds/
 ### Como aplicar o schema
 
 ```bash
-mysql -u root -p circuito < database/seeds/schema.sql
+mysql -u root -p circuito < src/database/seeds/schema.sql
 ```
 
 > Certifique-se de que o banco `circuito` existe antes de executar o comando, ou adicione `CREATE DATABASE IF NOT EXISTS circuito; USE circuito;` no início do arquivo.
+
+### Migrações aplicadas
+
+| Migração | Descrição |
+|---|---|
+| `ALTER TABLE Notificacao ADD COLUMN tipo` | Separa notificações automáticas do sistema (`automatica`) de avisos diretos do laboratorista (`aviso`) |

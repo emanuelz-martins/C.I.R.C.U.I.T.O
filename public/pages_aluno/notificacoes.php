@@ -8,7 +8,7 @@ $page_title = 'Notificações';
 require_once '../includes/header.php';
 
 /* ── Notificações: serão carregadas do BD ── */
-$notificacoes = [];
+$notificacoes = ['avisos' => [], 'automaticas' => []];
 $db_ok = false;
 
 try {
@@ -17,13 +17,21 @@ try {
     
     if ($id_usuario) {
         $stmt = $pdo->prepare('
-            SELECT id_not, titulo, mensagem, lida, data
+            SELECT id_not, titulo, mensagem, tipo, lida, data
             FROM   Notificacao
             WHERE  id_user = :id_user
             ORDER  BY data DESC
         ');
         $stmt->execute(['id_user' => $id_usuario]);
-        $notificacoes = $stmt->fetchAll();
+        $todas = $stmt->fetchAll();
+
+        foreach ($todas as $n) {
+            if ($n['tipo'] === 'aviso') {
+                $notificacoes['avisos'][]     = $n;
+            } else {
+                $notificacoes['automaticas'][] = $n;
+            }
+        }
     }
     $db_ok = true;
 } catch (Throwable) {
@@ -201,9 +209,61 @@ try {
     /* ── Vazio ────────────────────────────── */
     .notif-empty {
         text-align: center;
-        padding: 60px 0;
+        padding: 40px 0;
         color: #555;
         font-size: 1rem;
+    }
+
+    /* ── Título de seção com ícone ────────── */
+    .section-title {
+        display: flex;
+        align-items: center;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 16px;
+    }
+
+    /* ── Badge de contagem ────────────────── */
+    .count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 6px;
+        background-color: #2a2a2a;
+        border: 1px solid #3a3a3a;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #aaa;
+        margin-left: 10px;
+    }
+
+    /* ── Ponto "não lida" ─────────────────── */
+    .dot-new {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #3b82f6;
+        border-radius: 50%;
+        margin-left: 6px;
+        vertical-align: middle;
+        flex-shrink: 0;
+    }
+
+    /* ── Card lida (esmaecida) ────────────── */
+    .notif-card.lida { opacity: 0.6; }
+
+    /* ── Variante aviso (borda âmbar) ─────── */
+    .notif-card.notif-aviso {
+        border-color: #3a2e10;
+    }
+
+    .notif-card.notif-aviso .notif-icon.icon-aviso {
+        border-color: #78350f;
+        color: #f59e0b;
     }
 </style>
 </head>
@@ -322,22 +382,84 @@ try {
         </a>
     </div>
 
-    <h2 class="section-title">Suas notificações</h2>
-
     <?php if (!$db_ok): ?>
-    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
-        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+    <div style="background-color:#1c1c1c;border:1px solid #3a1a1a;border-radius:16px;padding:40px;text-align:center;color:#aaa;">
+        <h2 style="color:#ef4444;margin-bottom:8px;">Banco de dados indisponível</h2>
         <p>Não foi possível carregar as notificações. Verifique a conexão com o MySQL.</p>
     </div>
-    <?php elseif (empty($notificacoes)): ?>
-        <p class="notif-empty">Nenhuma notificação por enquanto.</p>
+    <?php else: ?>
+
+    <!-- ── Avisos diretos do laboratorista ──────────── -->
+    <h2 class="section-title">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:#f59e0b;">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+        </svg>
+        Avisos do Laboratório
+        <?php if (!empty($notificacoes['avisos'])): ?>
+        <span class="count-badge"><?= count($notificacoes['avisos']) ?></span>
+        <?php endif; ?>
+    </h2>
+
+    <?php if (empty($notificacoes['avisos'])): ?>
+        <p class="notif-empty">Nenhum aviso do laboratorista por enquanto.</p>
+    <?php else: ?>
+    <div class="notif-list" style="margin-bottom:48px;">
+        <?php foreach ($notificacoes['avisos'] as $n): ?>
+        <div class="notif-card notif-aviso <?= $n['lida'] ? 'lida' : '' ?>">
+
+            <div class="notif-icon icon-aviso">
+                <!-- Ícone de pessoa / laboratorista -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+
+            <div class="notif-body">
+                <p class="notif-titulo">
+                    <?= htmlspecialchars($n['titulo']) ?>
+                    <?php if (!$n['lida']): ?>
+                    <span class="dot-new"></span>
+                    <?php endif; ?>
+                </p>
+                <p class="notif-mensagem"><?= nl2br(htmlspecialchars($n['mensagem'])) ?></p>
+                <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
+            </div>
+
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- ── Notificações automáticas (pedidos) ────────── -->
+    <h2 class="section-title">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:#3b82f6;">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8"  y1="2" x2="8"  y2="6"/>
+            <line x1="3"  y1="10" x2="21" y2="10"/>
+        </svg>
+        Notificações de Pedidos
+        <?php if (!empty($notificacoes['automaticas'])): ?>
+        <span class="count-badge"><?= count($notificacoes['automaticas']) ?></span>
+        <?php endif; ?>
+    </h2>
+
+    <?php if (empty($notificacoes['automaticas'])): ?>
+        <p class="notif-empty">Nenhuma notificação de pedido por enquanto.</p>
     <?php else: ?>
     <div class="notif-list">
-        <?php foreach ($notificacoes as $n): ?>
-        <div class="notif-card" style="<?= $n['lida'] ? 'opacity:0.7' : '' ?>">
+        <?php foreach ($notificacoes['automaticas'] as $n): ?>
+        <div class="notif-card <?= $n['lida'] ? 'lida' : '' ?>">
 
-            <!-- Ícone robô -->
             <div class="notif-icon">
+                <!-- Ícone robô -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="2" y="3" width="20" height="16" rx="3"/>
@@ -349,21 +471,22 @@ try {
                 </svg>
             </div>
 
-            <!-- Corpo -->
             <div class="notif-body">
                 <p class="notif-titulo">
                     <?= htmlspecialchars($n['titulo']) ?>
                     <?php if (!$n['lida']): ?>
-                    <span style="display:inline-block;width:8px;height:8px;background:#3b82f6;border-radius:50%;margin-left:6px;vertical-align:middle;"></span>
+                    <span class="dot-new"></span>
                     <?php endif; ?>
                 </p>
                 <p class="notif-mensagem"><?= nl2br(htmlspecialchars($n['mensagem'])) ?></p>
-                <p class="notif-data"><?= htmlspecialchars(date('d/m/Y H:i', strtotime($n['data']))) ?></p>
+                <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
             </div>
 
         </div>
         <?php endforeach; ?>
     </div>
+    <?php endif; ?>
+
     <?php endif; ?>
 
 </main>

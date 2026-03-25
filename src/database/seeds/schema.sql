@@ -177,3 +177,11 @@ CREATE TABLE IF NOT EXISTS Renovacao (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ------------------------------------------------------------
+-- Migração: adiciona coluna tipo em Notificacao
+-- 'automatica' = gerada pelo sistema (pedidos, status, etc.)
+-- 'aviso'      = mensagem direta enviada pelo laboratorista
+-- ------------------------------------------------------------
+ALTER TABLE Notificacao
+    ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'automatica' AFTER mensagem;

@@ -170,3 +170,64 @@ O catalogo do aluno (`public/index.php`) foi atualizado para:
 | `public/index.php`                                 | Catalogo do aluno — exibe itens com status "disponivel"|
 | `public/pages_aluno/item.php`                      | Detalhe do item — usa `qtd_max_user` e `descricao`     |
 | `public/assets/img/componentes/`                   | Diretorio de imagens enviadas pelo laboratorista       |
+
+---
+
+# gerenciar_user.php
+
+Pagina para o laboratorista listar, bloquear e enviar avisos diretos aos estudantes.
+
+## Funcionalidades
+
+- Lista todos os usuarios com `tipo_perfil = 'estudante'` do banco de dados
+- Busca por nome, matricula ou login via GET (`?q=termo`)
+- Usuarios bloqueados exibem borda vermelha e badge "Bloqueado"
+- Menu de 3 risquinhos por usuario com duas acoes:
+  - **Bloquear / Desbloquear** — alterna o campo `bloqueado` na tabela `Usuario` via AJAX (sem recarregar a pagina)
+  - **Mandar aviso** — abre modal para escrever titulo e mensagem; insere na tabela `Notificacao` com `tipo = 'aviso'`
+- Toast de feedback para confirmacao ou erro de cada acao
+
+## Acoes AJAX (POST no proprio arquivo)
+
+| `action`       | O que faz                                              | Retorno JSON             |
+|----------------|--------------------------------------------------------|--------------------------|
+| `toggle_block` | Inverte `bloqueado` do usuario e retorna o novo valor  | `{ ok, bloqueado }`      |
+| `send_notice`  | Insere notificacao com `tipo = 'aviso'` no BD          | `{ ok }` ou `{ ok, error }` |
+
+## Campos exibidos por usuario
+
+| Campo      | Coluna BD    | Observacao                                         |
+|------------|--------------|----------------------------------------------------|
+| Nome       | `nome`       | Nome completo do estudante                         |
+| Matricula  | `matricula`  | Exibida se preenchida, senao exibe o `login`       |
+| Bloqueado  | `bloqueado`  | Badge e borda vermelha quando `1`                  |
+
+## Sistema de notificacoes — tipos
+
+A tabela `Notificacao` possui a coluna `tipo` para separar as mensagens:
+
+| `tipo`        | Origem                                          | Secao em `notificacoes.php`       |
+|---------------|-------------------------------------------------|-----------------------------------|
+| `aviso`       | Laboratorista via `gerenciar_user.php`          | "Avisos do Laboratorio" (borda amber) |
+| `automatica`  | Sistema (mudancas de status de pedido, etc.)    | "Notificacoes de Pedidos" (borda padrao) |
+
+> Para gerar uma notificacao automatica basta inserir na tabela sem especificar `tipo` — o DEFAULT `'automatica'` ja e aplicado pelo MySQL.
+
+## Migracao necessaria no BD
+
+```sql
+ALTER TABLE Notificacao
+    ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'automatica' AFTER mensagem;
+```
+
+Ja incluida ao final de `src/database/seeds/schema.sql`.
+
+## Arquivos relacionados
+
+| Arquivo                                           | Descricao                                              |
+|---------------------------------------------------|--------------------------------------------------------|
+| `public/pages_laboratorista/gerenciar_user.php`   | Esta pagina — gerenciamento de usuarios                |
+| `public/pages_aluno/notificacoes.php`             | Onde o estudante ve os avisos separados por tipo       |
+| `src/database/seeds/schema.sql`                   | Schema com a migracao da coluna `tipo`                 |
+| `src/config/database.php`                         | Conexao PDO com MySQL via funcao `db()`                |
+| `public/includes/auth_check.php`                  | Protecao de acesso por perfil (laboratorista/admin)    |
