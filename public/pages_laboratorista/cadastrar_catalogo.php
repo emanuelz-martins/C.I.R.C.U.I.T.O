@@ -40,15 +40,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id_cat             = (int) ($_POST['id_cat']           ?? 0);
     $descricao_curta    = trim($_POST['descricao_curta']    ?? '');
     $descricao_completa = trim($_POST['descricao_completa'] ?? '');
+    $qtd_disponivel     = (int) ($_POST['qtd_disponivel']   ?? 0);
     $qtd_max_user       = (int) ($_POST['qtd_max_user']     ?? 1);
     $qtd_minima         = (int) ($_POST['qtd_minima']       ?? 0);
 
     /* Preserva para repopular o form */
-    $form = compact('nome', 'id_cat', 'descricao_curta', 'descricao_completa', 'qtd_max_user', 'qtd_minima');
+    $form = compact('nome', 'id_cat', 'descricao_curta', 'descricao_completa', 'qtd_disponivel', 'qtd_max_user', 'qtd_minima');
 
     /* ── Validações ── */
     if ($nome === '')      $erros[] = 'Nome do item é obrigatório.';
     if ($id_cat <= 0)      $erros[] = 'Selecione uma categoria.';
+    if ($qtd_disponivel < 0) $erros[] = 'Quantidade em estoque não pode ser negativa.';
     if ($qtd_max_user < 0) $erros[] = 'Quantidade máxima por usuário não pode ser negativa.';
     if ($qtd_minima   < 0) $erros[] = 'Quantidade mínima em estoque não pode ser negativa.';
 
@@ -116,11 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO Componente
                     (id_cat, nome, descricao, qtd_disponivel, qtd_max_user, nivel_minimo, imagem_url, status_atual)
                 VALUES
-                    (:id_cat, :nome, :descricao, 0, :qtd_max_user, :nivel_minimo, :imagem_url, "disponivel")
+                    (:id_cat, :nome, :descricao, :qtd_disponivel, :qtd_max_user, :nivel_minimo, :imagem_url, "disponivel")
             ')->execute([
                 'id_cat'       => $id_cat,
                 'nome'         => $nome,
                 'descricao'    => $descricao_bd,
+                'qtd_disponivel' => $qtd_disponivel,
                 'qtd_max_user' => $qtd_max_user,
                 'nivel_minimo' => $qtd_minima,
                 'imagem_url'   => $imagem_url,
@@ -279,6 +282,13 @@ require_once '../includes/header.php';
         font-weight: 600;
         color: #ffffff;
         margin-bottom: 10px;
+    }
+
+    .form-label .label-hint {
+        font-size: 0.78rem;
+        font-weight: 400;
+        color: #8b8b8b;
+        margin-left: 8px;
     }
 
     .form-input,
@@ -502,7 +512,7 @@ require_once '../includes/header.php';
 
         <!-- Descrição curta -->
         <div class="form-group">
-            <label class="form-label" for="inputDescCurta">Descrição curta</label>
+            <label class="form-label" for="inputDescCurta">Especificações Técnicas</label>
             <input
                 type="text"
                 class="form-input"
@@ -517,19 +527,38 @@ require_once '../includes/header.php';
         <!-- Quantidades lado a lado -->
         <div class="form-row">
             <div class="form-group">
+                <label class="form-label" for="inputQtdDisponivel">
+                    Quantidade em estoque
+                    <span class="label-hint">(total atual do item)</span>
+                </label>
+                <input
+                    type="number"
+                    class="form-input"
+                    id="inputQtdDisponivel"
+                    name="qtd_disponivel"
+                    min="0"
+                    value="<?= (int)($form['qtd_disponivel'] ?? 0) ?>"
+                >
+            </div>
+
+            <div class="form-group">
                 <label class="form-label" for="inputQtdMax">Quantidade máxima por usuário</label>
                 <input
                     type="number"
                     class="form-input"
                     id="inputQtdMax"
                     name="qtd_max_user"
+                    placeholder="Ex:"
                     min="0"
                     value="<?= (int)($form['qtd_max_user'] ?? 1) ?>"
                 >
             </div>
 
             <div class="form-group">
-                <label class="form-label" for="inputQtdMin">Quantidade mínima em estoque</label>
+                <label class="form-label" for="inputQtdMin">
+                    Quantidade mínima em estoque
+                    <span class="label-hint">(limite para aviso de reposição)</span>
+                </label>
                 <input
                     type="number"
                     class="form-input"
@@ -543,7 +572,7 @@ require_once '../includes/header.php';
 
         <!-- Descrição completa -->
         <div class="form-group">
-            <label class="form-label" for="inputDescCompleta">Descrição completa</label>
+            <label class="form-label" for="inputDescCompleta">Descrição completa: Alertas / Observações</label>
             <textarea
                 class="form-textarea"
                 id="inputDescCompleta"

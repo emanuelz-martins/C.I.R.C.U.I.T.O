@@ -4,6 +4,9 @@ checkAccess(['laboratorista', 'admin']);
 
 require_once '../../src/config/database.php';
 
+$upload_dir = __DIR__ . '/../assets/img/componentes/';
+$upload_url_base = '/C.I.R.C.U.I.T.O/public/assets/img/componentes/';
+
 /* ══════════════════════════════════════════
    HANDLER DE AÇÕES (POST — PRG pattern)
 ══════════════════════════════════════════ */
@@ -19,18 +22,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $nome      = trim($_POST['nome']      ?? '');
                 $descricao = trim($_POST['descricao'] ?? '');
                 $qtd_disponivel = (int) ($_POST['qtd_disponivel'] ?? 0);
+                $imagem_url_nova = null;
+
+                $file = $_FILES['imagem'] ?? null;
+                if ($file && (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    if ((int)$file['error'] === UPLOAD_ERR_OK && (int)($file['size'] ?? 0) <= 5 * 1024 * 1024) {
+                        $finfo = new finfo(FILEINFO_MIME_TYPE);
+                        $mime = $finfo->file((string)($file['tmp_name'] ?? ''));
+                        $extPorMime = [
+                            'image/jpeg' => 'jpg',
+                            'image/png'  => 'png',
+                            'image/gif'  => 'gif',
+                            'image/webp' => 'webp',
+                        ];
+
+                        if (isset($extPorMime[$mime])) {
+                            if (!is_dir($upload_dir)) {
+                                @mkdir($upload_dir, 0755, true);
+                            }
+
+                            if (is_dir($upload_dir) && is_writable($upload_dir)) {
+                                $fname = 'comp_' . uniqid('', true) . '.' . $extPorMime[$mime];
+                                $destino = $upload_dir . $fname;
+
+                                if (move_uploaded_file((string)$file['tmp_name'], $destino)) {
+                                    $imagem_url_nova = $upload_url_base . $fname;
+                                }
+                            }
+                        }
+                    }
+                }
 
                 if ($nome !== '') {
-                    $pdo->prepare('
+                    $sql = '
                         UPDATE Componente
-                        SET nome = :nome, descricao = :descricao, qtd_disponivel = :qtd_disponivel
-                        WHERE id_comp = :id
-                    ')->execute([
+                        SET nome = :nome, descricao = :descricao, qtd_disponivel = :qtd_disponivel';
+
+                    $params = [
                         'nome' => $nome,
                         'descricao' => $descricao,
                         'qtd_disponivel' => max(0, $qtd_disponivel),
                         'id' => $id_comp
-                    ]);
+                    ];
+
+                    if ($imagem_url_nova !== null) {
+                        $sql .= ', imagem_url = :imagem_url';
+                        $params['imagem_url'] = $imagem_url_nova;
+                    }
+
+                    $sql .= ' WHERE id_comp = :id';
+
+                    $pdo->prepare($sql)->execute($params);
                 }
             }
 
@@ -470,6 +512,31 @@ try {
     .modal-input:focus,
     .modal-textarea:focus { border-color: #555; }
 
+    .modal-image-preview {
+        width: 100%;
+        height: 140px;
+        border-radius: 10px;
+        border: 1px solid #333;
+        background-color: #141414;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    .modal-image-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: none;
+    }
+
+    .modal-image-preview span {
+        color: #777;
+        font-size: 0.82rem;
+    }
+
     .modal-hint-error {
         font-size: 0.78rem;
         color: #f87171;
@@ -564,7 +631,7 @@ try {
     <div class="modal-box">
         <h2 class="modal-title" id="modalEditarTitulo">Editar item</h2>
 
-        <form method="POST" action="./catalogo.php" id="formEditar">
+        <form method="POST" action="./catalogo.php" id="formEditar" enctype="multipart/form-data">
             <input type="hidden" name="action"  value="editar">
             <input type="hidden" name="id_comp" id="editarId" value="">
 
@@ -602,6 +669,22 @@ try {
                     min="0"
                     placeholder="Ex.: 15"
                     value="0"
+                >
+            </div>
+
+            <div class="modal-field">
+                <label class="modal-label" for="editarImagem">Foto do item</label>
+                <div class="modal-image-preview">
+                    <img id="editarImagemPreview" src="" alt="Pré-visualização da imagem">
+                    <span id="editarImagemSemPreview">Sem imagem atual</span>
+                </div>
+                <input
+                    type="file"
+                    class="modal-input"
+                    id="editarImagem"
+                    name="imagem"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onchange="previewImagemEdicao(this)"
                 >
             </div>
 
@@ -735,7 +818,6 @@ try {
             <div class="item-info">
                 <p class="item-cat"><?= htmlspecialchars($item['cat_nome']) ?></p>
                 <p class="item-nome"><?= htmlspecialchars($item['nome']) ?></p>
-                <p class="item-desc"><?= htmlspecialchars($item['descricao'] ?? '') ?></p>
             </div>
 
             <!-- Direita: estoque + status + menu -->
@@ -777,7 +859,8 @@ try {
                                 <?= (int) $item['id_comp'] ?>,
                                 <?= htmlspecialchars(json_encode($item['nome']), ENT_QUOTES) ?>,
                                 <?= htmlspecialchars(json_encode($item['descricao'] ?? ''), ENT_QUOTES) ?>,
-                                <?= (int) ($item['qtd_disponivel'] ?? 0) ?>
+                                <?= (int) ($item['qtd_disponivel'] ?? 0) ?>,
+                                <?= htmlspecialchars(json_encode($item['imagem_url'] ?? ''), ENT_QUOTES) ?>
                             )"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -850,7 +933,7 @@ try {
     });
 
     /* ── Modal de edição ─────────────────── */
-    function abrirModalEditar(id, nome, descricao, qtd_disponivel) {
+    function abrirModalEditar(id, nome, descricao, qtd_disponivel, imagem_url) {
         document.querySelectorAll('.menu-dropdown.open')
                 .forEach(function (el) { el.classList.remove('open'); });
 
@@ -858,9 +941,39 @@ try {
         document.getElementById('editarNome').value       = nome;
         document.getElementById('editarDescricao').value  = descricao;
         document.getElementById('editarQtdDisponivel').value = qtd_disponivel;
+        document.getElementById('editarImagem').value = '';
+
+        const previewImg = document.getElementById('editarImagemPreview');
+        const previewText = document.getElementById('editarImagemSemPreview');
+        if (imagem_url) {
+            previewImg.src = imagem_url;
+            previewImg.style.display = 'block';
+            previewText.style.display = 'none';
+        } else {
+            previewImg.src = '';
+            previewImg.style.display = 'none';
+            previewText.style.display = 'block';
+        }
+
         document.getElementById('editarNomeErro').style.display = 'none';
         document.getElementById('modalEditar').classList.add('open');
         setTimeout(function () { document.getElementById('editarNome').focus(); }, 100);
+    }
+
+    function previewImagemEdicao(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            const previewImg = document.getElementById('editarImagemPreview');
+            const previewText = document.getElementById('editarImagemSemPreview');
+            previewImg.src = e.target.result;
+            previewImg.style.display = 'block';
+            previewText.style.display = 'none';
+        };
+
+        reader.readAsDataURL(file);
     }
 
     function fecharModalEditar() {

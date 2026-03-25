@@ -324,7 +324,7 @@ try {
         </a>
 
         <!-- Gerenciar usuários -->
-        <a href="./usuarios.php" class="func-card">
+        <a href="./gerenciar_user.php" class="func-card">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

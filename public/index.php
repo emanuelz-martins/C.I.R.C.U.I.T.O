@@ -501,7 +501,6 @@ require_once 'includes/header.php';
 
                     <div class="card-body">
                         <div class="card-name"><?= htmlspecialchars($item['nome']) ?></div>
-                        <div class="card-desc"><?= htmlspecialchars($item['descricao']) ?></div>
                         <div class="card-stock"><?= (int)$item['estoque'] ?> unidades em estoque</div>
                         <?php if (!empty($item['qtd_max_user']) && (int)$item['qtd_max_user'] > 0): ?>
                         <div class="card-stock" style="color:#555">Máx. por usuário: <?= (int)$item['qtd_max_user'] ?> unid.</div>

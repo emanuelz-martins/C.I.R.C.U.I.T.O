@@ -13,28 +13,17 @@ $db_ok = false;
 
 try {
     $pdo = db();
-    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
+    $id_usuario = $_SESSION['auth_user']['id'] ?? null;
     
     if ($id_usuario) {
-        /* TODO: Implementar consulta ao banco para buscar notificações do usuário */
-        /*
         $stmt = $pdo->prepare('
-            SELECT
-                n.id_notif,
-                n.id_pedido,
-                p.numero_pedido,
-                n.mensagem,
-                n.data_criacao,
-                p.status_pedido,
-                n.tipo_notif
-            FROM Notificacao n
-            JOIN Pedido p ON p.id_pedido = n.id_pedido
-            WHERE n.id_user = :id_user
-            ORDER BY n.data_criacao DESC
+            SELECT id_not, titulo, mensagem, lida, data
+            FROM   Notificacao
+            WHERE  id_user = :id_user
+            ORDER  BY data DESC
         ');
         $stmt->execute(['id_user' => $id_usuario]);
         $notificacoes = $stmt->fetchAll();
-        */
     }
     $db_ok = true;
 } catch (Throwable) {
@@ -333,7 +322,7 @@ try {
         </a>
     </div>
 
-    <h2 class="section-title">Notificações sobre estado do pedido</h2>
+    <h2 class="section-title">Suas notificações</h2>
 
     <?php if (!$db_ok): ?>
     <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
@@ -345,60 +334,31 @@ try {
     <?php else: ?>
     <div class="notif-list">
         <?php foreach ($notificacoes as $n): ?>
-        <div class="notif-card">
+        <div class="notif-card" style="<?= $n['lida'] ? 'opacity:0.7' : '' ?>">
 
-            <!-- Ícone robô (feliz ou triste dependendo do tipo) -->
+            <!-- Ícone robô -->
             <div class="notif-icon">
-                <?php if ($n['tipo'] === 'negado'): ?>
-                <!-- Rosto triste -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="2" y="3" width="20" height="16" rx="3"/>
-                    <line x1="8" y1="9" x2="8" y2="9.5"/><line x1="16" y1="9" x2="16" y2="9.5"/>
-                    <circle cx="8"  cy="9"  r="0.5" fill="currentColor"/>
-                    <circle cx="16" cy="9"  r="0.5" fill="currentColor"/>
-                    <path d="M9 14.5c.8-1 2.4-1 3 0"/>
+                    <circle cx="8"  cy="10" r="1" fill="currentColor"/>
+                    <circle cx="16" cy="10" r="1" fill="currentColor"/>
+                    <path d="M9 14c.8 1 5.2 1 6 0"/>
                     <line x1="12" y1="19" x2="12" y2="21"/>
                     <line x1="8"  y1="21" x2="16" y2="21"/>
                 </svg>
-                <?php else: ?>
-                <!-- Rosto neutro/feliz -->
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="3" width="20" height="16" rx="3"/>
-                    <line x1="8" y1="9" x2="8" y2="9.5"/><line x1="16" y1="9" x2="16" y2="9.5"/>
-                    <circle cx="8"  cy="9"  r="0.5" fill="currentColor"/>
-                    <circle cx="16" cy="9"  r="0.5" fill="currentColor"/>
-                    <path d="M9 13.5c.8 1 5.2 1 6 0"/>
-                    <line x1="12" y1="19" x2="12" y2="21"/>
-                    <line x1="8"  y1="21" x2="16" y2="21"/>
-                </svg>
-                <?php endif; ?>
             </div>
 
             <!-- Corpo -->
             <div class="notif-body">
-                <p class="notif-titulo">Pedido #<?= htmlspecialchars($n['pedido_numero']) ?></p>
-                <p class="notif-mensagem"><?= $n['mensagem'] /* já sanitizado no array de dados */ ?></p>
-                <p class="notif-data">Data: <?= htmlspecialchars($n['data']) ?></p>
-            </div>
-
-            <!-- Ações -->
-            <div class="notif-actions">
-                <span class="status-badge <?= htmlspecialchars($n['status']) ?>">
-                    <?= htmlspecialchars($n['status_label']) ?>
-                </span>
-                <a href="./pedido.php?id=<?= urlencode((string) ($n['id_pedido'] ?? $n['pedido_numero'] ?? '')) ?>" class="btn-details" aria-label="Ver pedido">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="8" y1="6"  x2="21" y2="6"/>
-                        <line x1="8" y1="12" x2="21" y2="12"/>
-                        <line x1="8" y1="18" x2="21" y2="18"/>
-                        <line x1="3" y1="6"  x2="3.01" y2="6"/>
-                        <line x1="3" y1="12" x2="3.01" y2="12"/>
-                        <line x1="3" y1="18" x2="3.01" y2="18"/>
-                    </svg>
-                </a>
+                <p class="notif-titulo">
+                    <?= htmlspecialchars($n['titulo']) ?>
+                    <?php if (!$n['lida']): ?>
+                    <span style="display:inline-block;width:8px;height:8px;background:#3b82f6;border-radius:50%;margin-left:6px;vertical-align:middle;"></span>
+                    <?php endif; ?>
+                </p>
+                <p class="notif-mensagem"><?= nl2br(htmlspecialchars($n['mensagem'])) ?></p>
+                <p class="notif-data"><?= htmlspecialchars(date('d/m/Y H:i', strtotime($n['data']))) ?></p>
             </div>
 
         </div>
