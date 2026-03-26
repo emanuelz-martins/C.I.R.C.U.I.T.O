@@ -15,21 +15,47 @@ $db_ok = false;
 
 try {
     $pdo = db();
-    
-    /* TODO: Implementar consultas ao banco para buscar estatísticas */
-    /*
-    // Pedidos em andamento
-    $stmt = $pdo->query('SELECT COUNT(*) as total FROM Pedido WHERE status_pedido = "em-andamento"');
-    $emprestimos_em_andamento = $stmt->fetch()['total'] ?? 0;
-    
-    // Pedidos aguardando avaliação
-    $stmt = $pdo->query('SELECT COUNT(*) as total FROM Pedido WHERE status_pedido = "pendente"');
-    $esperando_avaliacao = $stmt->fetch()['total'] ?? 0;
-    
-    // Devoluções em atraso
-    $stmt = $pdo->query('SELECT COUNT(*) as total FROM Pedido WHERE status_pedido = "em-andamento" AND data_entrega < NOW()');
-    $devolucoes_em_atraso = $stmt->fetch()['total'] ?? 0;
-    */
+
+    $getCols = static function (PDO $pdo, string $table): array {
+        $stmt = $pdo->prepare('
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+        ');
+        $stmt->execute(['table' => $table]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    };
+
+    $pedidoCols = $getCols($pdo, 'Pedido');
+    $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
+        : (in_array('status', $pedidoCols, true) ? 'status' : null);
+
+    if ($statusCol !== null) {
+        /* Em aberto: do pendente até em-andamento (não conta finalizado/negado/cancelado) */
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM Pedido WHERE {$statusCol} IN ('pendente', 'em-separacao', 'pronto-para-retirada', 'em-andamento', 'renovacao-solicitada')");
+        $stmt->execute();
+        $emprestimos_em_andamento = (int) ($stmt->fetch()['total'] ?? 0);
+
+        /* Esperando avaliação: pendente + renovação solicitada */
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM Pedido WHERE {$statusCol} IN ('pendente', 'renovacao-solicitada')");
+        $stmt->execute();
+        $esperando_avaliacao = (int) ($stmt->fetch()['total'] ?? 0);
+
+        /* Devoluções em atraso: em andamento com prazo vencido */
+        $dataPrazoCol = null;
+        foreach (['data_devolucao_prevista', 'data_entrega', 'data_retirada_prevista'] as $candidate) {
+            if (in_array($candidate, $pedidoCols, true)) {
+                $dataPrazoCol = $candidate;
+                break;
+            }
+        }
+
+        if ($dataPrazoCol !== null) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM Pedido WHERE {$statusCol} = 'em-andamento' AND {$dataPrazoCol} IS NOT NULL AND {$dataPrazoCol} < NOW()");
+            $stmt->execute();
+            $devolucoes_em_atraso = (int) ($stmt->fetch()['total'] ?? 0);
+        }
+    }
     
     $db_ok = true;
 } catch (Throwable) {

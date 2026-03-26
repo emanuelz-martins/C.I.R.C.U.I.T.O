@@ -11,10 +11,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action        = $_POST['action']        ?? '';
     $id_pedido     = (int) ($_POST['id_pedido'] ?? 0);
     $justificativa = trim($_POST['justificativa'] ?? '');
+    $redirectUrl   = './acessar.php';
 
     if ($id_pedido > 0) {
         try {
             $pdo = db();
+
+            $getCols = static function (PDO $pdo, string $table): array {
+                $stmt = $pdo->prepare('
+                    SELECT COLUMN_NAME
+                    FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+                ');
+                $stmt->execute(['table' => $table]);
+                return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            };
+
+            $pedidoCols = $getCols($pdo, 'Pedido');
+            $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
+                : (in_array('status', $pedidoCols, true) ? 'status' : null);
+            $updatedCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+            $motivoCol = in_array('motivo_negacao', $pedidoCols, true) ? 'motivo_negacao' : null;
+
+            if ($statusCol === null) {
+                throw new RuntimeException('Coluna de status do pedido não encontrada.');
+            }
+
+            $notCols = $getCols($pdo, 'Notificacao');
+
+            $itemTable = null;
+            $itemCols = [];
+            foreach (['Item_Pedido', 'BemPedido'] as $candidate) {
+                $cols = $getCols($pdo, $candidate);
+                if (!empty($cols)) {
+                    $itemTable = $candidate;
+                    $itemCols = $cols;
+                    break;
+                }
+            }
+
+            $compCols = $getCols($pdo, 'Componente');
+            $compQtdCol = in_array('qtd_disponivel', $compCols, true) ? 'qtd_disponivel' : null;
+            $compStatusCol = in_array('status_atual', $compCols, true) ? 'status_atual' : null;
 
             /* Busca id_user do pedido para criar notificação */
             $getUserId = static function (PDO $pdo, int $id): ?int {
@@ -24,27 +62,169 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return $row ? (int) $row['id_user'] : null;
             };
 
+            $getPedidoStatus = static function (PDO $pdo, int $id, string $statusCol): ?string {
+                $s = $pdo->prepare("SELECT {$statusCol} AS status_atual FROM Pedido WHERE id_pedido = :id LIMIT 1");
+                $s->execute(['id' => $id]);
+                $row = $s->fetch();
+                return $row ? (string) ($row['status_atual'] ?? '') : null;
+            };
+
+            $setStatus = static function (
+                PDO $pdo,
+                int $id,
+                string $status,
+                string $statusCol,
+                ?string $updatedCol,
+                ?string $motivoCol = null,
+                ?string $motivo = null
+            ): void {
+                $sets = ["{$statusCol} = :status"];
+                $params = ['status' => $status, 'id' => $id];
+
+                if ($updatedCol !== null) {
+                    $sets[] = "{$updatedCol} = NOW()";
+                }
+                if ($motivoCol !== null && $motivo !== null) {
+                    $sets[] = "{$motivoCol} = :motivo";
+                    $params['motivo'] = $motivo;
+                }
+
+                $sql = 'UPDATE Pedido SET ' . implode(', ', $sets) . ' WHERE id_pedido = :id';
+                $pdo->prepare($sql)->execute($params);
+            };
+
             /* Cria notificação para o estudante */
-            $notify = static function (PDO $pdo, int $id_pedido, int $id_user, string $mensagem, string $tipo): void {
-                $pdo->prepare('
-                    INSERT INTO Notificacao (id_pedido, id_user, mensagem, tipo_notif, data_criacao)
-                    VALUES (:p, :u, :m, :t, NOW())
-                ')->execute(['p' => $id_pedido, 'u' => $id_user, 'm' => $mensagem, 't' => $tipo]);
+            $notify = static function (
+                PDO $pdo,
+                int $id_pedido,
+                int $id_user,
+                string $mensagem,
+                string $tipo,
+                array $notCols
+            ): void {
+                if (!in_array('id_user', $notCols, true) || !in_array('mensagem', $notCols, true)) {
+                    return;
+                }
+
+                $fields = ['id_user', 'mensagem'];
+                $values = [':id_user', ':mensagem'];
+                $params = [
+                    'id_user' => $id_user,
+                    'mensagem' => $mensagem,
+                ];
+
+                if (in_array('id_pedido', $notCols, true)) {
+                    $fields[] = 'id_pedido';
+                    $values[] = ':id_pedido';
+                    $params['id_pedido'] = $id_pedido;
+                }
+                if (in_array('titulo', $notCols, true)) {
+                    $fields[] = 'titulo';
+                    $values[] = ':titulo';
+                    $params['titulo'] = 'Atualização do pedido';
+                }
+                if (in_array('tipo_notif', $notCols, true)) {
+                    $fields[] = 'tipo_notif';
+                    $values[] = ':tipo_notif';
+                    $params['tipo_notif'] = $tipo;
+                } elseif (in_array('tipo', $notCols, true)) {
+                    $fields[] = 'tipo';
+                    $values[] = ':tipo';
+                    $params['tipo'] = 'automatica';
+                }
+                if (in_array('lida', $notCols, true)) {
+                    $fields[] = 'lida';
+                    $values[] = '0';
+                }
+                if (in_array('data_criacao', $notCols, true)) {
+                    $fields[] = 'data_criacao';
+                    $values[] = 'NOW()';
+                } elseif (in_array('data', $notCols, true)) {
+                    $fields[] = 'data';
+                    $values[] = 'NOW()';
+                }
+
+                $sql = sprintf(
+                    'INSERT INTO Notificacao (%s) VALUES (%s)',
+                    implode(', ', $fields),
+                    implode(', ', $values)
+                );
+                $pdo->prepare($sql)->execute($params);
             };
 
             switch ($action) {
 
                 case 'aprovar':
                     /* Aprovação → muda status para em-separacao e notifica o estudante */
-                    $pdo->prepare('
-                        UPDATE Pedido
-                        SET status_pedido = "em-separacao", data_atualizacao = NOW()
-                        WHERE id_pedido = :id
-                    ')->execute(['id' => $id_pedido]);
+                    $statusAtualPedido = $getPedidoStatus($pdo, $id_pedido, $statusCol);
+
+                    if ($statusAtualPedido !== 'renovacao-solicitada') {
+                        if ($itemTable === null || $compQtdCol === null) {
+                            throw new RuntimeException('schema_estoque');
+                        }
+
+                        $itemPedidoCol = in_array('id_pedido', $itemCols, true) ? 'id_pedido' : null;
+                        $itemCompCol = in_array('id_comp', $itemCols, true) ? 'id_comp'
+                            : (in_array('id_componente', $itemCols, true) ? 'id_componente' : null);
+                        $itemQtdCol = in_array('qtd_solicitada', $itemCols, true) ? 'qtd_solicitada'
+                            : (in_array('quantidade', $itemCols, true) ? 'quantidade' : null);
+
+                        if ($itemPedidoCol === null || $itemCompCol === null || $itemQtdCol === null) {
+                            throw new RuntimeException('schema_estoque');
+                        }
+
+                        $stmtItens = $pdo->prepare(
+                            "SELECT {$itemCompCol} AS id_comp, SUM({$itemQtdCol}) AS qtd FROM {$itemTable} WHERE {$itemPedidoCol} = :id GROUP BY {$itemCompCol}"
+                        );
+                        $stmtItens->execute(['id' => $id_pedido]);
+                        $itensPedido = $stmtItens->fetchAll();
+
+                        if (empty($itensPedido)) {
+                            throw new RuntimeException('estoque_insuficiente');
+                        }
+
+                        $pdo->beginTransaction();
+
+                        $stmtLockComp = $pdo->prepare("SELECT {$compQtdCol} AS qtd_disp FROM Componente WHERE id_comp = :id FOR UPDATE");
+                        $stmtUpdateComp = $pdo->prepare(
+                            $compStatusCol !== null
+                                ? "UPDATE Componente SET {$compQtdCol} = {$compQtdCol} - :qtd, {$compStatusCol} = CASE WHEN ({$compQtdCol} - :qtd_status) <= 0 THEN 'indisponivel' ELSE {$compStatusCol} END WHERE id_comp = :id"
+                                : "UPDATE Componente SET {$compQtdCol} = {$compQtdCol} - :qtd WHERE id_comp = :id"
+                        );
+
+                        foreach ($itensPedido as $itemPed) {
+                            $idComp = (int) ($itemPed['id_comp'] ?? 0);
+                            $qtdSolicitada = (int) ($itemPed['qtd'] ?? 0);
+
+                            if ($idComp <= 0 || $qtdSolicitada <= 0) {
+                                throw new RuntimeException('estoque_insuficiente');
+                            }
+
+                            $stmtLockComp->execute(['id' => $idComp]);
+                            $compRow = $stmtLockComp->fetch();
+                            $qtdDisponivel = (int) ($compRow['qtd_disp'] ?? 0);
+
+                            if (!$compRow || $qtdDisponivel < $qtdSolicitada) {
+                                throw new RuntimeException('estoque_insuficiente');
+                            }
+
+                            $paramsUpdate = ['id' => $idComp, 'qtd' => $qtdSolicitada];
+                            if ($compStatusCol !== null) {
+                                $paramsUpdate['qtd_status'] = $qtdSolicitada;
+                            }
+                            $stmtUpdateComp->execute($paramsUpdate);
+                        }
+                    }
+
+                    $setStatus($pdo, $id_pedido, 'em-separacao', $statusCol, $updatedCol);
 
                     $uid = $getUserId($pdo, $id_pedido);
                     if ($uid) {
-                        $notify($pdo, $id_pedido, $uid, 'Pedido aprovado!', 'aprovado');
+                        $notify($pdo, $id_pedido, $uid, 'Pedido aprovado!', 'aprovado', $notCols);
+                    }
+
+                    if ($pdo->inTransaction()) {
+                        $pdo->commit();
                     }
                     break;
 
@@ -54,59 +234,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         header('Location: ./acessar.php?erro=justificativa');
                         exit;
                     }
-                    $pdo->prepare('
-                        UPDATE Pedido
-                        SET status_pedido = "negado", motivo_negacao = :motivo, data_atualizacao = NOW()
-                        WHERE id_pedido = :id
-                    ')->execute(['motivo' => $justificativa, 'id' => $id_pedido]);
+                    $setStatus($pdo, $id_pedido, 'negado', $statusCol, $updatedCol, $motivoCol, $justificativa);
 
                     $uid = $getUserId($pdo, $id_pedido);
                     if ($uid) {
                         $notify($pdo, $id_pedido, $uid,
-                            'Pedido negado. Justificativa: ' . $justificativa, 'negado');
+                            'Pedido negado. Justificativa: ' . $justificativa, 'negado', $notCols);
                     }
                     break;
 
                 case 'pronto-para-retirada':
                     /* Pacote preparado fisicamente → notifica estudante para buscar */
-                    $pdo->prepare('
-                        UPDATE Pedido
-                        SET status_pedido = "pronto-para-retirada", data_atualizacao = NOW()
-                        WHERE id_pedido = :id
-                    ')->execute(['id' => $id_pedido]);
+                    $setStatus($pdo, $id_pedido, 'pronto-para-retirada', $statusCol, $updatedCol);
 
                     $uid = $getUserId($pdo, $id_pedido);
                     if ($uid) {
                         $notify($pdo, $id_pedido, $uid,
                             'Seu pedido está pronto para retirada! Dirija-se ao laboratório para buscar.',
-                            'pronto-para-retirada');
+                            'pronto-para-retirada', $notCols);
                     }
                     break;
 
                 case 'em-andamento':
                     /* Estudante retirou o pacote — prazo de 1 semana para devolução */
-                    $pdo->prepare('
-                        UPDATE Pedido
-                        SET status_pedido = "em-andamento", data_atualizacao = NOW()
-                        WHERE id_pedido = :id
-                    ')->execute(['id' => $id_pedido]);
+                    $setStatus($pdo, $id_pedido, 'em-andamento', $statusCol, $updatedCol);
                     break;
 
                 case 'finalizar':
-                    $pdo->prepare('
-                        UPDATE Pedido
-                        SET status_pedido = "finalizado", data_atualizacao = NOW()
-                        WHERE id_pedido = :id
-                    ')->execute(['id' => $id_pedido]);
+                    $setStatus($pdo, $id_pedido, 'finalizado', $statusCol, $updatedCol);
                     break;
             }
 
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if (in_array($e->getMessage(), ['estoque_insuficiente', 'schema_estoque'], true)) {
+                $redirectUrl = './acessar.php?erro=estoque';
+            }
             /* BD indisponível — falha silenciosa */
         }
     }
 
-    header('Location: ./acessar.php');
+    header('Location: ' . $redirectUrl);
     exit;
 }
 
@@ -125,6 +295,27 @@ $erro    = $_GET['erro'] ?? '';
 try {
     $pdo = db();
 
+    $getCols = static function (PDO $pdo, string $table): array {
+        $stmt = $pdo->prepare('
+            SELECT COLUMN_NAME
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+        ');
+        $stmt->execute(['table' => $table]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    };
+
+    $pedidoCols = $getCols($pdo, 'Pedido');
+    $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
+        : (in_array('status', $pedidoCols, true) ? 'status' : null);
+    $numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
+    $dataCriacaoCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao' : null;
+    $dataAtualizacaoCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+
+    if ($statusCol === null) {
+        throw new RuntimeException('Coluna de status do pedido não encontrada.');
+    }
+
     $where  = [];
     $params = [];
 
@@ -133,23 +324,37 @@ try {
         $params['busca'] = '%' . $busca . '%';
     }
     if ($filtro !== '') {
-        $where[]          = 'p.status_pedido = :status';
+        $where[]          = 'p.' . $statusCol . ' = :status';
         $params['status'] = $filtro;
     }
 
     $w = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
+    $selectNumero = ($numeroCol !== null ? 'p.' . $numeroCol : 'p.id_pedido') . ' AS numero_pedido';
+    $selectStatus = 'p.' . $statusCol . ' AS status_pedido';
+    if ($dataAtualizacaoCol !== null && $dataCriacaoCol !== null) {
+        $selectData = "DATE_FORMAT(COALESCE(p.{$dataAtualizacaoCol}, p.{$dataCriacaoCol}), '%d/%m/%Y') AS data_fmt";
+    } elseif ($dataAtualizacaoCol !== null) {
+        $selectData = "DATE_FORMAT(p.{$dataAtualizacaoCol}, '%d/%m/%Y') AS data_fmt";
+    } elseif ($dataCriacaoCol !== null) {
+        $selectData = "DATE_FORMAT(p.{$dataCriacaoCol}, '%d/%m/%Y') AS data_fmt";
+    } else {
+        $selectData = 'NULL AS data_fmt';
+    }
+
+    $orderBy = $dataAtualizacaoCol !== null ? 'p.' . $dataAtualizacaoCol . ' DESC, p.id_pedido DESC' : 'p.id_pedido DESC';
+
     $stmt = $pdo->prepare("
         SELECT
             p.id_pedido,
-            p.numero_pedido,
-            p.status_pedido,
-            DATE_FORMAT(COALESCE(p.data_atualizacao, p.data_criacao), '%d/%m/%Y') AS data_fmt,
+            {$selectNumero},
+            {$selectStatus},
+            {$selectData},
             u.nome AS nome_estudante
         FROM Pedido p
         JOIN Usuario u ON u.id_user = p.id_user
         {$w}
-        ORDER BY p.data_atualizacao DESC, p.id_pedido DESC
+        ORDER BY {$orderBy}
     ");
     $stmt->execute($params);
     $pedidos = $stmt->fetchAll();
@@ -708,6 +913,10 @@ $status_map = [
     <?php if ($erro === 'justificativa'): ?>
     <div class="alert-erro">
         Justificativa obrigatória ao negar um pedido. Por favor, preencha o campo antes de confirmar.
+    </div>
+    <?php elseif ($erro === 'estoque'): ?>
+    <div class="alert-erro">
+        Não foi possível aprovar o pedido porque o estoque de um ou mais componentes é insuficiente.
     </div>
     <?php endif; ?>
 

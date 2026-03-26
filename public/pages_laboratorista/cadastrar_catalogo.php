@@ -53,6 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($qtd_disponivel < 0) $erros[] = 'Quantidade em estoque não pode ser negativa.';
     if ($qtd_max_user < 0) $erros[] = 'Quantidade máxima por usuário não pode ser negativa.';
     if ($qtd_minima   < 0) $erros[] = 'Quantidade mínima em estoque não pode ser negativa.';
+    if (mb_strlen($descricao_curta) > 500) {
+        $erros[] = 'Especificações Técnicas devem ter no máximo 500 caracteres.';
+    }
+    if (mb_strlen($descricao_completa) > 500) {
+        $erros[] = 'Descrição completa deve ter no máximo 500 caracteres.';
+    }
 
     /* ── Upload de imagem ── */
     $imagem_url = null;
@@ -114,26 +120,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             $pdo = db();
-            $pdo->prepare('
-                INSERT INTO Componente
-                    (id_cat, nome, descricao, qtd_disponivel, qtd_max_user, nivel_minimo, imagem_url, status_atual)
-                VALUES
-                    (:id_cat, :nome, :descricao, :qtd_disponivel, :qtd_max_user, :nivel_minimo, :imagem_url, "disponivel")
-            ')->execute([
-                'id_cat'       => $id_cat,
-                'nome'         => $nome,
-                'descricao'    => $descricao_bd,
+
+            $colsStmt = $pdo->prepare('
+                SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+            ');
+            $colsStmt->execute(['table' => 'Componente']);
+            $compMetaRows = $colsStmt->fetchAll();
+            $compMeta = [];
+            foreach ($compMetaRows as $metaRow) {
+                $compMeta[$metaRow['COLUMN_NAME']] = $metaRow;
+            }
+            $compCols = array_keys($compMeta);
+
+            $requiredCols = ['id_cat', 'nome', 'descricao', 'qtd_disponivel'];
+            foreach ($requiredCols as $required) {
+                if (!in_array($required, $compCols, true)) {
+                    throw new RuntimeException('Coluna obrigatória ausente em Componente: ' . $required);
+                }
+            }
+
+            if (isset($compMeta['descricao'])) {
+                $descDataType = strtolower((string) ($compMeta['descricao']['DATA_TYPE'] ?? ''));
+                $descMaxLen = $compMeta['descricao']['CHARACTER_MAXIMUM_LENGTH'];
+                $descMaxLen = $descMaxLen !== null ? (int) $descMaxLen : null;
+
+                if (in_array($descDataType, ['varchar', 'char'], true)
+                    && $descMaxLen !== null
+                    && mb_strlen($descricao_bd) > $descMaxLen) {
+                    try {
+                        $pdo->exec('ALTER TABLE Componente MODIFY COLUMN descricao TEXT NULL');
+                    } catch (Throwable) {
+                        throw new RuntimeException('Texto excede limite da coluna descrição no banco. Ajuste a coluna Componente.descricao para TEXT.');
+                    }
+                }
+            }
+
+            $fields = ['id_cat', 'nome', 'descricao', 'qtd_disponivel'];
+            $values = [':id_cat', ':nome', ':descricao', ':qtd_disponivel'];
+            $params = [
+                'id_cat' => $id_cat,
+                'nome' => $nome,
+                'descricao' => $descricao_bd,
                 'qtd_disponivel' => $qtd_disponivel,
-                'qtd_max_user' => $qtd_max_user,
-                'nivel_minimo' => $qtd_minima,
-                'imagem_url'   => $imagem_url,
-            ]);
+            ];
+
+            if (in_array('qtd_max_user', $compCols, true)) {
+                $fields[] = 'qtd_max_user';
+                $values[] = ':qtd_max_user';
+                $params['qtd_max_user'] = $qtd_max_user;
+            }
+            if (in_array('nivel_minimo', $compCols, true)) {
+                $fields[] = 'nivel_minimo';
+                $values[] = ':nivel_minimo';
+                $params['nivel_minimo'] = $qtd_minima;
+            }
+            if (in_array('imagem_url', $compCols, true)) {
+                $fields[] = 'imagem_url';
+                $values[] = ':imagem_url';
+                $params['imagem_url'] = $imagem_url;
+            }
+            if (in_array('status_atual', $compCols, true)) {
+                $fields[] = 'status_atual';
+                $values[] = ':status_atual';
+                $params['status_atual'] = $qtd_disponivel > 0 ? 'disponivel' : 'indisponivel';
+            }
+
+            $sql = sprintf(
+                'INSERT INTO Componente (%s) VALUES (%s)',
+                implode(', ', $fields),
+                implode(', ', $values)
+            );
+
+            $pdo->prepare($sql)->execute($params);
 
             header('Location: ./catalogo.php?cadastro=ok');
             exit;
 
-        } catch (Throwable) {
-            $erros[] = 'Erro ao salvar no banco de dados. Verifique a conexão com o MySQL.';
+        } catch (Throwable $e) {
+            error_log('[cadastrar_catalogo] Falha ao inserir componente: ' . $e->getMessage());
+            $erros[] = 'Erro ao salvar item no banco de dados. Confira os campos e tente novamente.';
         }
     }
 }
@@ -520,7 +587,7 @@ require_once '../includes/header.php';
                 name="descricao_curta"
                 placeholder="Ex: Diodo emissor de luz para sinalização"
                 value="<?= htmlspecialchars($form['descricao_curta'] ?? '') ?>"
-                maxlength="300"
+                maxlength="500"
             >
         </div>
 
@@ -578,6 +645,7 @@ require_once '../includes/header.php';
                 id="inputDescCompleta"
                 name="descricao_completa"
                 placeholder="Descreva as especificações do item"
+                maxlength="500"
             ><?= htmlspecialchars($form['descricao_completa'] ?? '') ?></textarea>
         </div>
 
@@ -663,10 +731,14 @@ require_once '../includes/header.php';
     document.getElementById('formCadastro').addEventListener('submit', function (e) {
         const nome   = document.getElementById('inputNome').value.trim();
         const id_cat = document.getElementById('inputCat').value;
+        const descCurta = document.getElementById('inputDescCurta').value.trim();
+        const descCompleta = document.getElementById('inputDescCompleta').value.trim();
         const erros  = [];
 
         if (!nome)   erros.push('Nome do item é obrigatório.');
         if (!id_cat) erros.push('Selecione uma categoria.');
+        if (descCurta.length > 500) erros.push('Especificações Técnicas devem ter no máximo 500 caracteres.');
+        if (descCompleta.length > 500) erros.push('Descrição completa deve ter no máximo 500 caracteres.');
 
         if (erros.length) {
             e.preventDefault();

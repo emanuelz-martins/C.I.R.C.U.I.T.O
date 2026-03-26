@@ -54,14 +54,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($nome !== '') {
+                    $qtd_disponivel_normalizada = max(0, $qtd_disponivel);
                     $sql = '
                         UPDATE Componente
-                        SET nome = :nome, descricao = :descricao, qtd_disponivel = :qtd_disponivel';
+                        SET nome = :nome,
+                            descricao = :descricao,
+                            qtd_disponivel = :qtd_disponivel,
+                            status_atual = :status_atual';
 
                     $params = [
                         'nome' => $nome,
                         'descricao' => $descricao,
-                        'qtd_disponivel' => max(0, $qtd_disponivel),
+                        'qtd_disponivel' => $qtd_disponivel_normalizada,
+                        'status_atual' => $qtd_disponivel_normalizada > 0 ? 'disponivel' : 'indisponivel',
                         'id' => $id_comp
                     ];
 

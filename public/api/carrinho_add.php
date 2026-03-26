@@ -108,6 +108,28 @@ if (!isset($_SESSION['carrinho'])) {
 $carrinho = &$_SESSION['carrinho'];
 $encontrou = false;
 
+$qtd_atual_no_carrinho = 0;
+foreach ($carrinho as $item_carrinho_existente) {
+    if ((int) ($item_carrinho_existente['id'] ?? 0) === $id_comp) {
+        $qtd_atual_no_carrinho = (int) ($item_carrinho_existente['quantidade'] ?? 0);
+        break;
+    }
+}
+
+$qtd_solicitada_total = $qtd_atual_no_carrinho + $quantidade;
+$qtd_max = (int) ($item['qtd_max_user'] ?? 0);
+$qtd_estoque = (int) ($item['qtd_disponivel'] ?? 0);
+$qtd_permitida = $qtd_max > 0 ? min($qtd_max, $qtd_estoque) : $qtd_estoque;
+
+if ($qtd_solicitada_total > $qtd_permitida) {
+    http_response_code(400);
+    echo json_encode([
+        'ok' => false,
+        'mensagem' => 'Limite excedido para este item no carrinho. Máximo permitido: ' . $qtd_permitida . '.',
+    ]);
+    exit;
+}
+
 foreach ($carrinho as &$item_carrinho) {
     if ($item_carrinho['id'] === $id_comp) {
         $item_carrinho['quantidade'] += $quantidade;

@@ -265,6 +265,38 @@ try {
         border-color: #78350f;
         color: #f59e0b;
     }
+
+    /* ── Botões de ação da notificação ─────── */
+    .btn-notif {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        border: 1px solid #3a3a3a;
+        background-color: #2a2a2a;
+        color: #aaa;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .btn-notif svg { width: 18px; height: 18px; pointer-events: none; }
+
+    .btn-notif:hover { background-color: #333; color: #fff; }
+
+    .btn-notif.btn-lida:hover  { background-color: #1a3a5c; border-color: #3b82f6; color: #3b82f6; }
+    .btn-notif.btn-lida.active { background-color: #1a3a5c; border-color: #3b82f6; color: #3b82f6; opacity: 1 !important; }
+
+    .btn-notif.btn-excluir:hover { background-color: #3a1a1a; border-color: #ef4444; color: #ef4444; }
+
+    /* card sendo removido */
+    .notif-card.removendo {
+        opacity: 0;
+        transform: translateX(20px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
 </style>
 </head>
 <body>
@@ -301,7 +333,7 @@ try {
             Carrinho
         </a>
 
-        <a href="./pedido.php" class="nav-action-btn">
+        <a href="./verpedidos.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -408,7 +440,7 @@ try {
     <?php else: ?>
     <div class="notif-list" style="margin-bottom:48px;">
         <?php foreach ($notificacoes['avisos'] as $n): ?>
-        <div class="notif-card notif-aviso <?= $n['lida'] ? 'lida' : '' ?>">
+        <div class="notif-card notif-aviso <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
             <div class="notif-icon icon-aviso">
                 <!-- Ícone de pessoa / laboratorista -->
@@ -428,6 +460,31 @@ try {
                 </p>
                 <p class="notif-mensagem"><?= nl2br(htmlspecialchars($n['mensagem'])) ?></p>
                 <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
+            </div>
+
+            <div class="notif-actions">
+                <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
+                        title="Marcar como lida"
+                        onclick="marcarLida(this, <?= $n['id_not'] ?>)">
+                    <!-- Olho -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+                <button class="btn-notif btn-excluir"
+                        title="Excluir notificação"
+                        onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
+                    <!-- Lixeira -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6"/><path d="M14 11v6"/>
+                        <path d="M9 6V4h6v2"/>
+                    </svg>
+                </button>
             </div>
 
         </div>
@@ -456,7 +513,7 @@ try {
     <?php else: ?>
     <div class="notif-list">
         <?php foreach ($notificacoes['automaticas'] as $n): ?>
-        <div class="notif-card <?= $n['lida'] ? 'lida' : '' ?>">
+        <div class="notif-card <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
             <div class="notif-icon">
                 <!-- Ícone robô -->
@@ -482,6 +539,31 @@ try {
                 <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
             </div>
 
+            <div class="notif-actions">
+                <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
+                        title="Marcar como lida"
+                        onclick="marcarLida(this, <?= $n['id_not'] ?>)">
+                    <!-- Olho -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+                <button class="btn-notif btn-excluir"
+                        title="Excluir notificação"
+                        onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
+                    <!-- Lixeira -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14H6L5 6"/>
+                        <path d="M10 11v6"/><path d="M14 11v6"/>
+                        <path d="M9 6V4h6v2"/>
+                    </svg>
+                </button>
+            </div>
+
         </div>
         <?php endforeach; ?>
     </div>
@@ -491,5 +573,51 @@ try {
 
 </main>
 
+<script>
+    async function notifAction(acao, id) {
+        const fd = new FormData();
+        fd.append('acao', acao);
+        fd.append('id', id);
+        const res = await fetch('../api/notificacao_action.php', { method: 'POST', body: fd });
+        return res.json();
+    }
+
+    async function marcarLida(btn, id) {
+        if (btn.classList.contains('active')) return;
+        const data = await notifAction('marcar_lida', id);
+        if (!data.ok) return;
+
+        const card = document.getElementById('notif-' + id);
+        card.classList.add('lida');
+        btn.classList.add('active');
+
+        // remove o ponto azul de "não lida"
+        const dot = card.querySelector('.dot-new');
+        if (dot) dot.remove();
+    }
+
+    async function excluirNotif(btn, id) {
+        const card = document.getElementById('notif-' + id);
+        const data = await notifAction('excluir', id);
+        if (!data.ok) return;
+
+        // decrementa o badge da seção correspondente
+        const lista = card.closest('.notif-list');
+        if (lista) {
+            const secao = lista.previousElementSibling;
+            if (secao) {
+                const badge = secao.querySelector('.count-badge');
+                if (badge) {
+                    const atual = parseInt(badge.textContent, 10);
+                    if (atual <= 1) badge.remove();
+                    else badge.textContent = atual - 1;
+                }
+            }
+        }
+
+        card.classList.add('removendo');
+        card.addEventListener('transitionend', () => card.remove(), { once: true });
+    }
+</script>
 </body>
 </html>

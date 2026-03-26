@@ -4,12 +4,216 @@ checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
 
+/* ── Finalizar pedido (POST) ─────────────────────────────── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'finalizar-pedido') {
+    $id_usuario = (int) ($_SESSION['auth_user']['id'] ?? 0);
+    $payloadRaw = (string) ($_POST['cart_payload'] ?? '');
+    $payloadArr = json_decode($payloadRaw, true);
+
+    if ($id_usuario <= 0) {
+        header('Location: ./carrinho.php?erro=usuario');
+        exit;
+    }
+
+    if (!is_array($payloadArr) || empty($payloadArr)) {
+        header('Location: ./carrinho.php?erro=itens');
+        exit;
+    }
+
+    $itensPayload = [];
+    foreach ($payloadArr as $row) {
+        $id_comp = (int) ($row['id'] ?? 0);
+        $quantidade = (int) ($row['quantidade'] ?? 0);
+        if ($id_comp > 0 && $quantidade > 0) {
+            if (!isset($itensPayload[$id_comp])) {
+                $itensPayload[$id_comp] = ['id' => $id_comp, 'quantidade' => 0];
+            }
+            $itensPayload[$id_comp]['quantidade'] += $quantidade;
+        }
+    }
+
+    if (empty($itensPayload)) {
+        header('Location: ./carrinho.php?erro=itens');
+        exit;
+    }
+
+    $itensPayload = array_values($itensPayload);
+
+    try {
+        $pdo = db();
+
+        $getCols = static function (PDO $pdo, string $table): array {
+            $stmt = $pdo->prepare('
+                SELECT COLUMN_NAME
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+            ');
+            $stmt->execute(['table' => $table]);
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        };
+
+        $pedidoCols = $getCols($pdo, 'Pedido');
+        if (empty($pedidoCols)) {
+            throw new RuntimeException('Tabela Pedido não encontrada.');
+        }
+
+        $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
+            : (in_array('status', $pedidoCols, true) ? 'status' : null);
+        $createdCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao'
+            : (in_array('data', $pedidoCols, true) ? 'data' : null);
+        $updatedCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+        $numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
+
+        if ($statusCol === null || $createdCol === null) {
+            throw new RuntimeException('Colunas essenciais de Pedido não encontradas.');
+        }
+
+        $itemTable = null;
+        $itemCols = [];
+
+        foreach (['Item_Pedido', 'BemPedido'] as $candidate) {
+            $cols = $getCols($pdo, $candidate);
+            if (!empty($cols)) {
+                $itemTable = $candidate;
+                $itemCols = $cols;
+                break;
+            }
+        }
+
+        if ($itemTable === null) {
+            throw new RuntimeException('Tabela de itens do pedido não encontrada.');
+        }
+
+        $itemPedidoCol = in_array('id_pedido', $itemCols, true) ? 'id_pedido' : null;
+        $itemCompCol = in_array('id_comp', $itemCols, true) ? 'id_comp'
+            : (in_array('id_componente', $itemCols, true) ? 'id_componente' : null);
+        $itemQtdCol = in_array('qtd_solicitada', $itemCols, true) ? 'qtd_solicitada'
+            : (in_array('quantidade', $itemCols, true) ? 'quantidade' : null);
+
+        if ($itemPedidoCol === null || $itemCompCol === null || $itemQtdCol === null) {
+            throw new RuntimeException('Colunas de itens do pedido incompatíveis.');
+        }
+
+        $ids = array_map(static fn(array $item): int => (int) $item['id'], $itensPayload);
+        $ids = array_values(array_unique(array_filter($ids, static fn(int $id): bool => $id > 0)));
+        if (empty($ids)) {
+            header('Location: ./carrinho.php?erro=itens');
+            exit;
+        }
+
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $stmtLimites = $pdo->prepare("SELECT id_comp, qtd_disponivel, qtd_max_user, status_atual FROM Componente WHERE id_comp IN ({$ph})");
+        $stmtLimites->execute($ids);
+        $rows = $stmtLimites->fetchAll();
+        $componentes = [];
+        foreach ($rows as $r) {
+            $componentes[(int) $r['id_comp']] = $r;
+        }
+
+        foreach ($itensPayload as $item) {
+            $idComp = (int) $item['id'];
+            $qtd = (int) $item['quantidade'];
+            $comp = $componentes[$idComp] ?? null;
+
+            if (!$comp) {
+                header('Location: ./carrinho.php?erro=itens');
+                exit;
+            }
+
+            if (($comp['status_atual'] ?? 'indisponivel') !== 'disponivel') {
+                header('Location: ./carrinho.php?erro=indisponivel');
+                exit;
+            }
+
+            $estoque = (int) ($comp['qtd_disponivel'] ?? 0);
+            $maxUser = (int) ($comp['qtd_max_user'] ?? 0);
+            $qtdMaxPermitida = $maxUser > 0 ? min($maxUser, $estoque) : $estoque;
+
+            if ($qtd <= 0 || $estoque <= 0 || $qtd > $qtdMaxPermitida) {
+                header('Location: ./carrinho.php?erro=limite');
+                exit;
+            }
+        }
+
+        $pdo->beginTransaction();
+
+        $nextNumero = null;
+        if ($numeroCol !== null) {
+            $stmtNumero = $pdo->query("SELECT COALESCE(MAX({$numeroCol}), 0) + 1 AS prox FROM Pedido");
+            $nextNumero = (int) ($stmtNumero->fetch()['prox'] ?? 1);
+        }
+
+        $pedidoFields = ['id_user', $statusCol, $createdCol];
+        $pedidoValues = [':id_user', ':status', 'NOW()'];
+        $paramsPedido = [
+            'id_user' => $id_usuario,
+            'status' => 'pendente',
+        ];
+
+        if ($numeroCol !== null) {
+            $pedidoFields[] = $numeroCol;
+            $pedidoValues[] = ':numero_pedido';
+            $paramsPedido['numero_pedido'] = $nextNumero;
+        }
+        if ($updatedCol !== null) {
+            $pedidoFields[] = $updatedCol;
+            $pedidoValues[] = 'NOW()';
+        }
+
+        $sqlPedido = sprintf(
+            'INSERT INTO Pedido (%s) VALUES (%s)',
+            implode(', ', $pedidoFields),
+            implode(', ', $pedidoValues)
+        );
+
+        $stmtPedido = $pdo->prepare($sqlPedido);
+        $stmtPedido->execute($paramsPedido);
+
+        $id_pedido = (int) $pdo->lastInsertId();
+        if ($id_pedido <= 0) {
+            throw new RuntimeException('Falha ao criar pedido.');
+        }
+
+        $sqlItem = sprintf(
+            'INSERT INTO %s (%s, %s, %s) VALUES (:id_pedido, :id_comp, :qtd)',
+            $itemTable,
+            $itemPedidoCol,
+            $itemCompCol,
+            $itemQtdCol
+        );
+        $stmtItem = $pdo->prepare($sqlItem);
+
+        foreach ($itensPayload as $item) {
+            $stmtItem->execute([
+                'id_pedido' => $id_pedido,
+                'id_comp' => (int) $item['id'],
+                'qtd' => (int) $item['quantidade'],
+            ]);
+        }
+
+        $pdo->commit();
+
+        $_SESSION['carrinho'] = [];
+        header('Location: ./carrinho.php?sucesso=1');
+        exit;
+
+    } catch (Throwable) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        header('Location: ./carrinho.php?erro=finalizar');
+        exit;
+    }
+}
+
 $page_title = 'Carrinho';
 require_once '../includes/header.php';
 
 /* ── Itens do carrinho: carregados da sessão ── */
 $itens = [];
 $db_ok = false;
+$erro = (string) ($_GET['erro'] ?? '');
+$sucesso = (string) ($_GET['sucesso'] ?? '');
 
 try {
     $pdo = db();
@@ -30,6 +234,7 @@ try {
                     c.descricao,
                     c.imagem_url,
                     c.qtd_disponivel,
+                    c.qtd_max_user,
                     cat.nome AS categoria_nome
                 FROM Componente c
                 JOIN Categoria cat ON cat.id_cat = c.id_cat
@@ -40,13 +245,18 @@ try {
             $comp = $stmt->fetch();
             
             if ($comp) {
+                $qtd_estoque = (int) ($comp['qtd_disponivel'] ?? 0);
+                $qtd_max_user = (int) ($comp['qtd_max_user'] ?? 0);
+                $qtd_max = $qtd_max_user > 0 ? min($qtd_max_user, $qtd_estoque) : $qtd_estoque;
+
                 $itens[] = [
                     'id'         => $comp['id_comp'],
                     'nome'       => $comp['nome'],
                     'descricao'  => substr($comp['descricao'] ?? '', 0, 80),
                     'imagem'     => $comp['imagem_url'],
                     'categoria'  => $comp['categoria_nome'],
-                    'quantidade' => $quantidade,
+                    'quantidade' => max(1, min($quantidade, max(1, $qtd_max))),
+                    'qtd_max'    => max(1, $qtd_max),
                 ];
             }
         }
@@ -309,7 +519,7 @@ try {
 
     <div class="nav-actions">
 
-        <a href="./pedido.php" class="nav-action-btn">
+        <a href="./verpedidos.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -379,6 +589,30 @@ try {
 <!-- ══════════════════ CONTEÚDO ══════════════════ -->
 <main class="main">
 
+    <?php if ($sucesso === '1'): ?>
+    <div style="background-color:#0f2e1d;border:1px solid #166534;border-radius:12px;padding:14px 18px;color:#86efac;margin-bottom:18px;">
+        Pedido enviado com sucesso! O laboratorista já pode visualizar e avaliar sua solicitação.
+    </div>
+    <?php endif; ?>
+
+    <?php if ($erro !== ''): ?>
+    <div style="background-color:#2a1111;border:1px solid #7f1d1d;border-radius:12px;padding:14px 18px;color:#fca5a5;margin-bottom:18px;">
+        <?php
+            if ($erro === 'usuario') {
+                echo 'Não foi possível identificar o usuário logado.';
+            } elseif ($erro === 'itens') {
+                echo 'Seu carrinho não possui itens válidos para envio.';
+            } elseif ($erro === 'limite') {
+                echo 'Um ou mais itens ultrapassam o limite permitido por usuário ou o estoque disponível.';
+            } elseif ($erro === 'indisponivel') {
+                echo 'Um ou mais itens ficaram indisponíveis para empréstimo.';
+            } else {
+                echo 'Não foi possível finalizar o pedido agora. Tente novamente em instantes.';
+            }
+        ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Cabeçalho -->
     <div class="page-header">
         <h1 class="page-title">Seu carrinho de itens</h1>
@@ -438,6 +672,7 @@ try {
                         id="qty-<?= (int)$item['id'] ?>"
                         value="<?= (int)$item['quantidade'] ?>"
                         min="1"
+                        max="<?= (int)$item['qtd_max'] ?>"
                         onchange="validarQtd(<?= (int)$item['id'] ?>)"
                         aria-label="Quantidade"
                     >
@@ -463,6 +698,11 @@ try {
     <button class="btn-enviar" id="btnEnviar" onclick="enviarPedido()">
         Enviar pedido
     </button>
+
+    <form method="POST" action="./carrinho.php" id="formEnviarPedido" style="display:none;">
+        <input type="hidden" name="action" value="finalizar-pedido">
+        <input type="hidden" name="cart_payload" id="cartPayloadInput" value="">
+    </form>
     <?php endif; ?>
 
 </main>
@@ -470,13 +710,16 @@ try {
 <script>
     function alterarQtd(id, delta) {
         const input = document.getElementById('qty-' + id);
-        const novoValor = Math.max(1, (parseInt(input.value) || 1) + delta);
+        const max = Math.max(1, parseInt(input.max || '1', 10) || 1);
+        const novoValor = Math.min(max, Math.max(1, (parseInt(input.value) || 1) + delta));
         input.value = novoValor;
     }
 
     function validarQtd(id) {
         const input = document.getElementById('qty-' + id);
-        if (!input.value || parseInt(input.value) < 1) input.value = 1;
+        const max = Math.max(1, parseInt(input.max || '1', 10) || 1);
+        const valor = parseInt(input.value || '1', 10) || 1;
+        input.value = Math.min(max, Math.max(1, valor));
     }
 
     function removerItem(id) {
@@ -500,8 +743,29 @@ try {
     }
 
     function enviarPedido() {
-        // TODO: implementar envio real (AJAX ou submit de formulário)
-        alert('Pedido enviado com sucesso!');
+        const lista = document.getElementById('cartList');
+        if (!lista) return;
+
+        const payload = [];
+        lista.querySelectorAll('.cart-item').forEach(function (itemEl) {
+            const idStr = itemEl.id.replace('item-', '');
+            const id = parseInt(idStr, 10);
+            const qtyInput = document.getElementById('qty-' + id);
+            const max = Math.max(1, parseInt(qtyInput ? (qtyInput.max || '1') : '1', 10) || 1);
+            const quantidade = Math.min(max, Math.max(1, parseInt(qtyInput ? qtyInput.value : '1', 10) || 1));
+
+            if (Number.isInteger(id) && id > 0) {
+                payload.push({ id: id, quantidade: quantidade });
+            }
+        });
+
+        if (payload.length === 0) {
+            alert('Seu carrinho está vazio.');
+            return;
+        }
+
+        document.getElementById('cartPayloadInput').value = JSON.stringify(payload);
+        document.getElementById('formEnviarPedido').submit();
     }
 </script>
 

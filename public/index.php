@@ -60,17 +60,16 @@ try {
             ];
         }
         if (!empty($row['id_comp'])) {
-            /* Filtra apenas itens com status "disponivel" e estoque > 0 */
-            if (($row['status_atual'] ?? 'indisponivel') === 'disponivel' && (int)$row['qtd_disponivel'] > 0) {
-                $categorias[$cat_id]['itens'][] = [
-                    'id'           => $row['id_comp'],
-                    'nome'         => $row['comp_nome'],
-                    'descricao'    => $row['descricao'],
-                    'estoque'      => $row['qtd_disponivel'],
-                    'qtd_max_user' => $row['qtd_max_user'],
-                    'img'          => $row['imagem_url'],
-                ];
-            }
+            $disponivel = (($row['status_atual'] ?? 'indisponivel') === 'disponivel') && ((int)$row['qtd_disponivel'] > 0);
+            $categorias[$cat_id]['itens'][] = [
+                'id'           => $row['id_comp'],
+                'nome'         => $row['comp_nome'],
+                'descricao'    => $row['descricao'],
+                'estoque'      => $row['qtd_disponivel'],
+                'qtd_max_user' => $row['qtd_max_user'],
+                'img'          => $row['imagem_url'],
+                'disponivel'   => $disponivel,
+            ];
         }
     }
     $categorias = array_values($categorias);
@@ -207,6 +206,16 @@ require_once 'includes/header.php';
             transform: translateY(-2px);
         }
 
+        .component-card.out-of-stock {
+            opacity: 0.75;
+            border-color: #3a1a1a;
+        }
+
+        .component-card.out-of-stock:hover {
+            transform: none;
+            border-color: #5a2a2a;
+        }
+
         .card-img {
             width: 100%;
             aspect-ratio: 4/3;
@@ -251,6 +260,11 @@ require_once 'includes/header.php';
             font-size: 0.78rem;
             color: #666;
             margin-bottom: 14px;
+        }
+
+        .card-stock.out {
+            color: #fca5a5;
+            font-weight: 700;
         }
 
         .btn-add-cart {
@@ -362,7 +376,7 @@ require_once 'includes/header.php';
             Carrinho
         </a>
 
-        <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/pedido.php" class="nav-action-btn">
+        <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/verpedidos.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -482,7 +496,12 @@ require_once 'includes/header.php';
 
             <div class="carousel-track" id="carousel-<?= $categoria['id'] ?>">
                 <?php foreach ($categoria['itens'] as $item): ?>
-                <a class="component-card" href="/C.I.R.C.U.I.T.O/public/pages_aluno/item.php?id=<?= (int) $item['id'] ?>">
+                <a
+                    class="component-card <?= !($item['disponivel'] ?? true) ? 'out-of-stock' : '' ?>"
+                    href="/C.I.R.C.U.I.T.O/public/pages_aluno/item.php?id=<?= (int) $item['id'] ?>"
+                    data-disabled="<?= !($item['disponivel'] ?? true) ? '1' : '0' ?>"
+                    onclick="if (this.dataset.disabled === '1') { event.preventDefault(); alert('Produto fora de estoque.'); }"
+                >
 
                     <?php if (!empty($item['img'])): ?>
                         <img class="card-img"
@@ -501,7 +520,11 @@ require_once 'includes/header.php';
 
                     <div class="card-body">
                         <div class="card-name"><?= htmlspecialchars($item['nome']) ?></div>
+                        <?php if (($item['disponivel'] ?? true)): ?>
                         <div class="card-stock"><?= (int)$item['estoque'] ?> unidades em estoque</div>
+                        <?php else: ?>
+                        <div class="card-stock out">Produto fora de estoque</div>
+                        <?php endif; ?>
                         <?php if (!empty($item['qtd_max_user']) && (int)$item['qtd_max_user'] > 0): ?>
                         <div class="card-stock" style="color:#555">Máx. por usuário: <?= (int)$item['qtd_max_user'] ?> unid.</div>
                         <?php endif; ?>
@@ -511,7 +534,7 @@ require_once 'includes/header.php';
                                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                             </svg>
-                            Ver detalhes
+                            <?= ($item['disponivel'] ?? true) ? 'Ver detalhes' : 'Indisponível' ?>
                         </span>
                     </div>
                 </a>

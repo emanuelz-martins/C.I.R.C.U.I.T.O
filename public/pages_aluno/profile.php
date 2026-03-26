@@ -28,21 +28,83 @@ try {
         /* Sincroniza sessão */
         $_SESSION['auth_user']['foto_perfil'] = $foto_perfil;
 
-        /* TODO: Implementar consulta ao banco para buscar pedidos do usuário */
-        /*
-        $stmt = $pdo->prepare('
-            SELECT
-                id_pedido,
-                numero_pedido,
-                status_pedido,
-                data_ultima_atualizacao
-            FROM Pedido
-            WHERE id_user = :id_user
-            ORDER BY data_criacao DESC
-        ');
-        $stmt->execute(['id_user' => $id_usuario]);
-        $pedidos = $stmt->fetchAll();
-        */
+        $getCols = static function (PDO $pdo, string $table): array {
+            $stmtCols = $pdo->prepare('
+                SELECT COLUMN_NAME
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+            ');
+            $stmtCols->execute(['table' => $table]);
+            return $stmtCols->fetchAll(PDO::FETCH_COLUMN);
+        };
+
+        $pedidoCols = $getCols($pdo, 'Pedido');
+        $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
+            : (in_array('status', $pedidoCols, true) ? 'status' : null);
+        $numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
+        $dataCriacaoCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao' : null;
+        $dataAtualizacaoCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+
+        if ($statusCol !== null) {
+            $selectNumero = ($numeroCol !== null ? 'p.' . $numeroCol : 'p.id_pedido') . ' AS numero_pedido';
+            $selectStatus = 'p.' . $statusCol . ' AS status_pedido';
+
+            if ($dataAtualizacaoCol !== null && $dataCriacaoCol !== null) {
+                $selectData = "DATE_FORMAT(COALESCE(p.{$dataAtualizacaoCol}, p.{$dataCriacaoCol}), '%d/%m/%Y') AS ultima_atualizacao";
+            } elseif ($dataAtualizacaoCol !== null) {
+                $selectData = "DATE_FORMAT(p.{$dataAtualizacaoCol}, '%d/%m/%Y') AS ultima_atualizacao";
+            } elseif ($dataCriacaoCol !== null) {
+                $selectData = "DATE_FORMAT(p.{$dataCriacaoCol}, '%d/%m/%Y') AS ultima_atualizacao";
+            } else {
+                $selectData = 'NULL AS ultima_atualizacao';
+            }
+
+            $orderBy = $dataAtualizacaoCol !== null ? 'p.' . $dataAtualizacaoCol . ' DESC, p.id_pedido DESC' : 'p.id_pedido DESC';
+
+            $stmt = $pdo->prepare("
+                SELECT
+                    p.id_pedido,
+                    {$selectNumero},
+                    {$selectStatus},
+                    {$selectData}
+                FROM Pedido p
+                WHERE p.id_user = :id_user
+                ORDER BY {$orderBy}
+                LIMIT 20
+            ");
+            $stmt->execute(['id_user' => $id_usuario]);
+            $pedidosDb = $stmt->fetchAll();
+
+            $labelMap = [
+                'pendente' => 'Enviado',
+                'enviado' => 'Enviado',
+                'em-separacao' => 'Em separação',
+                'pronto-para-retirada' => 'Pronto para retirada',
+                'em-andamento' => 'Em andamento',
+                'em-atraso' => 'Em atraso',
+                'renovacao-solicitada' => 'Renovação solicitada',
+                'finalizado' => 'Finalizado',
+                'negado' => 'Cancelado',
+                'cancelado' => 'Cancelado',
+            ];
+
+            foreach ($pedidosDb as $row) {
+                $status = (string) ($row['status_pedido'] ?? 'pendente');
+                $statusClass = in_array($status, ['em-andamento', 'finalizado', 'cancelado'], true)
+                    ? $status
+                    : ($status === 'negado' ? 'cancelado' : 'em-andamento');
+
+                $pedidos[] = [
+                    'id_pedido' => (int) $row['id_pedido'],
+                    'numero' => $row['numero_pedido'] ?? $row['id_pedido'],
+                    'numero_pedido' => $row['numero_pedido'] ?? $row['id_pedido'],
+                    'ultima_atualizacao' => $row['ultima_atualizacao'] ?? '—',
+                    'status' => $statusClass,
+                    'status_pedido' => $status,
+                    'status_label' => $labelMap[$status] ?? ucfirst(str_replace('-', ' ', $status)),
+                ];
+            }
+        }
     }
     $db_ok = true;
 } catch (Throwable) {
@@ -386,7 +448,7 @@ try {
             Carrinho
         </a>
 
-        <a href="./pedido.php" class="nav-action-btn">
+        <a href="./verpedidos.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -531,7 +593,7 @@ try {
                 <span class="status-badge <?= htmlspecialchars($pedido['status'] ?? $pedido['status_pedido'] ?? '') ?>">
                     <?= htmlspecialchars($pedido['status_label'] ?? '') ?>
                 </span>
-                <a href="/pedido-detalhe.php?id=<?= htmlspecialchars($pedido['numero'] ?? '') ?>" class="btn-details" aria-label="Ver detalhes do pedido">
+                <a href="./pedido.php?id=<?= (int) ($pedido['id_pedido'] ?? 0) ?>" class="btn-details" aria-label="Ver detalhes do pedido">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="8" y1="6" x2="21" y2="6"/>

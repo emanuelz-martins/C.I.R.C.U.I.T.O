@@ -16,62 +16,151 @@ $db_ok = false;
 
 try {
     $pdo = db();
-    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
-    
-    /* TODO: Implementar consulta ao banco para buscar pedido do usuário */
-    /*
-    $stmt = $pdo->prepare('
-        SELECT
-            p.id_pedido,
-            p.numero_pedido,
-            p.status_pedido,
-            p.data_entrega,
-            p.data_criacao
-        FROM Pedido p
-        WHERE p.id_pedido = :id_pedido
-        AND p.id_user = :id_user
-        LIMIT 1
-    ');
-    $stmt->execute(['id_pedido' => $id_pedido, 'id_user' => $id_usuario]);
-    $pedido = $stmt->fetch();
-    
-    if (!$pedido) {
-        $pedido = null;
+    $id_usuario = (int) ($_SESSION['auth_user']['id'] ?? $_SESSION['auth_user']['id_user'] ?? 0);
+
+    if ($id_usuario > 0) {
+        $getCols = static function (PDO $pdo, string $table): array {
+            $stmt = $pdo->prepare('
+                SELECT COLUMN_NAME
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
+            ');
+            $stmt->execute(['table' => $table]);
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        };
+
+        $statusLabel = static function (string $status): string {
+            $map = [
+                'pendente' => 'Enviado',
+                'enviado' => 'Enviado',
+                'em-separacao' => 'Em separação',
+                'pronto-para-retirada' => 'Pronto para retirada',
+                'em-andamento' => 'Em andamento',
+                'em-atraso' => 'Em atraso',
+                'renovacao-solicitada' => 'Renovação solicitada',
+                'negado' => 'Negado',
+                'cancelado' => 'Cancelado',
+                'finalizado' => 'Finalizado',
+            ];
+            return $map[$status] ?? ucfirst(str_replace('-', ' ', $status));
+        };
+
+        $pedidoCols = $getCols($pdo, 'Pedido');
+        if (!empty($pedidoCols)) {
+            $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
+                : (in_array('status', $pedidoCols, true) ? 'status' : null);
+            $numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
+            $dataCriacaoCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao' : null;
+            $dataAtualizacaoCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+
+            $dataEntregaCol = null;
+            foreach (['data_entrega', 'data_devolucao_prevista', 'data_retirada_prevista'] as $candidate) {
+                if (in_array($candidate, $pedidoCols, true)) {
+                    $dataEntregaCol = $candidate;
+                    break;
+                }
+            }
+
+            if ($statusCol !== null) {
+                $select = [
+                    'p.id_pedido',
+                    ($numeroCol !== null ? "p.{$numeroCol}" : 'p.id_pedido') . ' AS numero_pedido',
+                    "p.{$statusCol} AS status_pedido",
+                    ($dataEntregaCol !== null ? "DATE_FORMAT(p.{$dataEntregaCol}, '%d/%m/%Y')" : 'NULL') . ' AS data_entrega',
+                    ($dataCriacaoCol !== null ? "DATE_FORMAT(p.{$dataCriacaoCol}, '%d/%m/%Y')" : 'NULL') . ' AS data_criacao_fmt',
+                    ($dataAtualizacaoCol !== null ? "DATE_FORMAT(p.{$dataAtualizacaoCol}, '%d/%m/%Y')" : 'NULL') . ' AS data_atualizacao_fmt',
+                ];
+
+                $where = ['p.id_user = :id_user'];
+                $params = ['id_user' => $id_usuario];
+                if ($id_pedido !== null) {
+                    $where[] = 'p.id_pedido = :id_pedido';
+                    $params['id_pedido'] = $id_pedido;
+                }
+
+                $orderBy = $dataAtualizacaoCol !== null ? "p.{$dataAtualizacaoCol} DESC" : 'p.id_pedido DESC';
+                $sql = '
+                    SELECT ' . implode(",\n                           ", $select) . '
+                    FROM Pedido p
+                    WHERE ' . implode(' AND ', $where) . '
+                    ORDER BY ' . $orderBy . ', p.id_pedido DESC
+                    LIMIT 1
+                ';
+
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+                $row = $stmt->fetch();
+
+                if ($row) {
+                    $rawStatus = (string) ($row['status_pedido'] ?? 'pendente');
+                    $statusUi = $rawStatus === 'pendente' ? 'enviado' : $rawStatus;
+
+                    $pedido = [
+                        'id_pedido' => (int) $row['id_pedido'],
+                        'numero' => $row['numero_pedido'] ?? $row['id_pedido'],
+                        'numero_pedido' => $row['numero_pedido'] ?? $row['id_pedido'],
+                        'status' => $statusUi,
+                        'status_pedido' => $rawStatus,
+                        'data_entrega' => $row['data_entrega'] ?? 'N/A',
+                        'itens' => [],
+                        'historico' => [],
+                    ];
+
+                    $itemTable = null;
+                    $itemCols = [];
+                    foreach (['Item_Pedido', 'BemPedido'] as $candidate) {
+                        $cols = $getCols($pdo, $candidate);
+                        if (!empty($cols)) {
+                            $itemTable = $candidate;
+                            $itemCols = $cols;
+                            break;
+                        }
+                    }
+
+                    if ($itemTable !== null) {
+                        $itemPedidoCol = in_array('id_pedido', $itemCols, true) ? 'id_pedido' : null;
+                        $itemCompCol = in_array('id_comp', $itemCols, true) ? 'id_comp'
+                            : (in_array('id_componente', $itemCols, true) ? 'id_componente' : null);
+                        $itemQtdCol = in_array('qtd_solicitada', $itemCols, true) ? 'qtd_solicitada'
+                            : (in_array('quantidade', $itemCols, true) ? 'quantidade' : null);
+
+                        if ($itemPedidoCol !== null && $itemCompCol !== null && $itemQtdCol !== null) {
+                            $stmtItens = $pdo->prepare('
+                                SELECT
+                                    c.id_comp,
+                                    c.nome,
+                                    c.descricao,
+                                    c.imagem_url AS imagem,
+                                    cat.nome AS categoria,
+                                    i.' . $itemQtdCol . ' AS quantidade
+                                FROM ' . $itemTable . ' i
+                                JOIN Componente c ON c.id_comp = i.' . $itemCompCol . '
+                                LEFT JOIN Categoria cat ON cat.id_cat = c.id_cat
+                                WHERE i.' . $itemPedidoCol . ' = :id_pedido
+                                ORDER BY c.nome ASC
+                            ');
+                            $stmtItens->execute(['id_pedido' => $pedido['id_pedido']]);
+                            $pedido['itens'] = $stmtItens->fetchAll();
+                        }
+                    }
+
+                    $pedido['historico'][] = [
+                        'data' => $row['data_criacao_fmt'] ?? '—',
+                        'status' => 'enviado',
+                        'status_label' => $statusLabel('enviado'),
+                    ];
+
+                    if ($statusUi !== 'enviado') {
+                        $pedido['historico'][] = [
+                            'data' => $row['data_atualizacao_fmt'] ?? ($row['data_criacao_fmt'] ?? '—'),
+                            'status' => $statusUi,
+                            'status_label' => $statusLabel($statusUi),
+                        ];
+                    }
+                }
+            }
+        }
     }
-    
-    /* Buscar itens do pedido */
-    /*
-    $stmt_itens = $pdo->prepare('
-        SELECT
-            c.id_comp,
-            c.nome,
-            c.descricao,
-            c.imagem_url,
-            cat.nome AS categoria_nome,
-            bp.quantidade
-        FROM BemPedido bp
-        JOIN Componente c ON c.id_comp = bp.id_comp
-        JOIN Categoria cat ON cat.id_cat = c.id_cat
-        WHERE bp.id_pedido = :id_pedido
-    ');
-    $stmt_itens->execute(['id_pedido' => $id_pedido]);
-    $pedido['itens'] = $stmt_itens->fetchAll();
-    */
-    
-    /* Buscar histórico de atualizações */
-    /*
-    $stmt_historico = $pdo->prepare('
-        SELECT
-            data_atualizacao,
-            status_anterior,
-            status_novo
-        FROM LogAuditoria
-        WHERE id_pedido = :id_pedido
-        ORDER BY data_atualizacao DESC
-    ');
-    $stmt_historico->execute(['id_pedido' => $id_pedido]);
-    $pedido['historico'] = $stmt_historico->fetchAll();
-    */
     
     $db_ok = true;
 } catch (Throwable) {
