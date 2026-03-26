@@ -185,3 +185,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ------------------------------------------------------------
 ALTER TABLE Notificacao
     ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'automatica' AFTER mensagem;
+
+-- ------------------------------------------------------------
+-- Migração: adiciona coluna foto_perfil em Usuario
+-- ------------------------------------------------------------
+ALTER TABLE Usuario
+    ADD COLUMN IF NOT EXISTS foto_perfil VARCHAR(255) NULL AFTER tipo_perfil;

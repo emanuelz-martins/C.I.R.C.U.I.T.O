@@ -61,7 +61,7 @@ $search   = trim($_GET['q'] ?? '');
 
 try {
     $pdo    = db();
-    $sql    = "SELECT id_user, nome, login, matricula, bloqueado
+    $sql    = "SELECT id_user, nome, login, matricula, bloqueado, foto_perfil
                FROM   Usuario
                WHERE  tipo_perfil = 'estudante'";
     $params = [];
@@ -205,6 +205,30 @@ require_once '../includes/header.php';
     }
 
     .user-card.bloqueado { border-color: #7f1d1d; }
+
+    .user-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 10px;
+        background-color: #2a2a2a;
+        flex-shrink: 0;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .user-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .user-avatar svg {
+        width: 26px;
+        height: 26px;
+        color: #555;
+    }
 
     .user-info { flex: 1; min-width: 0; }
 
@@ -538,6 +562,16 @@ require_once '../includes/header.php';
     <div class="user-list">
         <?php foreach ($usuarios as $u): ?>
         <div class="user-card <?= $u['bloqueado'] ? 'bloqueado' : '' ?>" id="card-<?= $u['id_user'] ?>">
+
+            <div class="user-avatar">
+                <?php if (!empty($u['foto_perfil'])): ?>
+                    <img src="<?= htmlspecialchars($u['foto_perfil']) ?>" alt="Foto de <?= htmlspecialchars($u['nome']) ?>">
+                <?php else: ?>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                    </svg>
+                <?php endif; ?>
+            </div>
 
             <div class="user-info">
                 <p class="user-nome"><?= htmlspecialchars($u['nome']) ?></p>

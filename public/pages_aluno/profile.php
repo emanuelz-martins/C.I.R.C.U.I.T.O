@@ -14,11 +14,20 @@ $usuario_role = ucfirst($_SESSION['auth_user']['perfil'] ?? 'Usuário');
 $pedidos = [];
 $db_ok = false;
 
+$foto_perfil = null;
+
 try {
     $pdo = db();
-    $id_usuario = $_SESSION['auth_user']['id_user'] ?? null;
-    
+    $id_usuario = $_SESSION['auth_user']['id'] ?? null;
+
     if ($id_usuario) {
+        $stmt = $pdo->prepare('SELECT foto_perfil FROM Usuario WHERE id_user = :id');
+        $stmt->execute(['id' => $id_usuario]);
+        $foto_perfil = $stmt->fetchColumn() ?: null;
+
+        /* Sincroniza sessão */
+        $_SESSION['auth_user']['foto_perfil'] = $foto_perfil;
+
         /* TODO: Implementar consulta ao banco para buscar pedidos do usuário */
         /*
         $stmt = $pdo->prepare('
@@ -38,6 +47,7 @@ try {
     $db_ok = true;
 } catch (Throwable) {
     /* BD indisponível */
+    $foto_perfil = $_SESSION['auth_user']['foto_perfil'] ?? null;
 }
 ?>
 
@@ -101,6 +111,14 @@ try {
             margin-bottom: 48px;
         }
 
+        .profile-avatar-wrap {
+            position: relative;
+            width: 110px;
+            height: 110px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
         .profile-avatar {
             width: 110px;
             height: 110px;
@@ -109,8 +127,12 @@ try {
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
             overflow: hidden;
+            transition: filter 0.2s;
+        }
+
+        .profile-avatar-wrap:hover .profile-avatar {
+            filter: brightness(0.55);
         }
 
         .profile-avatar svg {
@@ -124,6 +146,68 @@ try {
             height: 100%;
             object-fit: cover;
         }
+
+        .avatar-overlay {
+            position: absolute;
+            inset: 0;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .profile-avatar-wrap:hover .avatar-overlay {
+            opacity: 1;
+        }
+
+        .avatar-overlay svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .avatar-hint {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 6px;
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        /* Toast de feedback */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background-color: #1c1c1c;
+            border: 1px solid #3a3a3a;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.25s, transform 0.25s;
+            z-index: 9999;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.erro { border-color: #b91c1c; color: #fca5a5; }
+        .toast.ok   { border-color: #1a7a34; color: #86efac; }
 
         .profile-info {
             flex: 1;
@@ -384,15 +468,34 @@ try {
         </a>
     </div>
 
+    <!-- Input de upload oculto -->
+    <input type="file" id="inputFoto" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none">
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
     <!-- Card de perfil -->
     <div class="profile-card">
-        <div class="profile-avatar">
-            <!-- Substituir src pelo caminho real da foto do usuário quando disponível -->
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-            </svg>
+        <div class="profile-avatar-wrap" onclick="document.getElementById('inputFoto').click()" title="Trocar foto">
+            <div class="profile-avatar" id="avatarBox">
+                <?php if ($foto_perfil): ?>
+                    <img src="<?= htmlspecialchars($foto_perfil) ?>" alt="Foto de perfil" id="avatarImg">
+                <?php else: ?>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" id="avatarIcon">
+                        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                    </svg>
+                <?php endif; ?>
+            </div>
+            <div class="avatar-overlay">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                Trocar foto
+            </div>
         </div>
-
         <div class="profile-info">
             <span class="profile-role"><?= htmlspecialchars($usuario_role) ?></span>
             <span class="profile-name"><?= htmlspecialchars($usuario_nome) ?></span>
@@ -473,6 +576,54 @@ try {
         const temaSalvo = localStorage.getItem('tema');
         if (temaSalvo === 'claro') setTheme('claro');
     })();
+
+    /* ── Upload de foto de perfil ── */
+    let toastTimer;
+
+    function showToast(msg, tipo) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show ' + tipo;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { t.className = 'toast'; }, 3500);
+    }
+
+    document.getElementById('inputFoto').addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('foto', file);
+
+        fetch('./upload_foto.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    const box = document.getElementById('avatarBox');
+
+                    /* Remove ícone SVG padrão se existir */
+                    const icon = document.getElementById('avatarIcon');
+                    if (icon) icon.remove();
+
+                    /* Atualiza ou cria a tag <img> */
+                    let img = document.getElementById('avatarImg');
+                    if (!img) {
+                        img = document.createElement('img');
+                        img.id = 'avatarImg';
+                        img.alt = 'Foto de perfil';
+                        box.prepend(img);
+                    }
+                    img.src = data.url + '?t=' + Date.now();
+                    showToast('Foto atualizada com sucesso!', 'ok');
+                } else {
+                    showToast(data.erro || 'Erro ao enviar foto.', 'erro');
+                }
+            })
+            .catch(() => showToast('Erro de conexão ao enviar foto.', 'erro'));
+
+        /* Limpa o input para permitir reenvio do mesmo arquivo */
+        this.value = '';
+    });
 </script>
 
 </body>
