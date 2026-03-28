@@ -1,3 +1,4 @@
 # Imagens de componentes (uploads dinâmicos)
 public/assets/img/componentes/*
 !public/assets/img/componentes/.gitkeep
+public/uploads/foto_perfil

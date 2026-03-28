@@ -312,6 +312,9 @@ try {
     $dataCriacaoCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao' : null;
     $dataAtualizacaoCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
 
+    $usuarioCols   = $getCols($pdo, 'Usuario');
+    $fotoPerfilSql = in_array('foto_perfil', $usuarioCols, true) ? 'u.foto_perfil' : 'NULL';
+
     if ($statusCol === null) {
         throw new RuntimeException('Coluna de status do pedido não encontrada.');
     }
@@ -326,6 +329,11 @@ try {
     if ($filtro !== '') {
         $where[]          = 'p.' . $statusCol . ' = :status';
         $params['status'] = $filtro;
+    }
+
+    /* Exclui pedidos arquivados pelo laboratorista */
+    if (in_array('arquivado_lab', $pedidoCols, true)) {
+        $where[] = '(p.arquivado_lab IS NULL OR p.arquivado_lab = 0)';
     }
 
     $w = $where ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -350,7 +358,8 @@ try {
             {$selectNumero},
             {$selectStatus},
             {$selectData},
-            u.nome AS nome_estudante
+            u.nome AS nome_estudante,
+            {$fotoPerfilSql} AS foto_perfil_estudante
         FROM Pedido p
         JOIN Usuario u ON u.id_user = p.id_user
         {$w}
@@ -359,6 +368,25 @@ try {
     $stmt->execute($params);
     $pedidos = $stmt->fetchAll();
     $db_ok   = true;
+
+    /* ── Itens por pedido (para o pop-up de preview) ─ */
+    $itens_por_pedido = [];
+    if (!empty($pedidos)) {
+        $ids          = array_column($pedidos, 'id_pedido');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        try {
+            $stmtItens = $pdo->prepare("
+                SELECT ip.id_pedido, ip.qtd_solicitada, c.id_comp, c.nome AS nome_comp, c.imagem_url
+                FROM Item_Pedido ip
+                JOIN Componente c ON c.id_comp = ip.id_comp
+                WHERE ip.id_pedido IN ({$placeholders})
+            ");
+            $stmtItens->execute($ids);
+            foreach ($stmtItens->fetchAll() as $row) {
+                $itens_por_pedido[(int) $row['id_pedido']][] = $row;
+            }
+        } catch (Throwable) { /* ignora se tabelas não existem */ }
+    }
 
 } catch (Throwable) {
     /* BD indisponível */
@@ -813,6 +841,188 @@ $status_map = [
 
     .btn-confirmar-negar:hover { background-color: #991b1b; }
 
+    /* ── Botão olho (preview) ─────────────── */
+    .btn-eye {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background-color: #18191a;
+        border: 1px solid #34373a;
+        color: #ffffff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background-color 0.15s;
+    }
+    .btn-eye:hover { background-color: #2d2d2d; }
+    .btn-eye svg   { width: 18px; height: 18px; pointer-events: none; }
+
+    /* ── Modal preview do pedido ─────────── */
+    .preview-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0,0,0,0.78);
+        z-index: 300;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .preview-overlay.open { display: flex; }
+
+    .preview-box {
+        background-color: #1a1a1a;
+        border: 1px solid #2e2e2e;
+        border-radius: 22px;
+        width: 100%;
+        max-width: 420px;
+        overflow: hidden;
+    }
+
+    .preview-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 28px 28px 20px;
+        border-bottom: 1px solid #2a2a2a;
+        background-color: #141414;
+    }
+
+    .preview-avatar {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #3a3a3a;
+        background-color: #2a2a2a;
+    }
+
+    .preview-avatar-placeholder {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background-color: #2a2a2a;
+        border: 2px solid #3a3a3a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #666;
+        flex-shrink: 0;
+    }
+
+    .preview-nome {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #ffffff;
+    }
+
+    .preview-body {
+        padding: 20px 28px 4px;
+        max-height: 360px;
+        overflow-y: auto;
+    }
+
+    .preview-subtitle {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 14px;
+    }
+
+    .preview-items-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding-bottom: 20px;
+    }
+
+    .preview-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background-color: #222;
+        border: 1px solid #2e2e2e;
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+
+    .preview-item-img {
+        width: 52px;
+        height: 52px;
+        border-radius: 8px;
+        object-fit: cover;
+        background-color: #2a2a2a;
+        flex-shrink: 0;
+    }
+
+    .preview-item-placeholder {
+        width: 52px;
+        height: 52px;
+        border-radius: 8px;
+        background-color: #2a2a2a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        flex-shrink: 0;
+    }
+
+    .preview-item-info  { flex: 1; min-width: 0; }
+
+    .preview-item-nome {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #ffffff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .preview-item-qtd {
+        font-size: 0.8rem;
+        color: #888;
+        margin-top: 3px;
+    }
+
+    .preview-empty {
+        text-align: center;
+        color: #555;
+        font-size: 0.9rem;
+        padding: 20px 0;
+    }
+
+    .preview-close {
+        display: flex;
+        justify-content: flex-end;
+        padding: 0 28px 22px;
+    }
+
+    .btn-fechar-preview {
+        padding: 9px 22px;
+        background: none;
+        border: 1px solid #333;
+        border-radius: 10px;
+        color: #aaa;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-family: inherit;
+        transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-fechar-preview:hover { border-color: #777; color: #fff; }
+
+    /* ── Responsivo ───────────────────────── */
+    /* ── Animação de arquivar card ───────── */
+    .pedido-card.arquivando {
+        opacity: 0;
+        transform: translateX(20px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 860px) {
         .main { padding: 32px 20px 60px; }
@@ -895,18 +1105,48 @@ $status_map = [
     </div>
 </div>
 
+<!-- ══════════════════ MODAL — PREVIEW PEDIDO ══════════════════ -->
+<div class="preview-overlay" id="modalPreview" role="dialog" aria-modal="true" aria-label="Detalhes do pedido">
+    <div class="preview-box">
+        <div class="preview-header" id="previewHeader">
+            <!-- populado pelo JS -->
+        </div>
+        <div class="preview-body">
+            <p class="preview-subtitle">Itens solicitados</p>
+            <div class="preview-items-list" id="previewItems">
+                <!-- populado pelo JS -->
+            </div>
+        </div>
+        <div class="preview-close">
+            <button class="btn-fechar-preview" onclick="fecharPreview()">Fechar</button>
+        </div>
+    </div>
+</div>
+
 <!-- ══════════════════ CONTEÚDO ══════════════════ -->
 <main class="main">
 
     <!-- Cabeçalho -->
     <div class="page-header">
         <h1 class="page-title">Pedidos</h1>
-        <a href="./index.php" class="btn-back" aria-label="Voltar">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 18 9 12 15 6"/>
-            </svg>
-        </a>
+        <div style="display:flex;align-items:center;gap:10px">
+            <a href="./arquivados.php" class="btn-back" title="Ver pedidos arquivados"
+               style="width:auto;border-radius:10px;padding:0 14px;font-size:0.83rem;font-weight:600;gap:7px;text-decoration:none;white-space:nowrap">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8"/>
+                    <rect x="1" y="3" width="22" height="5"/>
+                    <line x1="10" y1="12" x2="14" y2="12"/>
+                </svg>
+                Arquivados
+            </a>
+            <a href="./index.php" class="btn-back" aria-label="Voltar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </a>
+        </div>
     </div>
 
     <!-- Alerta de erro: justificativa ausente -->
@@ -986,8 +1226,12 @@ $status_map = [
             $status     = $p['status_pedido'] ?? 'pendente';
             $statusInfo = $status_map[$status] ?? ['label' => ucfirst($status), 'class' => 'pendente'];
             $numFmt     = sprintf('%03d', (int) ($p['numero_pedido'] ?? 0));
+            $itensCard  = $itens_por_pedido[(int) $p['id_pedido']] ?? [];
+            $itensJson  = htmlspecialchars(json_encode($itensCard, JSON_HEX_QUOT | JSON_HEX_APOS), ENT_QUOTES);
+            $fotoEstud  = htmlspecialchars($p['foto_perfil_estudante'] ?? '');
+            $nomeEstud  = htmlspecialchars($p['nome_estudante'] ?? '');
         ?>
-        <div class="pedido-card">
+        <div class="pedido-card" id="card-<?= (int) $p['id_pedido'] ?>">
 
             <!-- Info -->
             <div class="pedido-info">
@@ -1005,6 +1249,22 @@ $status_map = [
                 <span class="status-badge <?= htmlspecialchars($statusInfo['class']) ?>">
                     <?= htmlspecialchars($statusInfo['label']) ?>
                 </span>
+
+                <!-- Olho: ver itens do pedido -->
+                <button
+                    class="btn-eye"
+                    onclick="abrirPreview(this)"
+                    data-itens="<?= $itensJson ?>"
+                    data-foto="<?= $fotoEstud ?>"
+                    data-nome="<?= $nomeEstud ?>"
+                    aria-label="Ver itens do pedido"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
 
                 <!-- Menu de 3 risquinhos -->
                 <?php
@@ -1032,6 +1292,10 @@ $status_map = [
                         ['action' => 'aprovar', 'label' => 'Aprovar renovação', 'type' => 'success', 'icon' => 'check'],
                         ['action' => 'negar',   'label' => 'Negar renovação',   'type' => 'danger',  'icon' => 'x'],
                     ];
+                } elseif (in_array($status, ['finalizado', 'negado', 'cancelado'], true)) {
+                    $acoes = [
+                        ['action' => 'arquivar_lab', 'label' => 'Arquivar pedido', 'type' => 'normal', 'icon' => 'archive'],
+                    ];
                 }
                 ?>
 
@@ -1055,7 +1319,17 @@ $status_map = [
 
                     <div class="menu-dropdown" id="menu-<?= (int) $p['id_pedido'] ?>">
                         <?php foreach ($acoes as $acao): ?>
-                            <?php if ($acao['action'] === 'negar'): ?>
+                            <?php if ($acao['action'] === 'arquivar_lab'): ?>
+                            <button
+                                type="button"
+                                class="menu-item normal"
+                                onclick="arquivarPedido(this, <?= (int) $p['id_pedido'] ?>)"
+                            >
+                                <?= svgIcon('archive') ?>
+                                <?= htmlspecialchars($acao['label']) ?>
+                            </button>
+
+                            <?php elseif ($acao['action'] === 'negar'): ?>
                             <!-- Negar → abre modal com justificativa -->
                             <button
                                 type="button"
@@ -1101,6 +1375,7 @@ function svgIcon(string $name): string {
         'x'       => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
         'package' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
         'truck'   => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
+        'archive' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
     ];
     return $icons[$name] ?? '';
 }
@@ -1171,9 +1446,12 @@ function svgIcon(string $name): string {
         if (e.target === this) fecharModalNegar();
     });
 
-    /* Fecha modal com Escape */
+    /* Fecha modais com Escape */
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') fecharModalNegar();
+        if (e.key === 'Escape') {
+            fecharModalNegar();
+            fecharPreview();
+        }
     });
 
     /* Validação client-side antes de submeter */
@@ -1186,6 +1464,86 @@ function svgIcon(string $name): string {
             hint.classList.add('error');
             document.getElementById('justificativaInput').focus();
         }
+    });
+
+    /* ── Arquivar pedido (AJAX) ──────────── */
+    async function arquivarPedido(btn, id) {
+        btn.disabled = true;
+        document.querySelectorAll('.menu-dropdown.open')
+                .forEach(function (el) { el.classList.remove('open'); });
+
+        const fd = new FormData();
+        fd.append('id', id);
+        fd.append('acao', 'arquivar');
+
+        try {
+            const res  = await fetch('../api/pedido_arquivar_lab.php', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (!data.ok) { btn.disabled = false; return; }
+
+            const card = document.getElementById('card-' + id);
+            if (card) {
+                card.classList.add('arquivando');
+                card.addEventListener('transitionend', function () { card.remove(); }, { once: true });
+            }
+        } catch (_) {
+            btn.disabled = false;
+        }
+    }
+
+    /* ── Modal preview de itens ──────────── */
+    function abrirPreview(btn) {
+        const itens = JSON.parse(btn.getAttribute('data-itens') || '[]');
+        const foto = btn.getAttribute('data-foto') || '';
+        const nome = btn.getAttribute('data-nome') || 'Sem nome';
+
+        /* Monta o header */
+        const headerHtml = foto
+            ? `<img src="${foto}" alt="${nome}" class="preview-avatar">`
+            : '<div class="preview-avatar-placeholder">👤</div>';
+
+        document.getElementById('previewHeader').innerHTML = 
+            headerHtml + `<p class="preview-nome">${escapeHtml(nome)}</p>`;
+
+        /* Monta os itens */
+        let itensHtml = '';
+        if (itens.length > 0) {
+            itensHtml = itens.map(item => {
+                const imgHtml = item.imagem_url
+                    ? `<img src="${escapeHtml(item.imagem_url)}" alt="${escapeHtml(item.nome_comp)}" class="preview-item-img">`
+                    : '<div class="preview-item-placeholder">📦</div>';
+                return `
+                    <a href="./catalogo.php?id=${item.id_comp}" class="preview-item" style="text-decoration: none; color: inherit; cursor: pointer;">
+                        ${imgHtml}
+                        <div class="preview-item-info">
+                            <p class="preview-item-nome">${escapeHtml(item.nome_comp)}</p>
+                            <p class="preview-item-qtd">Quantidade: ${item.qtd_solicitada}</p>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        } else {
+            itensHtml = '<p class="preview-empty">Nenhum item solicitado.</p>';
+        }
+
+        document.getElementById('previewItems').innerHTML = itensHtml;
+        document.getElementById('modalPreview').classList.add('open');
+    }
+
+    function fecharPreview() {
+        document.getElementById('modalPreview').classList.remove('open');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /* Fecha preview ao clicar no overlay */
+    document.getElementById('modalPreview').addEventListener('click', function (e) {
+        if (e.target === this) fecharPreview();
     });
 </script>
 

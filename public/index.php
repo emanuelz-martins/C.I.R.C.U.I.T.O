@@ -528,7 +528,7 @@ require_once 'includes/header.php';
                         <?php if (!empty($item['qtd_max_user']) && (int)$item['qtd_max_user'] > 0): ?>
                         <div class="card-stock" style="color:#555">Máx. por usuário: <?= (int)$item['qtd_max_user'] ?> unid.</div>
                         <?php endif; ?>
-                        <span class="btn-add-cart" onclick="event.preventDefault()">
+                        <span class="btn-add-cart">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
