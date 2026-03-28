@@ -4,6 +4,157 @@ checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'solicitar-renovacao') {
+    $id_usuario = (int) ($_SESSION['auth_user']['id'] ?? $_SESSION['auth_user']['id_user'] ?? 0);
+    $id_pedido_post = (int) ($_POST['id_pedido'] ?? 0);
+    $opcaoExtensao = trim((string) ($_POST['extensao_opcao'] ?? ''));
+    $dataSolicitada = trim((string) ($_POST['extensao_data'] ?? ''));
+    $justificativa = trim((string) ($_POST['extensao_justificativa'] ?? ''));
+
+    $redirect = './pedido.php';
+    if ($id_pedido_post > 0) {
+        $redirect .= '?id=' . $id_pedido_post;
+    }
+
+    if ($id_usuario <= 0 || $id_pedido_post <= 0) {
+        header('Location: ' . $redirect . '&erro=renovacao');
+        exit;
+    }
+
+    if (!in_array($opcaoExtensao, ['1-3', '3-5', '3-7', '7+'], true)) {
+        header('Location: ' . $redirect . '&erro=renovacao_opcao');
+        exit;
+    }
+
+    if ($opcaoExtensao === '7+' && $justificativa === '') {
+        header('Location: ' . $redirect . '&erro=renovacao_justificativa');
+        exit;
+    }
+
+    if ($opcaoExtensao === '7+' && $dataSolicitada === '') {
+        header('Location: ' . $redirect . '&erro=renovacao_data');
+        exit;
+    }
+
+    if (mb_strlen($justificativa) > 1200) {
+        $justificativa = mb_substr($justificativa, 0, 1200);
+    }
+
+    try {
+        $pdo = db();
+
+        $getCols = static function (PDO $pdo, string $table): array {
+            $stmt = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table');
+            $stmt->execute(['table' => $table]);
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        };
+
+        $pedidoCols = $getCols($pdo, 'Pedido');
+        $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido' : (in_array('status', $pedidoCols, true) ? 'status' : null);
+        $updatedCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+
+        if ($statusCol === null) {
+            header('Location: ' . $redirect . '&erro=renovacao');
+            exit;
+        }
+
+        $pdo->exec("CREATE TABLE IF NOT EXISTS Renovacao (
+            id_renovacao INT NOT NULL AUTO_INCREMENT,
+            id_pedido INT NOT NULL,
+            nova_data DATE NOT NULL,
+            status VARCHAR(30) NOT NULL DEFAULT 'pendente',
+            motivo TEXT NULL,
+            PRIMARY KEY (id_renovacao)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS prazo_opcao VARCHAR(20) NULL');
+        $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS justificativa TEXT NULL');
+        $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS data_solicitada DATE NULL');
+
+        $stmtPedido = $pdo->prepare('SELECT id_pedido, id_user, ' . $statusCol . ' AS status_atual FROM Pedido WHERE id_pedido = :id_pedido LIMIT 1');
+        $stmtPedido->execute(['id_pedido' => $id_pedido_post]);
+        $pedidoRow = $stmtPedido->fetch();
+
+        if (!$pedidoRow || (int) ($pedidoRow['id_user'] ?? 0) !== $id_usuario) {
+            header('Location: ' . $redirect . '&erro=renovacao');
+            exit;
+        }
+
+        $statusAtual = (string) ($pedidoRow['status_atual'] ?? '');
+        if (!in_array($statusAtual, ['em-andamento', 'em-atraso'], true)) {
+            header('Location: ' . $redirect . '&erro=renovacao_status');
+            exit;
+        }
+
+        $dataFinal = null;
+        if ($opcaoExtensao === '7+') {
+            $dt = DateTimeImmutable::createFromFormat('Y-m-d', $dataSolicitada);
+            $dataFinal = ($dt && $dt->format('Y-m-d') === $dataSolicitada) ? $dataSolicitada : null;
+            if ($dataFinal === null) {
+                header('Location: ' . $redirect . '&erro=renovacao_data');
+                exit;
+            }
+        }
+
+        $textoOpcao = [
+            '1-3' => '1-3 dias',
+            '3-5' => '3-5 dias',
+            '3-7' => '3-7 dias',
+            '7+' => '7+ dias',
+        ][$opcaoExtensao] ?? $opcaoExtensao;
+
+        $motivoCompleto = 'Proposta de extensão da data: ' . $textoOpcao;
+        if ($dataFinal !== null) {
+            $motivoCompleto .= '. Data proposta: ' . $dataFinal;
+        }
+        if ($justificativa !== '') {
+            $motivoCompleto .= '. Justificativa: ' . $justificativa;
+        }
+
+        $pdo->beginTransaction();
+
+        $stmtPend = $pdo->prepare('SELECT id_renovacao FROM Renovacao WHERE id_pedido = :id_pedido AND status = "pendente" ORDER BY id_renovacao DESC LIMIT 1');
+        $stmtPend->execute(['id_pedido' => $id_pedido_post]);
+        $idPend = (int) ($stmtPend->fetchColumn() ?: 0);
+
+        if ($idPend > 0) {
+            $pdo->prepare('UPDATE Renovacao SET status = "pendente", prazo_opcao = :opcao, data_solicitada = :data_solicitada, nova_data = :nova_data, justificativa = :justificativa, motivo = :motivo WHERE id_renovacao = :id')
+                ->execute([
+                    'opcao' => $opcaoExtensao,
+                    'data_solicitada' => $dataFinal,
+                    'nova_data' => $dataFinal ?? date('Y-m-d'),
+                    'justificativa' => $justificativa !== '' ? $justificativa : null,
+                    'motivo' => $motivoCompleto,
+                    'id' => $idPend,
+                ]);
+        } else {
+            $pdo->prepare('INSERT INTO Renovacao (id_pedido, nova_data, status, motivo, prazo_opcao, justificativa, data_solicitada) VALUES (:id_pedido, :nova_data, "pendente", :motivo, :opcao, :justificativa, :data_solicitada)')
+                ->execute([
+                    'id_pedido' => $id_pedido_post,
+                    'nova_data' => $dataFinal ?? date('Y-m-d'),
+                    'motivo' => $motivoCompleto,
+                    'opcao' => $opcaoExtensao,
+                    'justificativa' => $justificativa !== '' ? $justificativa : null,
+                    'data_solicitada' => $dataFinal,
+                ]);
+        }
+
+        $sets = ["{$statusCol} = 'renovacao-solicitada'"];
+        if ($updatedCol !== null) $sets[] = "{$updatedCol} = NOW()";
+        $pdo->prepare('UPDATE Pedido SET ' . implode(', ', $sets) . ' WHERE id_pedido = :id_pedido')
+            ->execute(['id_pedido' => $id_pedido_post]);
+
+        $pdo->commit();
+        header('Location: ' . $redirect . '&renovacao=ok');
+        exit;
+    } catch (Throwable) {
+        if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        header('Location: ' . $redirect . '&erro=renovacao');
+        exit;
+    }
+}
+
 /* ── Dados do pedido: serão carregados do BD ── */
 $id_pedido = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 $id_pedido = ($id_pedido && $id_pedido > 0) ? $id_pedido : null;
@@ -13,6 +164,9 @@ require_once '../includes/header.php';
 
 $pedido = null;
 $db_ok = false;
+$renovacao_erro = (string) ($_GET['erro'] ?? '');
+$renovacao_ok = (string) ($_GET['renovacao'] ?? '');
+$renovacao_pendente = false;
 
 try {
     $pdo = db();
@@ -31,23 +185,17 @@ try {
         KEY idx_pan_pedido_status (id_pedido, status),
         KEY idx_pan_user_status (id_user, status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-    if ($id_usuario > 0 && $id_pedido !== null) {
-        $stmtBloqueio = $pdo->prepare('
-            SELECT 1
-            FROM Pedido_Atraso_Nota pan
-            WHERE pan.id_pedido = :id_pedido
-              AND pan.id_user = :id_user
-              AND pan.obrigatoria = 1
-              AND pan.status = "aguardando-aluno"
-            LIMIT 1
-        ');
-        $stmtBloqueio->execute(['id_pedido' => $id_pedido, 'id_user' => $id_usuario]);
-        if ($stmtBloqueio->fetch()) {
-            header('Location: ./notificacoes.php?erro=resposta_atraso');
-            exit;
-        }
-    }
+    $pdo->exec("CREATE TABLE IF NOT EXISTS Renovacao (
+        id_renovacao INT NOT NULL AUTO_INCREMENT,
+        id_pedido INT NOT NULL,
+        nova_data DATE NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'pendente',
+        motivo TEXT NULL,
+        PRIMARY KEY (id_renovacao)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS prazo_opcao VARCHAR(20) NULL');
+    $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS justificativa TEXT NULL');
+    $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS data_solicitada DATE NULL');
 
     if ($id_usuario > 0) {
         $getCols = static function (PDO $pdo, string $table): array {
@@ -188,6 +336,10 @@ try {
                             'status_label' => $statusLabel($statusUi),
                         ];
                     }
+
+                    $stmtRen = $pdo->prepare('SELECT 1 FROM Renovacao WHERE id_pedido = :id_pedido AND status = "pendente" LIMIT 1');
+                    $stmtRen->execute(['id_pedido' => $pedido['id_pedido']]);
+                    $renovacao_pendente = (bool) $stmtRen->fetchColumn();
                 }
             }
         }
@@ -287,6 +439,180 @@ $etapas = [
         border-radius: 50px;
         overflow: hidden;
         margin-bottom: 28px;
+    }
+
+    .renovacao-box {
+        margin-bottom: 32px;
+        padding: 14px 16px;
+        border: 1px solid #2a2a2a;
+        border-radius: 12px;
+        background-color: #171717;
+    }
+
+    .renovacao-texto {
+        font-size: 0.95rem;
+        color: #b4b4b4;
+        line-height: 1.45;
+        margin-bottom: 12px;
+    }
+
+    .renovacao-texto strong { color: #fff; }
+
+    .btn-solicitar-renovacao {
+        width: 100%;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background-color: #f5f5f5;
+        color: #141414;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+    }
+
+    .btn-solicitar-renovacao:hover { background-color: #e9e9e9; }
+
+    .btn-solicitar-renovacao:disabled {
+        background-color: #2a2a2a;
+        color: #8a8a8a;
+        cursor: not-allowed;
+    }
+
+    .renovacao-feedback {
+        margin-top: 10px;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+
+    .renovacao-feedback.ok { color: #86efac; }
+    .renovacao-feedback.erro { color: #fca5a5; }
+
+    .modal-renovacao-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0,0,0,0.78);
+        z-index: 240;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+    }
+
+    .modal-renovacao-overlay.open { display: flex; }
+
+    .modal-renovacao {
+        width: 100%;
+        max-width: 540px;
+        background-color: #1b1b1b;
+        border: 1px solid #2f2f2f;
+        border-radius: 16px;
+        padding: 22px;
+    }
+
+    .modal-renovacao h3 {
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 8px;
+    }
+
+    .modal-renovacao p {
+        color: #a3a3a3;
+        font-size: 0.88rem;
+        margin-bottom: 14px;
+    }
+
+    .renovacao-opcoes {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .renovacao-opcoes label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border: 1px solid #333;
+        border-radius: 10px;
+        cursor: pointer;
+        background-color: #151515;
+        color: #ddd;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+
+    .renovacao-opcoes input[type="radio"] { accent-color: #fff; }
+
+    .renovacao-campos-extra {
+        display: none;
+        margin-top: 10px;
+    }
+
+    .renovacao-campos-extra.open { display: block; }
+
+    .renovacao-campos-extra label {
+        display: block;
+        font-size: 0.82rem;
+        color: #cfcfcf;
+        margin-bottom: 6px;
+        font-weight: 600;
+    }
+
+    .renovacao-campos-extra input,
+    .renovacao-campos-extra textarea {
+        width: 100%;
+        border-radius: 10px;
+        border: 1.5px solid #333;
+        background-color: #111;
+        color: #fff;
+        padding: 10px 12px;
+        font-size: 0.86rem;
+        font-family: inherit;
+        outline: none;
+        margin-bottom: 10px;
+    }
+
+    .renovacao-campos-extra textarea {
+        min-height: 90px;
+        resize: vertical;
+    }
+
+    .renovacao-erro {
+        min-height: 18px;
+        font-size: 0.8rem;
+        color: #f87171;
+        margin-bottom: 8px;
+    }
+
+    .renovacao-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .btn-renovacao-cancelar,
+    .btn-renovacao-enviar {
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    .btn-renovacao-cancelar {
+        background: none;
+        color: #aaa;
+        border: 1px solid #444;
+    }
+
+    .btn-renovacao-enviar {
+        border: none;
+        background-color: #fff;
+        color: #111;
     }
 
     .status-step {
@@ -707,33 +1033,29 @@ $etapas = [
         <?php endforeach; ?>
     </div>
 
-    <!-- Chat de acompanhamento -->
-    <h2 class="section-title">Chat de acompanhamento</h2>
-    <div class="chat-bloco">
-        <div class="chat-header">
-            <span class="chat-title">Conversa do pedido #<?= htmlspecialchars($pedido['numero'] ?? $pedido['numero_pedido'] ?? '') ?></span>
-            <span class="chat-status" id="pedidoChatStatus">Carregando status...</span>
-        </div>
+    <div class="renovacao-box">
+        <p class="renovacao-texto">
+            Precisa de um prazo maior? <strong>Solicite renovação e espere a confirmação do responsável.</strong>
+            Você será notificado em caso de sucesso ou negação do pedido.
+        </p>
+        <button
+            type="button"
+            class="btn-solicitar-renovacao"
+            onclick="abrirModalRenovacao()"
+            <?= $renovacao_pendente ? 'disabled' : '' ?>
+        >
+            <?= $renovacao_pendente ? 'Renovação já solicitada' : 'Solicitar renovação' ?>
+        </button>
 
-        <div class="chat-mensagens" id="pedidoChatMensagens">
-            <p class="chat-vazio">Carregando conversa...</p>
-        </div>
-
-        <div class="chat-acoes" id="pedidoChatAcoes" style="display:none">
-            <button type="button" class="btn-renovar-chat" onclick="solicitarRenovacaoChat()">Solicitar renovação pelo chat</button>
-        </div>
-
-        <form class="chat-form" id="pedidoChatForm">
-            <textarea class="chat-textarea" id="pedidoChatMensagem" maxlength="2000" placeholder="Escreva sua mensagem para o laboratorista..."></textarea>
-            <p class="chat-erro" id="pedidoChatErro"></p>
-            <div class="chat-form-actions">
-                <button type="submit" class="btn-chat-enviar">Enviar mensagem</button>
-            </div>
-        </form>
+        <?php if ($renovacao_ok === 'ok'): ?>
+            <p class="renovacao-feedback ok">Solicitação enviada com sucesso ao laboratorista.</p>
+        <?php elseif (str_starts_with($renovacao_erro, 'renovacao')): ?>
+            <p class="renovacao-feedback erro">Não foi possível enviar sua solicitação de renovação. Verifique os dados e tente novamente.</p>
+        <?php endif; ?>
     </div>
 
     <!-- Itens do pedido -->
-    <h2 class="section-title">Itens do pedido</h2>
+    <h2 class="section-title">Itens dos pedidos</h2>
 
     <?php if (isset($pedido['itens']) && !empty($pedido['itens'])): ?>
     <?php foreach ($pedido['itens'] as $item): ?>
@@ -752,8 +1074,7 @@ $etapas = [
 
         <div class="item-info">
             <p class="item-categoria"><?= htmlspecialchars($item['categoria']) ?></p>
-            <p class="item-nome"><?= htmlspecialchars($item['nome']) ?></p>
-            <p class="item-descricao"><?= htmlspecialchars($item['descricao']) ?></p>
+            <p class="item-nome"><?= htmlspecialchars($item['nome']) ?></p>    
         </div>
 
         <span class="item-quantidade">Quantidade: <?= (int)$item['quantidade'] ?></span>
@@ -797,124 +1118,108 @@ $etapas = [
 
 </main>
 
+<?php if ($db_ok && $pedido): ?>
+<div class="modal-renovacao-overlay" id="modalRenovacao" role="dialog" aria-modal="true" aria-label="Solicitar renovação">
+    <div class="modal-renovacao">
+        <h3>Solicitar renovação</h3>
+        <p>Escolha o tempo que você quer estender este pedido.</p>
+
+        <form method="POST" action="./pedido.php?id=<?= (int) ($pedido['id_pedido'] ?? 0) ?>" id="formRenovacao">
+            <input type="hidden" name="action" value="solicitar-renovacao">
+            <input type="hidden" name="id_pedido" value="<?= (int) ($pedido['id_pedido'] ?? 0) ?>">
+
+            <div class="renovacao-opcoes">
+                <label><input type="radio" name="extensao_opcao" value="1-3" checked> 1-3 dias</label>
+                <label><input type="radio" name="extensao_opcao" value="3-5"> 3-5 dias</label>
+                <label><input type="radio" name="extensao_opcao" value="3-7"> 3-7 dias</label>
+                <label><input type="radio" name="extensao_opcao" value="7+"> 7+ dias</label>
+            </div>
+
+            <div class="renovacao-campos-extra" id="campos7Mais">
+                <label for="extensaoData">Data sugerida (obrigatória em 7+)</label>
+                <input type="date" id="extensaoData" name="extensao_data">
+
+                <label for="extensaoJustificativa">Justificativa (obrigatória em 7+)</label>
+                <textarea id="extensaoJustificativa" name="extensao_justificativa" placeholder="Explique por que você precisa dessa extensão."></textarea>
+            </div>
+
+            <p class="renovacao-erro" id="erroRenovacao"></p>
+
+            <div class="renovacao-actions">
+                <button type="button" class="btn-renovacao-cancelar" onclick="fecharModalRenovacao()">Cancelar</button>
+                <button type="submit" class="btn-renovacao-enviar">Enviar proposta</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-    const pedidoChatId = <?= (int) ($pedido['id_pedido'] ?? 0) ?>;
+function abrirModalRenovacao() {
+    const modal = document.getElementById('modalRenovacao');
+    if (modal) modal.classList.add('open');
+}
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+function fecharModalRenovacao() {
+    const modal = document.getElementById('modalRenovacao');
+    if (modal) modal.classList.remove('open');
+}
+
+function atualizarCampos7Mais() {
+    const selecionado = document.querySelector('input[name="extensao_opcao"]:checked');
+    const isSeteMais = selecionado && selecionado.value === '7+';
+    const campos = document.getElementById('campos7Mais');
+    const data = document.getElementById('extensaoData');
+    const texto = document.getElementById('extensaoJustificativa');
+
+    if (!campos || !data || !texto) return;
+
+    campos.classList.toggle('open', isSeteMais);
+    data.required = !!isSeteMais;
+    texto.required = !!isSeteMais;
+
+    if (!isSeteMais) {
+        data.value = '';
+        texto.value = '';
     }
+}
 
-    async function carregarPedidoChat() {
-        if (!pedidoChatId) return;
+document.querySelectorAll('input[name="extensao_opcao"]').forEach(function (el) {
+    el.addEventListener('change', atualizarCampos7Mais);
+});
 
-        const statusEl = document.getElementById('pedidoChatStatus');
-        const listEl = document.getElementById('pedidoChatMensagens');
-        const erroEl = document.getElementById('pedidoChatErro');
-        const acoesEl = document.getElementById('pedidoChatAcoes');
+document.getElementById('formRenovacao')?.addEventListener('submit', function (e) {
+    const selecionado = document.querySelector('input[name="extensao_opcao"]:checked');
+    const isSeteMais = selecionado && selecionado.value === '7+';
+    const data = document.getElementById('extensaoData')?.value?.trim() || '';
+    const texto = document.getElementById('extensaoJustificativa')?.value?.trim() || '';
+    const erro = document.getElementById('erroRenovacao');
 
-        erroEl.textContent = '';
+    if (erro) erro.textContent = '';
 
-        try {
-            const params = new URLSearchParams({ acao: 'listar', id_pedido: String(pedidoChatId) });
-            const res = await fetch('../api/pedido_chat.php?' + params.toString());
-            const data = await res.json();
-
-            if (!data.ok) {
-                listEl.innerHTML = '<p class="chat-vazio">Não foi possível carregar o chat.</p>';
-                statusEl.textContent = data.erro || 'Erro no carregamento';
-                return;
-            }
-
-            const status = (data.pedido && data.pedido.status) ? data.pedido.status : '—';
-            const atrasado = Boolean(data.pedido && data.pedido.atrasado);
-            const dias = Number((data.pedido && data.pedido.dias_atraso) || 0);
-            statusEl.classList.toggle('atrasado', atrasado);
-            statusEl.textContent = atrasado ? `Atrasado há ${dias} dia(s)` : `Status atual: ${status}`;
-
-            const mensagens = Array.isArray(data.mensagens) ? data.mensagens : [];
-            if (mensagens.length === 0) {
-                listEl.innerHTML = '<p class="chat-vazio">Sem mensagens ainda.</p>';
-            } else {
-                listEl.innerHTML = mensagens.map((m) => {
-                    const tipo = m.autor_tipo || 'sistema';
-                    return `<div class="chat-baloon ${escapeHtml(tipo)}">${escapeHtml(m.mensagem || '')}</div>`;
-                }).join('');
-                listEl.scrollTop = listEl.scrollHeight;
-            }
-
-            const podeRenovar = Boolean(data.chat && data.chat.pode_solicitar_renovacao);
-            acoesEl.style.display = podeRenovar ? 'flex' : 'none';
-        } catch (_) {
-            listEl.innerHTML = '<p class="chat-vazio">Falha de comunicação com o servidor.</p>';
-        }
-    }
-
-    async function solicitarRenovacaoChat() {
-        const erroEl = document.getElementById('pedidoChatErro');
-        erroEl.textContent = '';
-
-        const texto = (window.prompt('Descreva rapidamente o motivo da renovação:') || '').trim();
-
-        const fd = new FormData();
-        fd.append('acao', 'solicitar_renovacao');
-        fd.append('id_pedido', String(pedidoChatId));
-        if (texto) fd.append('mensagem', texto);
-
-        try {
-            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (!data.ok) {
-                erroEl.textContent = data.erro || 'Não foi possível solicitar renovação.';
-                return;
-            }
-            await carregarPedidoChat();
-        } catch (_) {
-            erroEl.textContent = 'Falha de comunicação com o servidor.';
-        }
-    }
-
-    const pedidoChatForm = document.getElementById('pedidoChatForm');
-    if (pedidoChatForm) {
-    pedidoChatForm.addEventListener('submit', async function (e) {
+    if (isSeteMais && data === '') {
         e.preventDefault();
-
-        const erroEl = document.getElementById('pedidoChatErro');
-        const textarea = document.getElementById('pedidoChatMensagem');
-        const mensagem = textarea.value.trim();
-
-        erroEl.textContent = '';
-        if (!mensagem) {
-            erroEl.textContent = 'Digite uma mensagem antes de enviar.';
-            textarea.focus();
-            return;
-        }
-
-        const fd = new FormData();
-        fd.append('acao', 'enviar_mensagem');
-        fd.append('id_pedido', String(pedidoChatId));
-        fd.append('mensagem', mensagem);
-
-        try {
-            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (!data.ok) {
-                erroEl.textContent = data.erro || 'Não foi possível enviar a mensagem.';
-                return;
-            }
-            textarea.value = '';
-            await carregarPedidoChat();
-        } catch (_) {
-            erroEl.textContent = 'Falha de comunicação com o servidor.';
-        }
-    });
+        if (erro) erro.textContent = 'Para 7+ dias, escolha uma data.';
+        return;
     }
 
-    if (pedidoChatId > 0) {
-        carregarPedidoChat();
+    if (isSeteMais && texto === '') {
+        e.preventDefault();
+        if (erro) erro.textContent = 'Para 7+ dias, escreva a justificativa.';
+        return;
     }
+});
+
+document.getElementById('modalRenovacao')?.addEventListener('click', function (e) {
+    if (e.target === this) fecharModalRenovacao();
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') fecharModalRenovacao();
+});
+
+atualizarCampos7Mais();
 </script>
+<?php endif; ?>
 
 </body>
 </html>

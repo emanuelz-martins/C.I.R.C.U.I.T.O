@@ -43,12 +43,38 @@ function aluno_pre_bloqueio_status(PDO $pdo, int $idUsuario): array
     };
 
     $pedidoCols = $getCols($pdo, 'Pedido');
+    $usuarioCols = $getCols($pdo, 'Usuario');
     if (empty($pedidoCols)) {
         return [
             'pre_bloqueado' => false,
             'motivo' => '',
             'dias_atraso' => 0,
         ];
+    }
+
+    $preBloqueioManual = false;
+    $motivoManual = '';
+    if (!empty($usuarioCols) && in_array('pre_bloqueado_manual', $usuarioCols, true)) {
+        try {
+            $selectManual = 'pre_bloqueado_manual AS pre_manual';
+            if (in_array('pre_bloqueio_motivo', $usuarioCols, true)) {
+                $selectManual .= ', pre_bloqueio_motivo AS motivo_manual';
+            } else {
+                $selectManual .= ', NULL AS motivo_manual';
+            }
+
+            $stmtManual = $pdo->prepare('SELECT ' . $selectManual . ' FROM Usuario WHERE id_user = :id_user LIMIT 1');
+            $stmtManual->execute(['id_user' => $idUsuario]);
+            $rowManual = $stmtManual->fetch();
+
+            if ($rowManual) {
+                $preBloqueioManual = (int) ($rowManual['pre_manual'] ?? 0) === 1;
+                $motivoManual = trim((string) ($rowManual['motivo_manual'] ?? ''));
+            }
+        } catch (Throwable) {
+            $preBloqueioManual = false;
+            $motivoManual = '';
+        }
     }
 
     $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
@@ -145,10 +171,12 @@ function aluno_pre_bloqueio_status(PDO $pdo, int $idUsuario): array
         try {
             $stmtNota = $pdo->prepare('
                 SELECT 1
-                FROM Pedido_Atraso_Nota
-                WHERE id_user = :id_user
-                  AND obrigatoria = 1
-                  AND status = "aguardando-aluno"
+                FROM Pedido_Atraso_Nota pan
+                INNER JOIN Pedido p ON p.id_pedido = pan.id_pedido
+                WHERE pan.id_user = :id_user
+                  AND pan.obrigatoria = 1
+                  AND pan.status = "aguardando-aluno"
+                  AND p.' . $statusCol . ' IN ("em-andamento", "em-atraso")
                 LIMIT 1
             ');
             $stmtNota->execute(['id_user' => $idUsuario]);
@@ -158,10 +186,13 @@ function aluno_pre_bloqueio_status(PDO $pdo, int $idUsuario): array
         }
     }
 
-    $preBloqueado = $emAtraso || $pendenciaNota;
-    $motivo = $preBloqueado
-        ? 'Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...'
-        : '';
+    $preBloqueado = $emAtraso || $pendenciaNota || $preBloqueioManual;
+    $motivo = '';
+    if ($preBloqueioManual && $motivoManual !== '') {
+        $motivo = $motivoManual;
+    } elseif ($preBloqueado) {
+        $motivo = 'Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...';
+    }
 
     return [
         'pre_bloqueado' => $preBloqueado,

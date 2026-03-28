@@ -265,31 +265,3 @@ CREATE TABLE IF NOT EXISTS Pedido_Atraso_Mensagem (
     PRIMARY KEY (id_msg),
     KEY idx_pam_nota_data (id_nota, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ------------------------------------------------------------
--- Migração: chat unificado de acompanhamento do pedido
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS Pedido_Chat (
-    id_chat INT NOT NULL AUTO_INCREMENT,
-    id_pedido INT NOT NULL,
-    id_user INT NOT NULL,
-    id_laboratorista INT NULL,
-    status_renovacao VARCHAR(20) NOT NULL DEFAULT 'nenhuma',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id_chat),
-    UNIQUE KEY uk_pedido_chat (id_pedido),
-    KEY idx_chat_user (id_user)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS Pedido_Chat_Mensagem (
-    id_msg INT NOT NULL AUTO_INCREMENT,
-    id_chat INT NOT NULL,
-    autor_tipo VARCHAR(20) NOT NULL,
-    tipo_evento VARCHAR(40) NOT NULL DEFAULT 'mensagem',
-    mensagem TEXT NOT NULL,
-    metadata_json TEXT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id_msg),
-    KEY idx_pcm_chat_data (id_chat, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

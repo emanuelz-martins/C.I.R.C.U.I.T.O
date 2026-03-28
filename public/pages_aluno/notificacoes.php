@@ -3,6 +3,7 @@ require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 $page_title = 'Notificações';
 require_once '../includes/header.php';
@@ -11,6 +12,7 @@ require_once '../includes/header.php';
 $notificacoes = ['avisos' => [], 'automaticas' => []];
 $db_ok = false;
 $erroFluxo = trim((string) ($_GET['erro'] ?? ''));
+$alunoPreBloqueado = false;
 
 try {
     $pdo = db();
@@ -36,6 +38,9 @@ try {
     $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS resposta_pendente TINYINT(1) NOT NULL DEFAULT 0');
     
     if ($id_usuario) {
+        $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, (int) $id_usuario);
+        $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
+
         $stmt = $pdo->prepare('
             SELECT id_not, titulo, mensagem, tipo, humor, lida, data, id_pedido, id_nota_atraso, requer_resposta, resposta_pendente
             FROM   Notificacao
@@ -94,6 +99,21 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         </svg>',
         $color, $color, $color, $mouth
     );
+}
+
+function formatarMensagemNotificacao(string $mensagem): string {
+    $safe = htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8');
+    $safe = preg_replace_callback(
+        '/([a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,})/i',
+        static function (array $m): string {
+            $email = $m[1];
+            $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+            return '<a href="mailto:' . $safeEmail . '" style="color:#93c5fd;text-decoration:underline;">clicando aqui</a> (' . $safeEmail . ')';
+        },
+        $safe
+    );
+
+    return nl2br($safe);
 }
 ?>
 
@@ -554,7 +574,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
 
     <?php if ($erroFluxo === 'resposta_atraso'): ?>
     <div class="alert-fluxo">
-        Você possui um pedido em atraso. Responda a mensagem do laboratorista antes de visualizar detalhes do pedido ou arquivar.
+        Você possui um pedido em atraso. Abra o aviso e, se quiser, responda ao laboratorista com seu relatório de atraso.
     </div>
     <?php endif; ?>
 
@@ -586,7 +606,6 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         <?php foreach ($notificacoes['avisos'] as $n):
             $humor = $n['humor'] ?? '';
             $humorClass = $humor ? 'humor-' . $humor : '';
-            $respostaPendente = (int) ($n['resposta_pendente'] ?? 0) === 1;
         ?>
         <div class="notif-card notif-aviso <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
@@ -610,13 +629,12 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     <span class="dot-new"></span>
                     <?php endif; ?>
                 </p>
-                <p class="notif-mensagem"><?= nl2br(htmlspecialchars($n['mensagem'])) ?></p>
+                <p class="notif-mensagem"><?= formatarMensagemNotificacao((string) ($n['mensagem'] ?? '')) ?></p>
                 <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
             </div>
 
             <div class="notif-actions">
                 <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
-                        <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Marcar como lida"
                         onclick="marcarLida(this, <?= $n['id_not'] ?>)">
                     <!-- Olho -->
@@ -627,7 +645,6 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
                 <button class="btn-notif btn-excluir"
-                    <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Excluir notificação"
                         onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
                     <!-- Lixeira -->
@@ -640,17 +657,6 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
             </div>
-
-            <?php if ($respostaPendente): ?>
-            <div class="notif-resposta" style="width:100%;margin-top:14px;">
-                <label for="resposta-<?= $n['id_not'] ?>">Resposta obrigatória para o laboratorista</label>
-                <textarea id="resposta-<?= $n['id_not'] ?>" placeholder="Escreva sua resposta sobre o atraso..."></textarea>
-                <div class="notif-resposta-actions">
-                    <button class="btn-responder" onclick="responderAtraso(<?= $n['id_not'] ?>)">Enviar resposta</button>
-                </div>
-                <p class="notif-resposta-erro" id="resposta-erro-<?= $n['id_not'] ?>"></p>
-            </div>
-            <?php endif; ?>
 
         </div>
         <?php endforeach; ?>
@@ -680,7 +686,6 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         <?php foreach ($notificacoes['automaticas'] as $n):
             $humor = $n['humor'] ?? '';
             $humorClass = $humor ? 'humor-' . $humor : '';
-            $respostaPendente = (int) ($n['resposta_pendente'] ?? 0) === 1;
         ?>
         <div class="notif-card <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
@@ -695,13 +700,12 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     <span class="dot-new"></span>
                     <?php endif; ?>
                 </p>
-                <p class="notif-mensagem"><?= nl2br(htmlspecialchars($n['mensagem'])) ?></p>
+                <p class="notif-mensagem"><?= formatarMensagemNotificacao((string) ($n['mensagem'] ?? '')) ?></p>
                 <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
             </div>
 
             <div class="notif-actions">
                 <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
-                        <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Marcar como lida"
                         onclick="marcarLida(this, <?= $n['id_not'] ?>)">
                     <!-- Olho -->
@@ -712,7 +716,6 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
                 <button class="btn-notif btn-excluir"
-                    <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Excluir notificação"
                         onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
                     <!-- Lixeira -->
@@ -725,17 +728,6 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
             </div>
-
-            <?php if ($respostaPendente): ?>
-            <div class="notif-resposta" style="width:100%;margin-top:14px;">
-                <label for="resposta-<?= $n['id_not'] ?>">Resposta obrigatória para o laboratorista</label>
-                <textarea id="resposta-<?= $n['id_not'] ?>" placeholder="Escreva sua resposta sobre o atraso..."></textarea>
-                <div class="notif-resposta-actions">
-                    <button class="btn-responder" onclick="responderAtraso(<?= $n['id_not'] ?>)">Enviar resposta</button>
-                </div>
-                <p class="notif-resposta-erro" id="resposta-erro-<?= $n['id_not'] ?>"></p>
-            </div>
-            <?php endif; ?>
 
         </div>
         <?php endforeach; ?>
@@ -798,38 +790,6 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         card.addEventListener('transitionend', () => card.remove(), { once: true });
     }
 
-    async function responderAtraso(id) {
-        const textarea = document.getElementById('resposta-' + id);
-        const erro = document.getElementById('resposta-erro-' + id);
-        if (!textarea) return;
-
-        const mensagem = textarea.value.trim();
-        if (mensagem === '') {
-            if (erro) erro.textContent = 'Digite sua resposta antes de enviar.';
-            textarea.focus();
-            return;
-        }
-
-        const fd = new FormData();
-        fd.append('acao', 'responder_atraso');
-        fd.append('id', id);
-        fd.append('mensagem', mensagem);
-
-        try {
-            const res = await fetch('../api/notificacao_action.php', { method: 'POST', body: fd });
-            const data = await res.json();
-
-            if (!data.ok) {
-                if (erro) erro.textContent = data.erro || 'Não foi possível enviar sua resposta.';
-                return;
-            }
-
-            if (erro) erro.textContent = '';
-            location.reload();
-        } catch (_) {
-            if (erro) erro.textContent = 'Falha de comunicação com o servidor.';
-        }
-    }
 </script>
 </body>
 </html>

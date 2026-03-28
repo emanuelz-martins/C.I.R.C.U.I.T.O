@@ -19,6 +19,7 @@ if ($idUsuario <= 0) {
 $acao = trim((string) ($_POST['acao'] ?? $_GET['acao'] ?? ''));
 $idPedido = (int) ($_POST['id_pedido'] ?? $_GET['id_pedido'] ?? 0);
 $mensagem = trim((string) ($_POST['mensagem'] ?? ''));
+$idMsg = (int) ($_POST['id_msg'] ?? $_GET['id_msg'] ?? 0);
 
 $isLab = in_array($perfil, ['laboratorista', 'admin'], true);
 
@@ -124,12 +125,12 @@ $buildNotificacaoInsert = static function (
 
     if (in_array('requer_resposta', $notCols, true)) {
         $fields[] = 'requer_resposta';
-        $values[] = '1';
+        $values[] = '0';
     }
 
     if (in_array('resposta_pendente', $notCols, true)) {
         $fields[] = 'resposta_pendente';
-        $values[] = '1';
+        $values[] = '0';
     }
 
     if (in_array('lida', $notCols, true)) {
@@ -189,8 +190,10 @@ try {
     $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_nota_atraso INT NULL');
     $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS requer_resposta TINYINT(1) NOT NULL DEFAULT 0');
     $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS resposta_pendente TINYINT(1) NOT NULL DEFAULT 0');
+    $pdo->exec('ALTER TABLE Pedido_Atraso_Nota ADD COLUMN IF NOT EXISTS aviso_automatico_enviado TINYINT(1) NOT NULL DEFAULT 0');
 
     $pedidoCols = $getCols($pdo, 'Pedido');
+    $usuarioCols = $getCols($pdo, 'Usuario');
     $statusCol = in_array('status_pedido', $pedidoCols, true) ? 'status_pedido'
         : (in_array('status', $pedidoCols, true) ? 'status' : null);
     $respCol = in_array('id_laboratorista_responsavel', $pedidoCols, true) ? 'id_laboratorista_responsavel' : null;
@@ -218,6 +221,7 @@ try {
         'p.id_user',
         'u.nome AS nome_aluno',
         'u.foto_perfil AS foto_aluno',
+        (in_array('email', $usuarioCols, true) ? 'u.email' : 'NULL') . ' AS email_aluno',
         'p.' . $statusCol . ' AS status_pedido',
     ];
 
@@ -328,6 +332,75 @@ try {
             exit;
         }
 
+        if ($atrasado) {
+            $notCols = $getCols($pdo, 'Notificacao');
+            $mensagemAutomatica = sprintf(
+                '%s, %d dia(s) de atraso! Caso fique mais tempo sem devolver, vamos ter que bloquear seu acesso. Você está pré-bloqueado, no momento. Devolva o pacote ou contate alguém da CTI para mais informações.',
+                (string) ($pedido['nome_aluno'] ?? 'Aluno'),
+                (int) $diasAtraso
+            );
+
+            $pdo->beginTransaction();
+            if (!$notaAtual) {
+                $stmtNovaNota = $pdo->prepare('
+                    INSERT INTO Pedido_Atraso_Nota (id_pedido, id_user, id_laboratorista, status, obrigatoria, aviso_automatico_enviado)
+                    VALUES (:id_pedido, :id_user, :id_laboratorista, "aguardando-aluno", 1, 1)
+                ');
+                $stmtNovaNota->execute([
+                    'id_pedido' => $idPedido,
+                    'id_user' => (int) $pedido['id_user'],
+                    'id_laboratorista' => $idUsuario,
+                ]);
+                $idNota = (int) $pdo->lastInsertId();
+
+                $pdo->prepare('
+                    INSERT INTO Pedido_Atraso_Mensagem (id_nota, autor_tipo, mensagem)
+                    VALUES (:id_nota, "laboratorista", :mensagem)
+                ')->execute([
+                    'id_nota' => $idNota,
+                    'mensagem' => $mensagemAutomatica,
+                ]);
+
+                $buildNotificacaoInsert(
+                    $pdo,
+                    $notCols,
+                    (int) $pedido['id_user'],
+                    $idPedido,
+                    $idNota,
+                    $mensagemAutomatica
+                );
+            } else {
+                $idNota = (int) $notaAtual['id_nota'];
+                $avisoAutoEnviado = (int) ($notaAtual['aviso_automatico_enviado'] ?? 0) === 1;
+
+                if (!$avisoAutoEnviado) {
+                    $pdo->prepare('
+                        INSERT INTO Pedido_Atraso_Mensagem (id_nota, autor_tipo, mensagem)
+                        VALUES (:id_nota, "laboratorista", :mensagem)
+                    ')->execute([
+                        'id_nota' => $idNota,
+                        'mensagem' => $mensagemAutomatica,
+                    ]);
+
+                    $buildNotificacaoInsert(
+                        $pdo,
+                        $notCols,
+                        (int) $pedido['id_user'],
+                        $idPedido,
+                        $idNota,
+                        $mensagemAutomatica
+                    );
+
+                    $pdo->prepare('UPDATE Pedido_Atraso_Nota SET aviso_automatico_enviado = 1, updated_at = NOW() WHERE id_nota = :id_nota')
+                        ->execute(['id_nota' => $idNota]);
+                }
+            }
+            $pdo->commit();
+
+            $stmtNotaAtual->execute(['id_pedido' => $idPedido]);
+            $notaAtual = $stmtNotaAtual->fetch();
+        }
+
         $mensagens = [];
         if ($notaAtual) {
             $stmtMensagens = $pdo->prepare('
@@ -348,6 +421,7 @@ try {
                 'id' => (int) $pedido['id_user'],
                 'nome' => (string) ($pedido['nome_aluno'] ?? 'Aluno'),
                 'foto' => (string) ($pedido['foto_aluno'] ?? ''),
+                'email' => (string) ($pedido['email_aluno'] ?? ''),
             ],
             'prazo_solicitado' => $prazoSolicitado,
             'data_devolucao' => $dataLimite !== null
@@ -365,74 +439,8 @@ try {
             echo json_encode(['ok' => false, 'erro' => 'Sem permissão']);
             exit;
         }
-
-        if ($mensagem === '' || mb_strlen($mensagem) > 2000) {
-            http_response_code(400);
-            echo json_encode(['ok' => false, 'erro' => 'Mensagem inválida']);
-            exit;
-        }
-
-        $idResp = (int) ($pedido['id_laboratorista_responsavel'] ?? 0);
-        $fluxoLivre = (int) ($pedido['fluxo_livre_laboratoristas'] ?? 0) === 1;
-        if (!$fluxoLivre && $idResp > 0 && $idResp !== $idUsuario) {
-            http_response_code(403);
-            echo json_encode(['ok' => false, 'erro' => 'Pedido em atendimento por outro laboratorista']);
-            exit;
-        }
-
-        if (!$atrasado) {
-            http_response_code(400);
-            echo json_encode(['ok' => false, 'erro' => 'Pedido não está atrasado']);
-            exit;
-        }
-
-        $notCols = $getCols($pdo, 'Notificacao');
-
-        $pdo->beginTransaction();
-
-        if (!$notaAtual) {
-            $stmtNovaNota = $pdo->prepare('
-                INSERT INTO Pedido_Atraso_Nota (id_pedido, id_user, id_laboratorista, status, obrigatoria)
-                VALUES (:id_pedido, :id_user, :id_laboratorista, "aguardando-aluno", 1)
-            ');
-            $stmtNovaNota->execute([
-                'id_pedido' => $idPedido,
-                'id_user' => (int) $pedido['id_user'],
-                'id_laboratorista' => $idUsuario,
-            ]);
-            $idNota = (int) $pdo->lastInsertId();
-        } else {
-            $idNota = (int) $notaAtual['id_nota'];
-            $pdo->prepare('
-                UPDATE Pedido_Atraso_Nota
-                SET status = "aguardando-aluno", updated_at = NOW(), id_laboratorista = :id_laboratorista
-                WHERE id_nota = :id_nota
-            ')->execute([
-                'id_laboratorista' => $idUsuario,
-                'id_nota' => $idNota,
-            ]);
-        }
-
-        $pdo->prepare('
-            INSERT INTO Pedido_Atraso_Mensagem (id_nota, autor_tipo, mensagem)
-            VALUES (:id_nota, "laboratorista", :mensagem)
-        ')->execute([
-            'id_nota' => $idNota,
-            'mensagem' => $mensagem,
-        ]);
-
-        $buildNotificacaoInsert(
-            $pdo,
-            $notCols,
-            (int) $pedido['id_user'],
-            $idPedido,
-            $idNota,
-            $mensagem
-        );
-
-        $pdo->commit();
-
-        echo json_encode(['ok' => true]);
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'erro' => 'Canal de resposta desativado. Contate o aluno por e-mail.']);
         exit;
     }
 

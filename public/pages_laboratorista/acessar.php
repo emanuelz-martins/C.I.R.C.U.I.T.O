@@ -25,6 +25,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS id_laboratorista_responsavel INT NULL');
             $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS nome_laboratorista_responsavel VARCHAR(150) NULL');
             $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0');
+            $pdo->exec("CREATE TABLE IF NOT EXISTS Renovacao (
+                id_renovacao INT NOT NULL AUTO_INCREMENT,
+                id_pedido INT NOT NULL,
+                nova_data DATE NOT NULL,
+                status VARCHAR(30) NOT NULL DEFAULT 'pendente',
+                motivo TEXT NULL,
+                PRIMARY KEY (id_renovacao)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS prazo_opcao VARCHAR(20) NULL');
+            $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS justificativa TEXT NULL');
+            $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS data_solicitada DATE NULL');
 
             $getCols = static function (PDO $pdo, string $table): array {
                 $stmt = $pdo->prepare('
@@ -201,91 +212,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare($sql)->execute($params);
             };
 
-            $garantirTabelaChat = static function (PDO $pdo): void {
-                $pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Chat (
-                    id_chat INT NOT NULL AUTO_INCREMENT,
-                    id_pedido INT NOT NULL,
-                    id_user INT NOT NULL,
-                    id_laboratorista INT NULL,
-                    status_renovacao VARCHAR(20) NOT NULL DEFAULT 'nenhuma',
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    PRIMARY KEY (id_chat),
-                    UNIQUE KEY uk_pedido_chat (id_pedido),
-                    KEY idx_chat_user (id_user)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
-                $pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Chat_Mensagem (
-                    id_msg INT NOT NULL AUTO_INCREMENT,
-                    id_chat INT NOT NULL,
-                    autor_tipo VARCHAR(20) NOT NULL,
-                    tipo_evento VARCHAR(40) NOT NULL DEFAULT 'mensagem',
-                    mensagem TEXT NOT NULL,
-                    metadata_json TEXT NULL,
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (id_msg),
-                    KEY idx_pcm_chat_data (id_chat, created_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-            };
-
-            $registrarEventoChat = static function (
-                PDO $pdo,
-                int $idPedido,
-                ?int $idAluno,
-                ?int $idLab,
-                string $mensagem,
-                string $tipoEvento = 'status'
-            ) use ($garantirTabelaChat): void {
-                if ($idPedido <= 0 || trim($mensagem) === '') {
-                    return;
-                }
-
-                $garantirTabelaChat($pdo);
-
-                $chatStmt = $pdo->prepare('SELECT id_chat FROM Pedido_Chat WHERE id_pedido = :id_pedido LIMIT 1');
-                $chatStmt->execute(['id_pedido' => $idPedido]);
-                $chat = $chatStmt->fetch();
-
-                if (!$chat) {
-                    $idAlunoFinal = (int) ($idAluno ?? 0);
-                    if ($idAlunoFinal <= 0) {
-                        $tmp = $pdo->prepare('SELECT id_user FROM Pedido WHERE id_pedido = :id LIMIT 1');
-                        $tmp->execute(['id' => $idPedido]);
-                        $tmpRow = $tmp->fetch();
-                        $idAlunoFinal = (int) ($tmpRow['id_user'] ?? 0);
-                    }
-                    if ($idAlunoFinal <= 0) {
-                        return;
-                    }
-
-                    $ins = $pdo->prepare('INSERT INTO Pedido_Chat (id_pedido, id_user, id_laboratorista) VALUES (:id_pedido, :id_user, :id_lab)');
-                    $ins->execute([
-                        'id_pedido' => $idPedido,
-                        'id_user' => $idAlunoFinal,
-                        'id_lab' => $idLab ?: null,
-                    ]);
-                    $idChat = (int) $pdo->lastInsertId();
-                } else {
-                    $idChat = (int) ($chat['id_chat'] ?? 0);
-                }
-
-                if ($idChat <= 0) {
-                    return;
-                }
-
-                $insMsg = $pdo->prepare('INSERT INTO Pedido_Chat_Mensagem (id_chat, autor_tipo, tipo_evento, mensagem) VALUES (:id_chat, "sistema", :tipo_evento, :mensagem)');
-                $insMsg->execute([
-                    'id_chat' => $idChat,
-                    'tipo_evento' => $tipoEvento,
-                    'mensagem' => $mensagem,
-                ]);
-
-                if ($idLab !== null && $idLab > 0) {
-                    $pdo->prepare('UPDATE Pedido_Chat SET id_laboratorista = :id_lab, updated_at = NOW() WHERE id_chat = :id_chat')
-                        ->execute(['id_lab' => $idLab, 'id_chat' => $idChat]);
-                }
-            };
-
             $responsavelAtualId = $getResponsavelAtual($pdo, $id_pedido, $responsavelIdCol);
             $fluxoLivreAtual = $getFluxoLivreAtual($pdo, $id_pedido, $fluxoLivreCol);
             if (!in_array($action, ['assumir', 'liberar'], true)
@@ -360,14 +286,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
                     }
 
-                    $registrarEventoChat(
-                        $pdo,
-                        $id_pedido,
-                        $uid,
-                        $laboratoristaId,
-                        $laboratoristaNome . ' assumiu o atendimento deste pedido.'
-                    );
-
                     if ($pdo->inTransaction()) {
                         $pdo->commit();
                     }
@@ -430,15 +348,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         throw new RuntimeException('falha_liberar');
                     }
 
-                    $uid = $getUserId($pdo, $id_pedido);
-                    $registrarEventoChat(
-                        $pdo,
-                        $id_pedido,
-                        $uid,
-                        $laboratoristaId,
-                        'Atendimento liberado para outros laboratoristas.'
-                    );
-
                     if ($pdo->inTransaction()) {
                         $pdo->commit();
                     }
@@ -448,7 +357,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     /* Aprovação → muda status para em-separacao e notifica o estudante */
                     $statusAtualPedido = $getPedidoStatus($pdo, $id_pedido, $statusCol);
 
-                    if ($statusAtualPedido !== 'renovacao-solicitada') {
+                    if ($statusAtualPedido === 'renovacao-solicitada') {
+                        $stmtRen = $pdo->prepare('SELECT id_renovacao, prazo_opcao, data_solicitada FROM Renovacao WHERE id_pedido = :id_pedido AND status = "pendente" ORDER BY id_renovacao DESC LIMIT 1');
+                        $stmtRen->execute(['id_pedido' => $id_pedido]);
+                        $ren = $stmtRen->fetch();
+
+                        $novaData = null;
+                        if ($ren) {
+                            $dataSolicitada = trim((string) ($ren['data_solicitada'] ?? ''));
+                            if ($dataSolicitada !== '') {
+                                $novaData = $dataSolicitada;
+                            } else {
+                                $prazoOpcao = (string) ($ren['prazo_opcao'] ?? '');
+                                $diasMapa = ['1-3' => 3, '3-5' => 5, '3-7' => 7];
+                                $diasExtra = $diasMapa[$prazoOpcao] ?? 3;
+                                $novaData = (new DateTimeImmutable('today +' . $diasExtra . ' days'))->format('Y-m-d');
+                            }
+                        }
+
+                        $setsRen = ["{$statusCol} = 'em-andamento'"];
+                        $paramsRen = ['id' => $id_pedido];
+                        if ($updatedCol !== null) {
+                            $setsRen[] = "{$updatedCol} = NOW()";
+                        }
+                        if ($novaData !== null && in_array('data_devolucao_prevista', $pedidoCols, true)) {
+                            $setsRen[] = 'data_devolucao_prevista = :nova_data';
+                            $paramsRen['nova_data'] = $novaData;
+                        }
+
+                        $pdo->prepare('UPDATE Pedido SET ' . implode(', ', $setsRen) . ' WHERE id_pedido = :id')->execute($paramsRen);
+
+                        if ($ren) {
+                            $pdo->prepare('UPDATE Renovacao SET status = "aprovada" WHERE id_renovacao = :id_renovacao')
+                                ->execute(['id_renovacao' => (int) ($ren['id_renovacao'] ?? 0)]);
+                        }
+
+                        $uid = $getUserId($pdo, $id_pedido);
+                        if ($uid) {
+                            $msgAprovada = $novaData !== null
+                                ? ('Sua proposta de extensão foi aprovada. Nova data sugerida: ' . date('d/m/Y', strtotime($novaData)) . '.')
+                                : 'Sua proposta de extensão foi aprovada.';
+                            $notify($pdo, $id_pedido, $uid, $msgAprovada, 'aprovado', $notCols, 'feliz');
+                        }
+                    } else {
                         if ($itemTable === null || $compQtdCol === null) {
                             throw new RuntimeException('schema_estoque');
                         }
@@ -504,22 +455,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
                             $stmtUpdateComp->execute($paramsUpdate);
                         }
+
+                        $setStatus($pdo, $id_pedido, 'em-separacao', $statusCol, $updatedCol);
+
+                        $uid = $getUserId($pdo, $id_pedido);
+                        if ($uid) {
+                            $notify($pdo, $id_pedido, $uid, 'Pedido aprovado!', 'aprovado', $notCols, 'feliz');
+                        }
                     }
-
-                    $setStatus($pdo, $id_pedido, 'em-separacao', $statusCol, $updatedCol);
-
-                    $uid = $getUserId($pdo, $id_pedido);
-                    if ($uid) {
-                        $notify($pdo, $id_pedido, $uid, 'Pedido aprovado!', 'aprovado', $notCols, 'feliz');
-                    }
-
-                    $registrarEventoChat(
-                        $pdo,
-                        $id_pedido,
-                        $uid,
-                        $laboratoristaId,
-                        'Pedido aprovado e movido para separação.'
-                    );
 
                     if ($pdo->inTransaction()) {
                         $pdo->commit();
@@ -532,22 +475,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         header('Location: ./acessar.php?erro=justificativa');
                         exit;
                     }
-                    $setStatus($pdo, $id_pedido, 'negado', $statusCol, $updatedCol, $motivoCol, $justificativa);
 
-                    $uid = $getUserId($pdo, $id_pedido);
-                    if ($uid) {
-                        $notify($pdo, $id_pedido, $uid,
-                            'Pedido negado. Justificativa: ' . $justificativa, 'negado', $notCols, 'triste');
+                    $statusAtualPedido = $getPedidoStatus($pdo, $id_pedido, $statusCol);
+                    if ($statusAtualPedido === 'renovacao-solicitada') {
+                        $setStatus($pdo, $id_pedido, 'em-andamento', $statusCol, $updatedCol);
+
+                        $stmtRen = $pdo->prepare('SELECT id_renovacao FROM Renovacao WHERE id_pedido = :id_pedido AND status = "pendente" ORDER BY id_renovacao DESC LIMIT 1');
+                        $stmtRen->execute(['id_pedido' => $id_pedido]);
+                        $idRen = (int) ($stmtRen->fetchColumn() ?: 0);
+                        if ($idRen > 0) {
+                            $pdo->prepare('UPDATE Renovacao SET status = "negada", motivo = :motivo WHERE id_renovacao = :id_renovacao')
+                                ->execute(['motivo' => $justificativa, 'id_renovacao' => $idRen]);
+                        }
+
+                        $uid = $getUserId($pdo, $id_pedido);
+                        if ($uid) {
+                            $notify(
+                                $pdo,
+                                $id_pedido,
+                                $uid,
+                                'Sua proposta de extensão foi negada. Justificativa: ' . $justificativa,
+                                'negado',
+                                $notCols,
+                                'triste'
+                            );
+                        }
+                    } else {
+                        $setStatus($pdo, $id_pedido, 'negado', $statusCol, $updatedCol, $motivoCol, $justificativa);
+
+                        $uid = $getUserId($pdo, $id_pedido);
+                        if ($uid) {
+                            $notify($pdo, $id_pedido, $uid,
+                                'Pedido negado. Justificativa: ' . $justificativa, 'negado', $notCols, 'triste');
+                        }
                     }
-
-                    $registrarEventoChat(
-                        $pdo,
-                        $id_pedido,
-                        $uid,
-                        $laboratoristaId,
-                        'Pedido negado. Justificativa: ' . $justificativa,
-                        'negado'
-                    );
                     break;
 
                 case 'pronto-para-retirada':
@@ -560,41 +521,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'Seu pedido está pronto para retirada! Dirija-se ao laboratório para buscar.',
                             'pronto-para-retirada', $notCols, 'feliz');
                     }
-
-                    $registrarEventoChat(
-                        $pdo,
-                        $id_pedido,
-                        $uid,
-                        $laboratoristaId,
-                        'Pacote separado e pronto para retirada.'
-                    );
                     break;
 
                 case 'em-andamento':
                     /* Estudante retirou o pacote — prazo de 1 semana para devolução */
                     $setStatus($pdo, $id_pedido, 'em-andamento', $statusCol, $updatedCol);
-
-                    $uid = $getUserId($pdo, $id_pedido);
-                    $registrarEventoChat(
-                        $pdo,
-                        $id_pedido,
-                        $uid,
-                        $laboratoristaId,
-                        'Pedido retirado pelo estudante e marcado como em andamento.'
-                    );
                     break;
 
                 case 'finalizar':
                     $setStatus($pdo, $id_pedido, 'finalizado', $statusCol, $updatedCol);
-
-                    $uid = $getUserId($pdo, $id_pedido);
-                    $registrarEventoChat(
-                        $pdo,
-                        $id_pedido,
-                        $uid,
-                        $laboratoristaId,
-                        'Pedido finalizado e devolução concluída.'
-                    );
                     break;
             }
 
@@ -634,6 +569,17 @@ try {
     $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS id_laboratorista_responsavel INT NULL');
     $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS nome_laboratorista_responsavel VARCHAR(150) NULL');
     $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0');
+    $pdo->exec("CREATE TABLE IF NOT EXISTS Renovacao (
+        id_renovacao INT NOT NULL AUTO_INCREMENT,
+        id_pedido INT NOT NULL,
+        nova_data DATE NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'pendente',
+        motivo TEXT NULL,
+        PRIMARY KEY (id_renovacao)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS prazo_opcao VARCHAR(20) NULL');
+    $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS justificativa TEXT NULL');
+    $pdo->exec('ALTER TABLE Renovacao ADD COLUMN IF NOT EXISTS data_solicitada DATE NULL');
 
     $getCols = static function (PDO $pdo, string $table): array {
         $stmt = $pdo->prepare('
@@ -738,6 +684,7 @@ try {
 
     /* ── Itens por pedido (para o pop-up de preview) ─ */
     $itens_por_pedido = [];
+    $renovacao_por_pedido = [];
     if (!empty($pedidos)) {
         $ids          = array_column($pedidos, 'id_pedido');
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
@@ -753,6 +700,21 @@ try {
                 $itens_por_pedido[(int) $row['id_pedido']][] = $row;
             }
         } catch (Throwable) { /* ignora se tabelas não existem */ }
+
+        try {
+            $stmtRen = $pdo->prepare("SELECT r.id_pedido, r.prazo_opcao, r.data_solicitada, r.justificativa
+                FROM Renovacao r
+                INNER JOIN (
+                    SELECT id_pedido, MAX(id_renovacao) AS max_id
+                    FROM Renovacao
+                    WHERE status = 'pendente' AND id_pedido IN ({$placeholders})
+                    GROUP BY id_pedido
+                ) m ON m.max_id = r.id_renovacao");
+            $stmtRen->execute($ids);
+            foreach ($stmtRen->fetchAll() as $rr) {
+                $renovacao_por_pedido[(int) ($rr['id_pedido'] ?? 0)] = $rr;
+            }
+        } catch (Throwable) { /* ignora se tabela não existe */ }
     }
 
 } catch (Throwable) {
@@ -1276,13 +1238,29 @@ $status_map = [
     .btn-eye:hover { background-color: #2d2d2d; }
     .btn-eye svg   { width: 18px; height: 18px; pointer-events: none; }
 
-    .btn-chat,
+    .btn-extensao {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        background-color: #2a1f06;
+        border: 1px solid #713f12;
+        color: #fbbf24;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background-color 0.15s;
+    }
+    .btn-extensao:hover { background-color: #3b2a0a; }
+    .btn-extensao svg { width: 18px; height: 18px; pointer-events: none; }
+
     .btn-atrasado {
         height: 42px;
         border-radius: 10px;
-        border: 1px solid #3a3a3a;
-        background-color: #1f1f1f;
-        color: #c4c4c4;
+        border: 1px solid #7f1d1d;
+        background-color: #2a1212;
+        color: #fca5a5;
         padding: 0 12px;
         display: inline-flex;
         align-items: center;
@@ -1293,31 +1271,31 @@ $status_map = [
         transition: background-color 0.15s, border-color 0.15s;
     }
 
-    .btn-chat:hover,
     .btn-atrasado:hover {
-        background-color: #262626;
-        border-color: #4a4a4a;
-    }
-
-    .btn-chat.atrasado,
-    .btn-atrasado.atrasado {
-        border-color: #7f1d1d;
-        background-color: #2a1212;
-        color: #fca5a5;
-    }
-
-    .btn-chat.atrasado:hover,
-    .btn-atrasado.atrasado:hover {
         background-color: #3a1515;
         border-color: #991b1b;
     }
 
-    .btn-chat .alerta,
+    .btn-atrasado.neutro {
+        border-color: #3a3a3a;
+        background-color: #1f1f1f;
+        color: #c4c4c4;
+    }
+
+    .btn-atrasado.neutro:hover {
+        background-color: #262626;
+        border-color: #4a4a4a;
+    }
+
+    .btn-atrasado.neutro .alerta {
+        background-color: #4b5563;
+    }
+
     .btn-atrasado .alerta {
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background-color: #4b5563;
+        background-color: #7f1d1d;
         color: #fff;
         display: inline-flex;
         align-items: center;
@@ -1325,16 +1303,6 @@ $status_map = [
         font-size: 0.75rem;
         line-height: 1;
         font-weight: 800;
-    }
-
-    .btn-chat.atrasado .alerta,
-    .btn-atrasado.atrasado .alerta {
-        background-color: #4b5563;
-    }
-
-    .btn-chat.atrasado .alerta,
-    .btn-atrasado.atrasado .alerta {
-        background-color: #7f1d1d;
     }
 
     /* ── Modal preview do pedido ─────────── */
@@ -1629,46 +1597,37 @@ $status_map = [
         color: #e5e7eb;
     }
 
+    .baloon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .btn-msg-apagar {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        border: 1px solid #4b5563;
+        background-color: #1f2937;
+        color: #cbd5e1;
+        cursor: pointer;
+        font-size: 0.72rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .btn-msg-apagar:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+
     .baloon.aluno {
         align-self: flex-start;
         background-color: #2a1a1a;
         border: 1px solid #7f1d1d;
-        color: #fecaca;
-    }
-
-    .baloon.sistema {
-        align-self: center;
-        background-color: #202020;
-        border: 1px solid #343434;
-        color: #d4d4d4;
-        font-size: 0.8rem;
-    }
-
-    .nota-renovacao-acoes {
-        display: flex;
-        gap: 10px;
-        padding: 12px 20px 0;
-    }
-
-    .btn-renovacao-chat {
-        border-radius: 10px;
-        padding: 8px 12px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        cursor: pointer;
-        font-family: inherit;
-        border: 1px solid #333;
-    }
-
-    .btn-renovacao-chat.aprovar {
-        background-color: #14532d;
-        border-color: #166534;
-        color: #dcfce7;
-    }
-
-    .btn-renovacao-chat.recusar {
-        background-color: #3f1515;
-        border-color: #7f1d1d;
         color: #fecaca;
     }
 
@@ -1853,33 +1812,41 @@ $status_map = [
     </div>
 </div>
 
-<!-- ══════════════════ MODAL — CHAT DE ACOMPANHAMENTO ══════════════════ -->
-<div class="nota-overlay" id="modalNotaAtraso" role="dialog" aria-modal="true" aria-label="Chat de acompanhamento do pedido">
+<div class="preview-overlay" id="modalRenovacaoPedido" role="dialog" aria-modal="true" aria-label="Proposta de extensão">
+    <div class="preview-box">
+        <div class="preview-header" id="renovHeader"></div>
+        <div class="preview-body">
+            <p class="preview-subtitle">Itens solicitados</p>
+            <div class="preview-items-list" id="renovItems"></div>
+
+            <div class="preview-msg-wrap">
+                <p class="preview-msg-title">Proposta de extensão da data</p>
+                <div id="renovMensagem" class="preview-msg-box"></div>
+            </div>
+        </div>
+        <div class="preview-close">
+            <button class="btn-fechar-preview" onclick="fecharRenovacaoPedido()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════ MODAL — NOTA DE ATRASO ══════════════════ -->
+<div class="nota-overlay" id="modalNotaAtraso" role="dialog" aria-modal="true" aria-label="Nota de atraso">
     <div class="nota-box">
         <div class="nota-header" id="notaHeader">
             <!-- preenchido via JS -->
         </div>
 
         <div class="nota-chat" id="notaChat">
-            <p class="nota-empty">Carregando conversa...</p>
+            <p class="nota-empty">Carregando nota...</p>
         </div>
 
-        <div class="nota-renovacao-acoes" id="notaRenovacaoAcoes" style="display:none"></div>
-
-        <form class="nota-form" id="formNotaAtraso">
-            <label for="notaMensagem">Mensagem para o chat</label>
-            <textarea
-                class="nota-textarea"
-                id="notaMensagem"
-                placeholder="Digite sua mensagem..."
-                maxlength="2000"
-            ></textarea>
+        <div class="nota-form" id="formNotaAtraso">
             <p class="nota-erro" id="notaErro"></p>
             <div class="nota-actions">
                 <button type="button" class="btn-nota-cancelar" onclick="fecharNotaAtraso()">Fechar</button>
-                <button type="submit" class="btn-nota-enviar">Enviar mensagem</button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -2049,7 +2016,26 @@ $status_map = [
                     $pedidoAtrasado = false;
                 }
             }
-            $mostrarOpcaoAtraso = ($pedidoMeu || $fluxoLivre);
+            $mostrarOpcaoAtraso = $status === 'em-andamento' && ($pedidoMeu || $fluxoLivre);
+            $renovacaoInfo = $renovacao_por_pedido[(int) $p['id_pedido']] ?? null;
+            $temRenovacaoPendente = is_array($renovacaoInfo) && !empty($renovacaoInfo);
+            $prazoRenov = (string) ($renovacaoInfo['prazo_opcao'] ?? '');
+            $prazoTexto = [
+                '1-3' => '1-3 dias',
+                '3-5' => '3-5 dias',
+                '3-7' => '3-7 dias',
+                '7+' => '7+ dias',
+            ][$prazoRenov] ?? 'tempo extra';
+            $dataRenovRaw = trim((string) ($renovacaoInfo['data_solicitada'] ?? ''));
+            $dataRenovFmt = '';
+            if ($dataRenovRaw !== '') {
+                try {
+                    $dataRenovFmt = (new DateTimeImmutable($dataRenovRaw))->format('d/m/Y');
+                } catch (Throwable) {
+                    $dataRenovFmt = $dataRenovRaw;
+                }
+            }
+            $justRenov = trim((string) ($renovacaoInfo['justificativa'] ?? ''));
             $atendimentoInfo = '';
             if ($pedidoMeu) {
                 $atendimentoInfo = 'Em atendimento com você';
@@ -2148,15 +2134,36 @@ $status_map = [
                     </svg>
                 </button>
 
-                <?php if ($mostrarOpcaoAtraso): ?>
+                <?php if ($temRenovacaoPendente): ?>
                 <button
-                    class="btn-chat <?= $pedidoAtrasado ? 'atrasado' : 'neutro' ?>"
-                    onclick="abrirNotaAtraso(<?= (int) $p['id_pedido'] ?>)"
-                    aria-label="Abrir chat de acompanhamento"
-                    title="<?= $pedidoAtrasado ? ('Chat do pedido atrasado há ' . (int) $diasAtraso . ' dia(s)') : 'Abrir chat de acompanhamento do pedido' ?>"
+                    class="btn-extensao"
+                    onclick="abrirRenovacaoPedido(this)"
+                    data-itens="<?= $itensJson ?>"
+                    data-foto="<?= $fotoEstud ?>"
+                    data-nome="<?= $nomeEstud ?>"
+                    data-proposta="<?= htmlspecialchars($prazoTexto, ENT_QUOTES) ?>"
+                    data-data="<?= htmlspecialchars($dataRenovFmt, ENT_QUOTES) ?>"
+                    data-justificativa="<?= htmlspecialchars($justRenov, ENT_QUOTES) ?>"
+                    aria-label="Proposta de extensão"
+                    title="Proposta de extensão da data"
                 >
-                    <span class="alerta">💬</span>
-                    Chat
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                </button>
+                <?php endif; ?>
+
+                <?php if ($mostrarOpcaoAtraso && $pedidoAtrasado): ?>
+                <button
+                    class="btn-atrasado"
+                    onclick="abrirNotaAtraso(<?= (int) $p['id_pedido'] ?>)"
+                    aria-label="Produto atrasado"
+                    title="Produto atrasado há <?= (int) $diasAtraso ?> dia(s)"
+                >
+                    <span class="alerta">!</span>
+                    Produto atrasado
                 </button>
                 <?php endif; ?>
 
@@ -2191,6 +2198,16 @@ $status_map = [
                         <?php endif; ?>
 
                         <?php if (!empty($acoes) && ($pedidoMeu || $fluxoLivre)): ?>
+                        <?php if ($mostrarOpcaoAtraso && !$pedidoAtrasado): ?>
+                            <button
+                                type="button"
+                                class="menu-item normal"
+                                onclick="abrirNotaAtraso(<?= (int) $p['id_pedido'] ?>)"
+                            >
+                                <?= svgIcon('eye') ?>
+                                Pedido dentro do prazo
+                            </button>
+                        <?php endif; ?>
                         <?php foreach ($acoes as $acao): ?>
                             <?php if ($acao['action'] === 'arquivar_lab'): ?>
                             <button
@@ -2423,41 +2440,55 @@ function svgIcon(string $name): string {
         document.getElementById('modalPreview').classList.remove('open');
     }
 
-    let pedidoNotaAtual = null;
+    function abrirRenovacaoPedido(btn) {
+        const itens = JSON.parse(btn.getAttribute('data-itens') || '[]');
+        const foto = btn.getAttribute('data-foto') || '';
+        const nome = btn.getAttribute('data-nome') || 'Aluno';
+        const proposta = (btn.getAttribute('data-proposta') || '').trim();
+        const dataSug = (btn.getAttribute('data-data') || '').trim();
+        const justificativa = (btn.getAttribute('data-justificativa') || '').trim();
 
-    async function decidirRenovacaoChat(decisao) {
-        if (!pedidoNotaAtual) return;
+        const headerHtml = foto
+            ? `<img src="${foto}" alt="${nome}" class="preview-avatar">`
+            : '<div class="preview-avatar-placeholder">👤</div>';
 
-        const erro = document.getElementById('notaErro');
-        erro.textContent = '';
+        document.getElementById('renovHeader').innerHTML =
+            headerHtml + `<p class="preview-nome">${escapeHtml(nome)}</p>`;
 
-        let motivo = '';
-        if (decisao === 'recusar') {
-            motivo = (window.prompt('Informe o motivo da recusa:') || '').trim();
-            if (!motivo) {
-                erro.textContent = 'A recusa exige um motivo.';
-                return;
-            }
+        let itensHtml = '';
+        if (itens.length > 0) {
+            itensHtml = itens.map(item => {
+                const imgHtml = item.imagem_url
+                    ? `<img src="${escapeHtml(item.imagem_url)}" alt="${escapeHtml(item.nome_comp)}" class="preview-item-img">`
+                    : '<div class="preview-item-placeholder">📦</div>';
+                return `
+                    <div class="preview-item">
+                        ${imgHtml}
+                        <div class="preview-item-info">
+                            <p class="preview-item-nome">${escapeHtml(item.nome_comp)}</p>
+                            <p class="preview-item-qtd">Quantidade: ${item.qtd_solicitada}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            itensHtml = '<p class="preview-empty">Nenhum item solicitado.</p>';
         }
+        document.getElementById('renovItems').innerHTML = itensHtml;
 
-        const fd = new FormData();
-        fd.append('acao', 'decidir_renovacao');
-        fd.append('id_pedido', String(pedidoNotaAtual));
-        fd.append('decisao', decisao);
-        if (motivo) fd.append('motivo', motivo);
+        let msg = `O aluno, ${nome} está querendo ${proposta}.`;
+        if (dataSug !== '') msg += ` Data proposta: ${dataSug}.`;
+        if (justificativa !== '') msg += ` Justificativa: ${justificativa}`;
 
-        try {
-            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (!data.ok) {
-                erro.textContent = data.erro || 'Não foi possível concluir a decisão.';
-                return;
-            }
-            await abrirNotaAtraso(pedidoNotaAtual);
-        } catch (_) {
-            erro.textContent = 'Falha de comunicação com o servidor.';
-        }
+        document.getElementById('renovMensagem').innerHTML = escapeHtml(msg);
+        document.getElementById('modalRenovacaoPedido').classList.add('open');
     }
+
+    function fecharRenovacaoPedido() {
+        document.getElementById('modalRenovacaoPedido').classList.remove('open');
+    }
+
+    let pedidoNotaAtual = null;
 
     async function abrirNotaAtraso(idPedido) {
         pedidoNotaAtual = idPedido;
@@ -2466,29 +2497,19 @@ function svgIcon(string $name): string {
         const chat = document.getElementById('notaChat');
         const header = document.getElementById('notaHeader');
         const erro = document.getElementById('notaErro');
-        const textarea = document.getElementById('notaMensagem');
-        const blocoRenovacao = document.getElementById('notaRenovacaoAcoes');
-        const btnEnviar = document.querySelector('#formNotaAtraso .btn-nota-enviar');
 
-        chat.innerHTML = '<p class="nota-empty">Carregando conversa...</p>';
+        chat.innerHTML = '<p class="nota-empty">Carregando nota...</p>';
         header.innerHTML = '';
-        blocoRenovacao.style.display = 'none';
-        blocoRenovacao.innerHTML = '';
         erro.textContent = '';
-        textarea.value = '';
-        if (btnEnviar) {
-            btnEnviar.disabled = false;
-            btnEnviar.textContent = 'Enviar mensagem';
-        }
         modal.classList.add('open');
 
         try {
-            const params = new URLSearchParams({ acao: 'listar', id_pedido: String(idPedido) });
-            const res = await fetch('../api/pedido_chat.php?' + params.toString());
+            const params = new URLSearchParams({ acao: 'buscar', id_pedido: String(idPedido) });
+            const res = await fetch('../api/pedido_atraso_nota.php?' + params.toString());
             const data = await res.json();
 
             if (!data.ok) {
-                erro.textContent = data.erro || 'Não foi possível carregar o chat.';
+                erro.textContent = data.erro || 'Não foi possível carregar a nota.';
                 chat.innerHTML = '<p class="nota-empty">Não foi possível carregar as mensagens.</p>';
                 return;
             }
@@ -2496,37 +2517,36 @@ function svgIcon(string $name): string {
             const aluno = data.aluno || {};
             const foto = aluno.foto || '';
             const nome = aluno.nome || 'Aluno';
-            const statusPedido = (data.pedido && data.pedido.status) ? data.pedido.status : '';
-            const atrasoDias = Number((data.pedido && data.pedido.dias_atraso) || 0);
-            const atrasado = Boolean(data.pedido && data.pedido.atrasado);
+            const email = (aluno.email || '').trim();
+            const atrasoDias = Number(data.dias_atraso || 0);
+            const msgAutomatica = `${nome}, ${atrasoDias} dia(s) de atraso! Caso fique mais tempo sem devolver, vamos ter que bloquear seu acesso. Você está pré-bloqueado, no momento. Devolva o pacote ou contate alguém da CTI para mais informações.`;
 
             header.innerHTML = `
                 ${foto ? `<img src="${escapeHtml(foto)}" alt="${escapeHtml(nome)}" class="nota-avatar">` : '<div class="nota-avatar-placeholder">👤</div>'}
                 <div class="nota-header-text">
                     <p class="nota-nome">${escapeHtml(nome)}</p>
-                    <p class="nota-prazo" style="color:${atrasado ? '#fca5a5' : '#c4c4c4'}">Status: ${escapeHtml(statusPedido)}${atrasoDias > 0 ? ` · Atraso: ${atrasoDias} dia(s)` : ''}</p>
+                    <p class="nota-prazo">${atrasoDias > 0 ? `${escapeHtml(nome)}, ${atrasoDias} dia(s) de atraso!` : 'Pedido dentro do prazo nos 3 riscos.'}</p>
                 </div>
             `;
 
-            const mensagens = Array.isArray(data.mensagens) ? data.mensagens : [];
-            if (mensagens.length === 0) {
-                chat.innerHTML = '<p class="nota-empty">Ainda não há mensagens neste chat.</p>';
-            } else {
-                chat.innerHTML = mensagens.map((m) => {
-                    let classe = 'sistema';
-                    if (m.autor_tipo === 'aluno') classe = 'aluno';
-                    if (m.autor_tipo === 'laboratorista') classe = 'lab';
-                    return `<div class="baloon ${classe}">${escapeHtml(m.mensagem || '')}</div>`;
-                }).join('');
-                chat.scrollTop = chat.scrollHeight;
-            }
+            const emailSeguro = email !== '' ? escapeHtml(email) : 'email não informado';
+            const emailLink = email !== ''
+                ? `<a href="mailto:${encodeURIComponent(email)}" style="color:#93c5fd;text-decoration:underline;">Contate esse e-mail clicando aqui</a>`
+                : 'E-mail do aluno não informado.';
 
-            if (data.chat && data.chat.renovacao_pendente_laboratorio) {
-                blocoRenovacao.style.display = 'flex';
-                blocoRenovacao.innerHTML = `
-                    <button type="button" class="btn-renovacao-chat aprovar" onclick="decidirRenovacaoChat('aceitar')">Aceitar renovação</button>
-                    <button type="button" class="btn-renovacao-chat recusar" onclick="decidirRenovacaoChat('recusar')">Recusar renovação</button>
-                `;
+            chat.innerHTML = `
+                <div class="baloon lab" style="max-width:100%;align-self:stretch;">
+                    Mensagem automática enviada:<br>
+                    <strong>${escapeHtml(msgAutomatica)}</strong><br><br>
+                    Caso queira saber mais informações sobre esse usuário, acesse o e-mail dele: <strong>${emailSeguro}</strong><br>
+                    ${emailLink}
+                </div>
+            `;
+
+            if (data.atrasado) {
+                erro.textContent = 'Aluno em atraso! A notificação automática já foi enviada. Para continuar o contato, use o e-mail do aluno.';
+            } else {
+                erro.textContent = 'Pedido dentro do prazo.';
             }
         } catch (_) {
             erro.textContent = 'Falha de comunicação com o servidor.';
@@ -2542,42 +2562,7 @@ function svgIcon(string $name): string {
         if (e.target === this) fecharNotaAtraso();
     });
 
-    document.getElementById('formNotaAtraso').addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        const erro = document.getElementById('notaErro');
-        const textarea = document.getElementById('notaMensagem');
-        const mensagem = textarea.value.trim();
-
-        if (!pedidoNotaAtual) return;
-
-        if (mensagem === '') {
-            erro.textContent = 'Digite a mensagem antes de enviar.';
-            textarea.focus();
-            return;
-        }
-
-        const fd = new FormData();
-        fd.append('acao', 'enviar_mensagem');
-        fd.append('id_pedido', String(pedidoNotaAtual));
-        fd.append('mensagem', mensagem);
-
-        try {
-            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
-            const data = await res.json();
-
-            if (!data.ok) {
-                erro.textContent = data.erro || 'Não foi possível enviar a mensagem.';
-                return;
-            }
-
-            textarea.value = '';
-            erro.textContent = '';
-            await abrirNotaAtraso(pedidoNotaAtual);
-        } catch (_) {
-            erro.textContent = 'Falha de comunicação com o servidor.';
-        }
-    });
+    
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -2588,6 +2573,10 @@ function svgIcon(string $name): string {
     /* Fecha preview ao clicar no overlay */
     document.getElementById('modalPreview').addEventListener('click', function (e) {
         if (e.target === this) fecharPreview();
+    });
+
+    document.getElementById('modalRenovacaoPedido').addEventListener('click', function (e) {
+        if (e.target === this) fecharRenovacaoPedido();
     });
 </script>
 

@@ -2,6 +2,7 @@
 require_once '../includes/auth_check.php';
 checkAccess(['laboratorista', 'admin']);
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 /* ── Ações AJAX ─────────────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -10,6 +11,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     try {
         $pdo     = db();
         $id_user = (int) ($_POST['id_user'] ?? 0);
+        $authUser = $_SESSION['auth_user'] ?? [];
+        $atorNome = trim((string) ($authUser['nome'] ?? 'Usuário'));
+        $atorPerfil = (string) ($authUser['perfil'] ?? $authUser['tipo_perfil'] ?? 'laboratorista');
+        $atorLabel = $atorPerfil === 'admin' ? 'Administrador' : 'Laboratorista';
+
+        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_manual TINYINT(1) NOT NULL DEFAULT 0');
+        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueio_motivo TEXT NULL');
+        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_nome VARCHAR(150) NULL');
+        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_tipo VARCHAR(30) NULL');
+        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_em DATETIME NULL');
 
         if (!$id_user) {
             echo json_encode(['ok' => false, 'error' => 'ID de usuário inválido']);
@@ -18,14 +29,169 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         /* ── Bloquear / Desbloquear ── */
         if ($_POST['action'] === 'toggle_block') {
-            $pdo->prepare('UPDATE Usuario SET bloqueado = NOT bloqueado WHERE id_user = :id')
+            $stmtUser = $pdo->prepare('SELECT nome, bloqueado, pre_bloqueado_manual, pre_bloqueado_por_nome, pre_bloqueado_por_tipo FROM Usuario WHERE id_user = :id LIMIT 1');
+            $stmtUser->execute(['id' => $id_user]);
+            $userRow = $stmtUser->fetch();
+
+            if (!$userRow) {
+                echo json_encode(['ok' => false, 'error' => 'Usuário não encontrado']);
+                exit;
+            }
+
+            $nomeAluno = (string) ($userRow['nome'] ?? 'Usuário');
+            $bloqueadoAtual = (int) ($userRow['bloqueado'] ?? 0);
+            $preManualAtivo = (int) ($userRow['pre_bloqueado_manual'] ?? 0) === 1;
+            $preManualTipoRaw = mb_strtolower(trim((string) ($userRow['pre_bloqueado_por_tipo'] ?? '')));
+            $preManualTipo = $preManualTipoRaw === 'admin' ? 'Adm.' : 'Lab.';
+            $preManualNome = trim((string) ($userRow['pre_bloqueado_por_nome'] ?? ''));
+            if ($preManualNome === '') $preManualNome = 'Usuário';
+            $preManualLabel = 'Pré-bloqueado, por ' . $preManualTipo . ': ' . $preManualNome;
+
+            if ($bloqueadoAtual === 1) {
+                $pedidoColsStmt = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
+                $pedidoColsStmt->execute(['t' => 'Pedido']);
+                $pedidoCols = $pedidoColsStmt->fetchAll(PDO::FETCH_COLUMN);
+
+                $statusCol = in_array('status_pedido', $pedidoCols, true)
+                    ? 'status_pedido'
+                    : (in_array('status', $pedidoCols, true) ? 'status' : null);
+
+                if ($statusCol !== null) {
+                    $stmtPendente = $pdo->prepare('SELECT 1 FROM Pedido WHERE id_user = :id_user AND ' . $statusCol . ' IN ("em-andamento", "em-atraso") LIMIT 1');
+                    $stmtPendente->execute(['id_user' => $id_user]);
+                    $temPacotePendente = (bool) $stmtPendente->fetchColumn();
+
+                    if ($temPacotePendente) {
+                        echo json_encode(['ok' => false, 'error' => 'Não foi possivel desbloquear, motivo: Usuario ainda não devolveu o pacote']);
+                        exit;
+                    }
+                }
+
+                $pdo->prepare('UPDATE Usuario SET bloqueado = 0 WHERE id_user = :id')
+                    ->execute(['id' => $id_user]);
+
+                $mensagemNotif = sprintf(
+                    'Prezado, %s. Seu bloqueio foi removido pelo %s: %s.',
+                    $nomeAluno,
+                    $atorLabel,
+                    $atorNome
+                );
+
+                $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
+                $notCols->execute(['t' => 'Notificacao']);
+                $cols = $notCols->fetchAll(PDO::FETCH_COLUMN);
+
+                if (in_array('humor', $cols, true)) {
+                    $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo, humor) VALUES (:u, :t, :m, :tp, :h)')
+                        ->execute(['u' => $id_user, 't' => 'Desbloqueio realizado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
+                } else {
+                    $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
+                        ->execute(['u' => $id_user, 't' => 'Desbloqueio realizado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
+                }
+
+                $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
+                echo json_encode([
+                    'ok' => true,
+                    'bloqueado' => 0,
+                    'pre_bloqueado_auto' => (($statusAuto['pre_bloqueado'] ?? false) === true),
+                    'motivo_auto' => (string) ($statusAuto['motivo'] ?? ''),
+                    'pre_manual_ativo' => $preManualAtivo,
+                    'pre_manual_label' => $preManualLabel,
+                ]);
+                exit;
+            }
+
+            $pdo->prepare('UPDATE Usuario SET bloqueado = 1 WHERE id_user = :id')
                 ->execute(['id' => $id_user]);
 
-            $stmt = $pdo->prepare('SELECT bloqueado FROM Usuario WHERE id_user = :id');
-            $stmt->execute(['id' => $id_user]);
-            $bloqueado = (int) $stmt->fetchColumn();
+            $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
+            echo json_encode([
+                'ok' => true,
+                'bloqueado' => 1,
+                'pre_bloqueado_auto' => (($statusAuto['pre_bloqueado'] ?? false) === true),
+                'motivo_auto' => (string) ($statusAuto['motivo'] ?? ''),
+                'pre_manual_ativo' => $preManualAtivo,
+                'pre_manual_label' => $preManualLabel,
+            ]);
+            exit;
+        }
 
-            echo json_encode(['ok' => true, 'bloqueado' => $bloqueado]);
+        if ($_POST['action'] === 'toggle_preblock') {
+            $motivo = trim((string) ($_POST['motivo'] ?? ''));
+
+            $stmtStatus = $pdo->prepare('SELECT nome, pre_bloqueado_manual FROM Usuario WHERE id_user = :id LIMIT 1');
+            $stmtStatus->execute(['id' => $id_user]);
+            $row = $stmtStatus->fetch();
+
+            if (!$row) {
+                echo json_encode(['ok' => false, 'error' => 'Usuário não encontrado']);
+                exit;
+            }
+
+            $jaPreBloqueado = (int) ($row['pre_bloqueado_manual'] ?? 0) === 1;
+            $nomeAluno = (string) ($row['nome'] ?? 'Usuário');
+
+            if (!$jaPreBloqueado && $motivo === '') {
+                echo json_encode(['ok' => false, 'error' => 'Informe o motivo do pré-bloqueio.']);
+                exit;
+            }
+
+            if ($jaPreBloqueado) {
+                $pdo->prepare('UPDATE Usuario SET pre_bloqueado_manual = 0, pre_bloqueio_motivo = NULL, pre_bloqueado_por_nome = NULL, pre_bloqueado_por_tipo = NULL, pre_bloqueado_em = NULL WHERE id_user = :id')
+                    ->execute(['id' => $id_user]);
+
+                $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
+                echo json_encode([
+                    'ok' => true,
+                    'pre_bloqueado' => 0,
+                    'motivo' => '',
+                    'pre_bloqueado_auto' => (($statusAuto['pre_bloqueado'] ?? false) === true),
+                    'motivo_auto' => (string) ($statusAuto['motivo'] ?? ''),
+                    'pre_manual_ativo' => false,
+                    'pre_manual_label' => '',
+                ]);
+                exit;
+            }
+
+            $pdo->prepare('UPDATE Usuario SET pre_bloqueado_manual = 1, pre_bloqueio_motivo = :motivo, pre_bloqueado_por_nome = :ator_nome, pre_bloqueado_por_tipo = :ator_tipo, pre_bloqueado_em = NOW() WHERE id_user = :id')
+                ->execute([
+                    'motivo' => $motivo,
+                    'ator_nome' => $atorNome,
+                    'ator_tipo' => $atorPerfil,
+                    'id' => $id_user,
+                ]);
+
+            $mensagemNotif = sprintf(
+                'Prezado, %s. Você foi pré-bloqueado pelo %s: %s.',
+                $nomeAluno,
+                $atorLabel,
+                $atorNome
+            );
+            $atorTipoLabel = $atorPerfil === 'admin' ? 'Adm.' : 'Lab.';
+            $preManualLabel = 'Pré-bloqueado, por ' . $atorTipoLabel . ': ' . $atorNome;
+
+            $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
+            $notCols->execute(['t' => 'Notificacao']);
+            $cols = $notCols->fetchAll(PDO::FETCH_COLUMN);
+
+            if (in_array('humor', $cols, true)) {
+                $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo, humor) VALUES (:u, :t, :m, :tp, :h)')
+                    ->execute(['u' => $id_user, 't' => 'Pré-bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
+            } else {
+                $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
+                    ->execute(['u' => $id_user, 't' => 'Pré-bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
+            }
+
+            $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
+            echo json_encode([
+                'ok' => true,
+                'pre_bloqueado' => 1,
+                'motivo' => $motivo,
+                'pre_bloqueado_auto' => (($statusAuto['pre_bloqueado'] ?? false) === true),
+                'motivo_auto' => (string) ($statusAuto['motivo'] ?? ''),
+                'pre_manual_ativo' => true,
+                'pre_manual_label' => $preManualLabel,
+            ]);
             exit;
         }
 
@@ -71,10 +237,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $usuarios = [];
 $db_ok    = false;
 $search   = trim($_GET['q'] ?? '');
+$preBloqueioAutoMap = [];
 
 try {
     $pdo    = db();
-    $sql    = "SELECT id_user, nome, login, matricula, bloqueado, foto_perfil
+    $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_manual TINYINT(1) NOT NULL DEFAULT 0');
+    $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueio_motivo TEXT NULL');
+    $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_nome VARCHAR(150) NULL');
+    $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_tipo VARCHAR(30) NULL');
+
+    $sql    = "SELECT id_user, nome, login, matricula, bloqueado, foto_perfil, pre_bloqueado_manual, pre_bloqueio_motivo, pre_bloqueado_por_nome, pre_bloqueado_por_tipo
                FROM   Usuario
                WHERE  tipo_perfil = 'estudante'";
     $params = [];
@@ -88,6 +260,25 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $usuarios = $stmt->fetchAll();
+
+    foreach ($usuarios as $usr) {
+        $uid = (int) ($usr['id_user'] ?? 0);
+        if ($uid <= 0) continue;
+
+        try {
+            $st = aluno_pre_bloqueio_status($pdo, $uid);
+            $preBloqueioAutoMap[$uid] = [
+                'pre_bloqueado' => (($st['pre_bloqueado'] ?? false) === true),
+                'motivo' => (string) ($st['motivo'] ?? ''),
+            ];
+        } catch (Throwable) {
+            $preBloqueioAutoMap[$uid] = [
+                'pre_bloqueado' => false,
+                'motivo' => '',
+            ];
+        }
+    }
+
     $db_ok    = true;
 } catch (Throwable) { /* BD indisponível */ }
 
@@ -218,6 +409,10 @@ require_once '../includes/header.php';
     }
 
     .user-card.bloqueado { border-color: #7f1d1d; }
+    .user-card.prebloqueado {
+        border-color: #7f1d1d;
+        background: linear-gradient(180deg, rgba(127, 29, 29, 0.18) 0%, rgba(30, 30, 30, 1) 70%);
+    }
 
     .user-avatar {
         width: 46px;
@@ -263,6 +458,18 @@ require_once '../includes/header.php';
         border-radius: 20px;
         white-space: nowrap;
         flex-shrink: 0;
+    }
+
+    .badge-prebloqueado {
+        font-size: 0.75rem;
+        font-weight: 700;
+        background-color: #451a1a;
+        color: #fca5a5;
+        padding: 3px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
+        flex-shrink: 0;
+        margin-right: 8px;
     }
 
     /* ── Botão de menu (3 riscos) ───────────────────── */
@@ -606,7 +813,25 @@ require_once '../includes/header.php';
 
     <div class="user-list">
         <?php foreach ($usuarios as $u): ?>
-        <div class="user-card <?= $u['bloqueado'] ? 'bloqueado' : '' ?>" id="card-<?= $u['id_user'] ?>">
+        <?php
+            $preBloqueadoManual = (int) ($u['pre_bloqueado_manual'] ?? 0) === 1;
+            $preAutoStatus = $preBloqueioAutoMap[(int) $u['id_user']] ?? ['pre_bloqueado' => false, 'motivo' => ''];
+            $preBloqueadoAuto = (($preAutoStatus['pre_bloqueado'] ?? false) === true);
+            $motivoAuto = trim((string) ($preAutoStatus['motivo'] ?? ''));
+            $mostrarPreBadge = $preBloqueadoManual || $preBloqueadoAuto || (int) ($u['bloqueado'] ?? 0) === 1;
+            $preTipoRaw = mb_strtolower(trim((string) ($u['pre_bloqueado_por_tipo'] ?? '')));
+            $preTipo = $preTipoRaw === 'admin' ? 'Adm.' : 'Lab.';
+            $preNome = trim((string) ($u['pre_bloqueado_por_nome'] ?? ''));
+            if ($preNome === '') $preNome = 'Usuário';
+            $preBadgeText = $preBloqueadoManual
+                ? ('Pré-bloqueado, por ' . $preTipo . ': ' . $preNome)
+                : ($preBloqueadoAuto ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado');
+            $preBadgeTitle = $preBloqueadoManual
+                ? (string) ($u['pre_bloqueio_motivo'] ?? '')
+                : ($motivoAuto !== '' ? $motivoAuto : ((int) ($u['bloqueado'] ?? 0) === 1 ? 'Usuário bloqueado' : ''));
+            $mostrarOpcaoPreblock = $preBloqueadoManual || !$preBloqueadoAuto;
+        ?>
+        <div class="user-card <?= $u['bloqueado'] ? 'bloqueado' : '' ?> <?= $mostrarPreBadge ? 'prebloqueado' : '' ?>" id="card-<?= $u['id_user'] ?>">
 
             <div class="user-avatar">
                 <?php if (!empty($u['foto_perfil'])): ?>
@@ -632,6 +857,13 @@ require_once '../includes/header.php';
                 id="badge-<?= $u['id_user'] ?>"
                 <?= $u['bloqueado'] ? '' : 'style="display:none"' ?>
             >Bloqueado</span>
+
+            <span
+                class="badge-prebloqueado"
+                id="prebadge-<?= $u['id_user'] ?>"
+                <?= $mostrarPreBadge ? '' : 'style="display:none"' ?>
+                title="<?= htmlspecialchars($preBadgeTitle) ?>"
+            ><?= htmlspecialchars($preBadgeText) ?></span>
 
             <div class="menu-wrap" id="menu-<?= $u['id_user'] ?>">
                 <button
@@ -681,6 +913,21 @@ require_once '../includes/header.php';
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
                         Mandar aviso
+                    </button>
+
+                    <button
+                        class="<?= $preBloqueadoManual ? 'unblock' : 'danger' ?>"
+                        id="btn-preblock-<?= $u['id_user'] ?>"
+                        style="<?= $mostrarOpcaoPreblock ? '' : 'display:none' ?>"
+                        onclick="togglePreBlock(<?= $u['id_user'] ?>, '<?= htmlspecialchars(addslashes($u['nome'])) ?>')"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <?= $preBloqueadoManual ? 'Remover pré-bloqueio' : 'Pré-bloquear' ?>
                     </button>
 
                 </div>
@@ -804,18 +1051,135 @@ function toggleBlock(id) {
         const badge = document.getElementById('badge-'     + id);
         const btn   = document.getElementById('btn-block-' + id);
 
+        const preBadge = document.getElementById('prebadge-' + id);
+        const btnPre = document.getElementById('btn-preblock-' + id);
+        const preManualAtivo = (data.pre_manual_ativo ?? false) === true || (data.pre_manual_ativo ?? 0) === 1 || (btnPre && btnPre.textContent.toLowerCase().includes('remover'));
+        const preManualLabel = (data.pre_manual_label || '').trim();
+        const preAutoAtivo = (data.pre_bloqueado_auto ?? false) === true || (data.pre_bloqueado_auto ?? 0) === 1;
+        const motivoAuto = (data.motivo_auto || '').trim();
+
         if (data.bloqueado) {
             card.classList.add('bloqueado');
+            card.classList.add('prebloqueado');
             badge.style.display = '';
+            if (preBadge) {
+                preBadge.style.display = '';
+                preBadge.textContent = preManualAtivo ? (preManualLabel || 'Pré-bloqueado') : (preAutoAtivo ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado');
+                if (!preManualAtivo) preBadge.title = motivoAuto || 'Usuário bloqueado';
+            }
+            if (btnPre && !preManualAtivo && preAutoAtivo) btnPre.style.display = 'none';
             btn.className = 'unblock';
             btn.innerHTML = svgLockOpen() + ' Desbloquear';
             showToast('Usuário bloqueado.', 'error');
         } else {
             card.classList.remove('bloqueado');
+            if (!preManualAtivo && !preAutoAtivo) {
+                card.classList.remove('prebloqueado');
+                if (preBadge) {
+                    preBadge.style.display = 'none';
+                    preBadge.textContent = 'Pré-bloqueado';
+                    preBadge.title = '';
+                }
+                if (btnPre) btnPre.style.display = '';
+            } else if (!preManualAtivo && preAutoAtivo) {
+                card.classList.add('prebloqueado');
+                if (preBadge) {
+                    preBadge.style.display = '';
+                    preBadge.textContent = 'Pré-bloqueado, automaticamente.';
+                    preBadge.title = motivoAuto || 'Pré-bloqueado automático';
+                }
+                if (btnPre) btnPre.style.display = 'none';
+            } else if (preManualAtivo) {
+                if (btnPre) btnPre.style.display = '';
+                if (preBadge) preBadge.textContent = preManualLabel || 'Pré-bloqueado';
+            }
             badge.style.display = 'none';
             btn.className = 'danger';
             btn.innerHTML = svgLockClosed() + ' Bloquear';
             showToast('Usuário desbloqueado.', 'success');
+        }
+    })
+    .catch(() => showToast('Falha de comunicação.', 'error'));
+}
+
+function togglePreBlock(id, nome) {
+    closeAllMenus();
+
+    const btn = document.getElementById('btn-preblock-' + id);
+    const removendo = btn && btn.textContent.toLowerCase().includes('remover');
+
+    let motivo = '';
+    if (!removendo) {
+        motivo = (window.prompt('Informe o motivo do pré-bloqueio para ' + nome + ':') || '').trim();
+        if (!motivo) {
+            showToast('Motivo obrigatório para pré-bloquear.', 'error');
+            return;
+        }
+    }
+
+    fetch('', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'toggle_preblock',
+            id_user: id,
+            motivo: motivo,
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.ok) {
+            showToast('Erro: ' + data.error, 'error');
+            return;
+        }
+
+        const card = document.getElementById('card-' + id);
+        const badge = document.getElementById('prebadge-' + id);
+        const botao = document.getElementById('btn-preblock-' + id);
+        const preManualLabel = (data.pre_manual_label || '').trim();
+        const preAutoAtivo = (data.pre_bloqueado_auto ?? false) === true || (data.pre_bloqueado_auto ?? 0) === 1;
+        const motivoAuto = (data.motivo_auto || '').trim();
+
+        if ((data.pre_bloqueado ?? 0) === 1) {
+            card.classList.add('prebloqueado');
+            if (badge) {
+                badge.style.display = '';
+                badge.textContent = preManualLabel || 'Pré-bloqueado';
+                badge.title = data.motivo || '';
+            }
+            if (botao) {
+                botao.style.display = '';
+                botao.className = 'unblock';
+                botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Remover pré-bloqueio`;
+            }
+            showToast('Usuário pré-bloqueado e notificado.', 'error');
+        } else {
+            const badgeBloqueado = document.getElementById('badge-' + id);
+            const aindaBloqueado = badgeBloqueado && badgeBloqueado.style.display !== 'none';
+            if (aindaBloqueado || preAutoAtivo) {
+                card.classList.add('prebloqueado');
+                if (badge) {
+                    badge.style.display = '';
+                    badge.textContent = preAutoAtivo ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado';
+                    badge.title = motivoAuto || (aindaBloqueado ? 'Usuário bloqueado' : 'Pré-bloqueado automático');
+                }
+                if (botao && preAutoAtivo) botao.style.display = 'none';
+            } else {
+                card.classList.remove('prebloqueado');
+                if (badge) {
+                    badge.style.display = 'none';
+                    badge.textContent = 'Pré-bloqueado';
+                    badge.title = '';
+                }
+                if (botao) botao.style.display = '';
+            }
+            if (botao) {
+                if (!(preAutoAtivo && !aindaBloqueado)) {
+                    botao.className = 'danger';
+                    botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pré-bloquear`;
+                }
+            }
+            showToast('Pré-bloqueio removido.', 'success');
         }
     })
     .catch(() => showToast('Falha de comunicação.', 'error'));

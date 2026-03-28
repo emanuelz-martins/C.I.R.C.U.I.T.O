@@ -3,6 +3,7 @@ require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 header('Content-Type: application/json');
 
@@ -67,16 +68,9 @@ try {
         exit;
     }
 
-    $respostaPendente = (int) ($notif['resposta_pendente'] ?? 0) === 1;
     $idNotaAtraso = (int) ($notif['id_nota_atraso'] ?? 0);
 
     if ($acao === 'marcar_lida') {
-        if ($respostaPendente) {
-            http_response_code(400);
-            echo json_encode(['ok' => false, 'erro' => 'Responda ao laboratorista antes de marcar como lida']);
-            exit;
-        }
-
         $stmt = $pdo->prepare('
             UPDATE Notificacao SET lida = 1
             WHERE id_not = :id AND id_user = :uid
@@ -85,12 +79,6 @@ try {
         echo json_encode(['ok' => true]);
 
     } elseif ($acao === 'excluir') {
-        if ($respostaPendente) {
-            http_response_code(400);
-            echo json_encode(['ok' => false, 'erro' => 'Responda ao laboratorista antes de arquivar/excluir']);
-            exit;
-        }
-
         $stmt = $pdo->prepare('
             DELETE FROM Notificacao
             WHERE id_not = :id AND id_user = :uid
@@ -99,44 +87,8 @@ try {
         echo json_encode(['ok' => true]);
 
     } elseif ($acao === 'responder_atraso') {
-        $mensagem = trim((string) ($_POST['mensagem'] ?? ''));
-
-        if (!$respostaPendente || $idNotaAtraso <= 0) {
-            http_response_code(400);
-            echo json_encode(['ok' => false, 'erro' => 'Esta notificação não requer resposta']);
-            exit;
-        }
-
-        if ($mensagem === '' || mb_strlen($mensagem) > 2000) {
-            http_response_code(400);
-            echo json_encode(['ok' => false, 'erro' => 'Mensagem inválida']);
-            exit;
-        }
-
-        $pdo->beginTransaction();
-
-        $stmtMsg = $pdo->prepare('
-            INSERT INTO Pedido_Atraso_Mensagem (id_nota, autor_tipo, mensagem)
-            VALUES (:id_nota, "aluno", :mensagem)
-        ');
-        $stmtMsg->execute(['id_nota' => $idNotaAtraso, 'mensagem' => $mensagem]);
-
-        $stmtNota = $pdo->prepare('
-            UPDATE Pedido_Atraso_Nota
-            SET status = "respondido", updated_at = NOW()
-            WHERE id_nota = :id_nota AND id_user = :uid
-        ');
-        $stmtNota->execute(['id_nota' => $idNotaAtraso, 'uid' => $id_usuario]);
-
-        $stmtNotif = $pdo->prepare('
-            UPDATE Notificacao
-            SET resposta_pendente = 0
-            WHERE id_nota_atraso = :id_nota AND id_user = :uid
-        ');
-        $stmtNotif->execute(['id_nota' => $idNotaAtraso, 'uid' => $id_usuario]);
-
-        $pdo->commit();
-        echo json_encode(['ok' => true]);
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'erro' => 'Canal de resposta desativado. O contato agora é feito por e-mail.']);
 
     } else {
         http_response_code(400);

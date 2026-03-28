@@ -14,20 +14,6 @@ try {
 	$pdo = db();
 	$id_usuario = (int) ($_SESSION['auth_user']['id'] ?? $_SESSION['auth_user']['id_user'] ?? 0);
 
-	$pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Atraso_Nota (
-		id_nota INT NOT NULL AUTO_INCREMENT,
-		id_pedido INT NOT NULL,
-		id_user INT NOT NULL,
-		id_laboratorista INT NOT NULL,
-		status VARCHAR(30) NOT NULL DEFAULT 'aguardando-aluno',
-		obrigatoria TINYINT(1) NOT NULL DEFAULT 1,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-		PRIMARY KEY (id_nota),
-		KEY idx_pan_pedido_status (id_pedido, status),
-		KEY idx_pan_user_status (id_user, status)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-
 	if ($id_usuario > 0) {
 		$getCols = static function (PDO $pdo, string $table): array {
 			$stmt = $pdo->prepare('
@@ -74,21 +60,12 @@ try {
 						p.id_pedido,
 						{$selectNumero},
 						{$selectStatus},
-						{$selectData},
-						COALESCE(pa.pendente, 0) AS atraso_pendente
+						{$selectData}
 					FROM Pedido p
-					LEFT JOIN (
-						SELECT id_pedido, COUNT(*) AS pendente
-						FROM Pedido_Atraso_Nota
-						WHERE id_user = :id_user2
-						  AND obrigatoria = 1
-						  AND status = 'aguardando-aluno'
-						GROUP BY id_pedido
-					) pa ON pa.id_pedido = p.id_pedido
 					WHERE p.id_user = :id_user {$whereArquivado}
 					ORDER BY {$orderBy}
 				");
-				$stmt->execute(['id_user' => $id_usuario, 'id_user2' => $id_usuario]);
+				$stmt->execute(['id_user' => $id_usuario]);
 				$pedidos = $stmt->fetchAll();
 			}
 		}
@@ -438,7 +415,6 @@ $status_map = [
 			$status = (string) ($p['status_pedido'] ?? 'pendente');
 			$statusInfo = $status_map[$status] ?? ['label' => ucfirst($status), 'class' => 'enviado'];
 			$numFmt = sprintf('%03d', (int) ($p['numero_pedido'] ?? 0));
-			$atrasoPendente = (int) ($p['atraso_pendente'] ?? 0) > 0;
 		?>
 		<div class="pedido-card" id="pedido-<?= (int) $p['id_pedido'] ?>">
 			<div>
@@ -450,15 +426,8 @@ $status_map = [
 				<span class="status-badge <?= htmlspecialchars($statusInfo['class']) ?>">
 					<?= htmlspecialchars($statusInfo['label']) ?>
 				</span>
-				<?php if ($atrasoPendente): ?>
-					<span class="btn-bloqueio">Resposta pendente de atraso</span>
-					<a href="#" class="btn-ver disabled" aria-disabled="true">Ver detalhes</a>
-				<?php else: ?>
-					<a href="./pedido.php?id=<?= (int) $p['id_pedido'] ?>" class="btn-ver">Ver detalhes</a>
-				<?php endif; ?>
+				<a href="./pedido.php?id=<?= (int) $p['id_pedido'] ?>" class="btn-ver">Ver detalhes</a>
 				<button class="btn-arquivar"
-						<?= $atrasoPendente ? 'disabled' : '' ?>
-						data-bloqueado="<?= $atrasoPendente ? '1' : '0' ?>"
 						title="Arquivar pedido"
 						onclick="arquivarPedido(this, <?= (int) $p['id_pedido'] ?>)">
 					<!-- Ícone fichário / caixa de arquivo -->
@@ -478,11 +447,6 @@ $status_map = [
 
 <script>
 	async function arquivarPedido(btn, id) {
-		if (btn.dataset.bloqueado === '1') {
-			alert('Você precisa responder a nota de atraso antes de arquivar este pedido.');
-			return;
-		}
-
 		btn.disabled = true;
 		const fd = new FormData();
 		fd.append('id', id);
