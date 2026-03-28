@@ -55,6 +55,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($nome !== '') {
                     $qtd_disponivel_normalizada = max(0, $qtd_disponivel);
+
+                    /* Apagar imagem antiga ao trocar foto */
+                    if ($imagem_url_nova !== null) {
+                        $stmtImgAntiga = $pdo->prepare('SELECT imagem_url FROM Componente WHERE id_comp = :id');
+                        $stmtImgAntiga->execute(['id' => $id_comp]);
+                        $imgAntiga = $stmtImgAntiga->fetchColumn();
+                        if ($imgAntiga) {
+                            $pathAntigo = str_starts_with($imgAntiga, '/')
+                                ? '/opt/lampp/htdocs' . $imgAntiga
+                                : '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/' . $imgAntiga;
+                            if (is_file($pathAntigo)) @unlink($pathAntigo);
+                        }
+                    }
+
                     $sql = '
                         UPDATE Componente
                         SET nome = :nome,

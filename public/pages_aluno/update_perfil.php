@@ -61,7 +61,7 @@ try {
 
         $ext       = match($mime) { 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', default => 'jpg' };
         $nome_arq  = 'user_' . $id_usuario . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
-        $dir       = __DIR__ . '/../uploads/fotos_perfil/';
+        $dir       = __DIR__ . '/../assets/img/perfil/';
         $dest      = $dir . $nome_arq;
 
         if (!is_dir($dir)) mkdir($dir, 0755, true);
@@ -73,12 +73,14 @@ try {
                 $old->execute(['id' => $id_usuario]);
                 $antiga = $old->fetchColumn();
                 if ($antiga) {
-                    $path_antiga = __DIR__ . '/../' . ltrim($antiga, '/');
-                    if (file_exists($path_antiga)) @unlink($path_antiga);
+                    $path_antiga = str_starts_with($antiga, '/')
+                        ? '/opt/lampp/htdocs' . $antiga
+                        : '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/' . $antiga;
+                    if (is_file($path_antiga)) @unlink($path_antiga);
                 }
             }
 
-            $nova_foto = '/C.I.R.C.U.I.T.O/public/uploads/fotos_perfil/' . $nome_arq;
+            $nova_foto = '/C.I.R.C.U.I.T.O/public/assets/img/perfil/' . $nome_arq;
             if (in_array('foto_perfil', $cols, true)) {
                 $sets[]            = 'foto_perfil = :foto_perfil';
                 $params['foto_perfil'] = $nova_foto;

@@ -62,7 +62,9 @@ $ext_map = [
 ];
 $ext = $ext_map[$mime];
 
-$dir_upload = __DIR__ . '/../uploads/fotos_perfil/';
+$dir_upload = __DIR__ . '/../assets/img/perfil/';
+if (!is_dir($dir_upload)) mkdir($dir_upload, 0755, true);
+
 $nome_arquivo = 'user_' . $id_usuario . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
 $caminho_destino = $dir_upload . $nome_arquivo;
 
@@ -72,7 +74,7 @@ if (!move_uploaded_file($arquivo['tmp_name'], $caminho_destino)) {
     exit;
 }
 
-$caminho_bd = '/C.I.R.C.U.I.T.O/public/uploads/fotos_perfil/' . $nome_arquivo;
+$caminho_bd = '/C.I.R.C.U.I.T.O/public/assets/img/perfil/' . $nome_arquivo;
 
 try {
     $pdo = db();
@@ -91,7 +93,11 @@ try {
 
     /* Remover foto antiga do disco se existir */
     if ($foto_antiga) {
-        $caminho_antigo = __DIR__ . '/../../' . ltrim(str_replace('/C.I.R.C.U.I.T.O/', '', $foto_antiga), '/');
+        $caminho_antigo = '/opt/lampp/htdocs' . '/' . ltrim($foto_antiga, '/');
+        /* Compatibilidade com caminhos relativos antigos (ex: uploads/fotos_perfil/...) */
+        if (!str_starts_with($foto_antiga, '/')) {
+            $caminho_antigo = '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/' . $foto_antiga;
+        }
         if (is_file($caminho_antigo)) {
             unlink($caminho_antigo);
         }
