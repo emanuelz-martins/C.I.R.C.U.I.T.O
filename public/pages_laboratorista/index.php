@@ -11,6 +11,7 @@ require_once '../includes/header.php';
 $emprestimos_em_andamento = 0;
 $esperando_avaliacao      = 0;
 $devolucoes_em_atraso     = 0;
+$notif_nao_lidas          = 0;
 $db_ok = false;
 
 try {
@@ -57,6 +58,19 @@ try {
         }
     }
     
+    /* Notificações não lidas do admin */
+    $idLab = $_SESSION['auth_user']['id'] ?? null;
+    if ($idLab) {
+        try {
+            $stmtNotif = $pdo->prepare("
+                SELECT COUNT(*) AS total FROM Notificacao
+                WHERE id_user = ? AND tipo = 'aviso_adm' AND lida = 0
+            ");
+            $stmtNotif->execute([$idLab]);
+            $notif_nao_lidas = (int) ($stmtNotif->fetch()['total'] ?? 0);
+        } catch (Throwable) {}
+    }
+
     $db_ok = true;
 } catch (Throwable) {
     /* BD indisponível */
@@ -231,6 +245,39 @@ try {
         line-height: 1.3;
     }
 
+    /* ── Badge de notificação ─────────────── */
+    .notif-btn {
+        position: relative;
+        display: flex;
+        align-items: center;
+        background: none;
+        border: none;
+        color: #aaa;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 8px;
+        transition: color .15s, background .15s;
+    }
+    .notif-btn:hover { color: #fff; background: #1e1e1e; }
+    .notif-btn svg { width: 22px; height: 22px; }
+    .notif-badge {
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: #ef4444;
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 700;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        line-height: 1;
+    }
+
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 900px) {
         .main { padding: 40px 20px 60px; }
@@ -255,6 +302,18 @@ try {
 
     <div class="nav-actions">
 
+        <!-- Sino de notificações -->
+        <a href="./notificacao.php" class="notif-btn" title="Notificações do Administrador">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <?php if ($notif_nao_lidas > 0): ?>
+            <span class="notif-badge"><?= $notif_nao_lidas > 99 ? '99+' : $notif_nao_lidas ?></span>
+            <?php endif; ?>
+        </a>
+
         <!-- Usuário + dropdown -->
         <div class="nav-user" id="navUser">
             <button class="nav-user-btn" onclick="toggleDropdown()" aria-haspopup="true">
@@ -270,6 +329,17 @@ try {
             </button>
 
             <div class="dropdown" role="menu">
+                <a href="./notificacao.php" role="menuitem">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    Notificações
+                    <?php if ($notif_nao_lidas > 0): ?>
+                    <span style="margin-left:auto;background:#ef4444;color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:10px;"><?= $notif_nao_lidas ?></span>
+                    <?php endif; ?>
+                </a>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

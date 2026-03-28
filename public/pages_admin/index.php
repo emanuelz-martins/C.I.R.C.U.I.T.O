@@ -190,6 +190,7 @@ try {
         background-color: #1e1e1e;
         border-radius: 16px;
         padding: 28px 24px 36px;
+        border: none;
         text-decoration: none;
         color: #ffffff;
         display: flex;
@@ -197,6 +198,11 @@ try {
         gap: 20px;
         transition: background-color 0.18s;
         cursor: pointer;
+        width: 100%;
+        text-align: left;
+        font-family: inherit;
+        -webkit-appearance: none;
+        appearance: none;
     }
 
     .func-card:hover { background-color: #262626; }
@@ -219,7 +225,7 @@ try {
     }
 
     .func-label {
-        font-size: 1.1rem;
+        font-size: 1.15rem;
         font-weight: 700;
         color: #ffffff;
         line-height: 1.3;
@@ -404,7 +410,7 @@ try {
     <div class="funcionalidades-grid">
 
         <!-- 1. Controlar dados -->
-        <a href="./controlar_dados.php" class="func-card">
+        <button class="func-card" onclick="openDadosModal()">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -415,7 +421,7 @@ try {
                 </svg>
             </div>
             <span class="func-label">Controlar<br>dados</span>
-        </a>
+        </button>
 
         <!-- 2. Relatórios omitidos pelo laboratorista -->
         <a href="./relatorios.php" class="func-card">
@@ -430,7 +436,7 @@ try {
                     <line x1="15.5" y1="15.5" x2="18.5" y2="18.5"/>
                 </svg>
             </div>
-            <span class="func-label">Relatórios omitidos pelo<br>laboratorista</span>
+            <span class="func-label">Relatórios <br>omitidos</br>
         </a>
 
         <!-- 3. Controle de Categorias -->
@@ -472,12 +478,52 @@ try {
                     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
             </div>
-            <span class="func-label">Controlar<br>Laboratoristas/Alunos</span>
+            <span class="func-label">Controlar <br>Laboratorista/Alu</br></span>
         </button>
 
     </div>
 
 </main>
+
+<!-- ══════ MODAL: Controlar Dados ══════ -->
+<div class="choice-overlay" id="dadosModal" onclick="if(event.target===this)closeDadosModal()">
+    <div class="choice-modal" role="dialog" aria-modal="true">
+        <h2 class="choice-title">Controlar Dados</h2>
+        <p class="choice-subtitle">Escolha qual conjunto de dados deseja gerenciar:</p>
+
+        <div class="choice-btns" style="flex-direction:column;gap:10px;">
+            <a href="./dados_pedido.php" class="choice-btn" style="flex-direction:row;justify-content:flex-start;gap:16px;text-align:left;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8"  y1="2" x2="8"  y2="6"/>
+                    <line x1="3"  y1="10" x2="21" y2="10"/>
+                </svg>
+                Dados de Pedidos
+            </a>
+            <a href="./dados_itens.php" class="choice-btn" style="flex-direction:row;justify-content:flex-start;gap:16px;text-align:left;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/>
+                    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                </svg>
+                Dados de Itens
+            </a>
+            <a href="./dados_fotos.php" class="choice-btn" style="flex-direction:row;justify-content:flex-start;gap:16px;text-align:left;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                Dados de Fotos
+            </a>
+        </div>
+
+        <button class="choice-cancel" onclick="closeDadosModal()">Cancelar</button>
+    </div>
+</div>
 
 <!-- ══════ MODAL: Controle de Categorias ══════ -->
 <div class="choice-overlay" id="catModal" onclick="if(event.target===this)closeCatModal()">
@@ -542,12 +588,14 @@ try {
 </div>
 
 <script>
+    function openDadosModal()  { document.getElementById('dadosModal').classList.add('open'); }
+    function closeDadosModal() { document.getElementById('dadosModal').classList.remove('open'); }
     function openCatModal()    { document.getElementById('catModal').classList.add('open'); }
     function closeCatModal()   { document.getElementById('catModal').classList.remove('open'); }
     function openChoiceModal() { document.getElementById('choiceModal').classList.add('open'); }
     function closeChoiceModal(){ document.getElementById('choiceModal').classList.remove('open'); }
     function closeChoiceOnBackdrop(e) { if (e.target === document.getElementById('choiceModal')) closeChoiceModal(); }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCatModal(); closeChoiceModal(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDadosModal(); closeCatModal(); closeChoiceModal(); } });
 </script>
 
 </body>
