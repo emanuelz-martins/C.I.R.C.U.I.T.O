@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
     $payloadRaw = (string) ($_POST['cart_payload'] ?? '');
     $payloadArr = json_decode($payloadRaw, true);
     $prazoOpcao = trim((string) ($_POST['prazo_devolucao_opcao'] ?? ''));
+    $prazoData = trim((string) ($_POST['prazo_devolucao_data'] ?? ''));
     $prazoDetalhe = trim((string) ($_POST['prazo_devolucao_detalhe'] ?? ''));
 
     if ($id_usuario <= 0) {
@@ -30,6 +31,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
     if ($prazoOpcao === '7+' && $prazoDetalhe === '') {
         header('Location: ./carrinho.php?erro=prazo_detalhe');
         exit;
+    }
+
+    $prazoDataFinal = null;
+    if ($prazoOpcao === '7+') {
+        if ($prazoData === '') {
+            header('Location: ./carrinho.php?erro=prazo_data');
+            exit;
+        }
+
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d', $prazoData);
+        $prazoDataFinal = ($dt && $dt->format('Y-m-d') === $prazoData) ? $prazoData : null;
+        if ($prazoDataFinal === null) {
+            header('Location: ./carrinho.php?erro=prazo_data');
+            exit;
+        }
+
+        $hoje = (new DateTimeImmutable('today'))->format('Y-m-d');
+        if ($prazoDataFinal < $hoje) {
+            header('Location: ./carrinho.php?erro=prazo_data');
+            exit;
+        }
     }
 
     if (mb_strlen($prazoDetalhe) > 1500) {
@@ -183,13 +205,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
             $dataDevolucaoPrevista = (new DateTimeImmutable('today +5 days'))->format('Y-m-d');
         } elseif ($prazoOpcao === '3-7') {
             $dataDevolucaoPrevista = (new DateTimeImmutable('today +7 days'))->format('Y-m-d');
+        } elseif ($prazoOpcao === '7+' && $prazoDataFinal !== null) {
+            $dataDevolucaoPrevista = $prazoDataFinal;
         } elseif ($prazoOpcao === 'teste') {
             $dataDevolucaoPrevista = (new DateTimeImmutable('today -1 days'))->format('Y-m-d');
         }
 
         $obsPrazo = 'Prazo solicitado pelo estudante: ' . $prazoLabel;
-        if ($prazoOpcao === '7+' && $prazoDetalhe !== '') {
-            $obsPrazo .= '. Detalhes: ' . $prazoDetalhe;
+        if ($prazoOpcao === '7+') {
+            if ($prazoDataFinal !== null) {
+                $obsPrazo .= '. Data proposta: ' . $prazoDataFinal;
+            }
+            if ($prazoDetalhe !== '') {
+                $obsPrazo .= '. Proposta do aluno: ' . $prazoDetalhe;
+            }
         }
 
         if ($numeroCol !== null) {
@@ -766,6 +795,8 @@ try {
                 echo 'Selecione um prazo de devolução válido antes de enviar o pedido.';
             } elseif ($erro === 'prazo_detalhe') {
                 echo 'Para prazo 7+ dias, informe quantos dias/meses pretende ficar e o motivo.';
+            } elseif ($erro === 'prazo_data') {
+                echo 'Para prazo 7+ dias, informe uma data válida (hoje ou futura).';
             } else {
                 echo 'Não foi possível finalizar o pedido agora. Tente novamente em instantes.';
             }
@@ -863,6 +894,7 @@ try {
         <input type="hidden" name="action" value="finalizar-pedido">
         <input type="hidden" name="cart_payload" id="cartPayloadInput" value="">
         <input type="hidden" name="prazo_devolucao_opcao" id="prazoDevolucaoInput" value="">
+        <input type="hidden" name="prazo_devolucao_data" id="prazoDataInput" value="">
         <input type="hidden" name="prazo_devolucao_detalhe" id="prazoDetalheInput" value="">
     </form>
     <?php endif; ?>
@@ -882,6 +914,9 @@ try {
             </select>
 
             <div id="detalhePrazoWrap" style="display:none; margin-top:12px;">
+                <label for="prazoData" class="confirm-label">Data que você quer devolver *</label>
+                <input type="date" id="prazoData" class="confirm-select">
+
                 <label for="prazoDetalhe" class="confirm-label">Informe quantos dias/meses pretende ficar e por quê *</label>
                 <textarea id="prazoDetalhe" class="confirm-textarea" maxlength="1500" placeholder="Ex.: 2 meses, pois vou usar no TCC e nas aulas práticas de eletrônica."></textarea>
             </div>
@@ -963,6 +998,7 @@ try {
         document.getElementById('confirmHint').textContent = 'Essa informação ajuda o laboratorista a organizar os pacotes.';
         document.getElementById('confirmHint').classList.remove('error');
         document.getElementById('prazoSelect').value = '';
+        document.getElementById('prazoData').value = '';
         document.getElementById('prazoDetalhe').value = '';
         document.getElementById('detalhePrazoWrap').style.display = 'none';
         document.getElementById('confirmModal').classList.add('open');
@@ -974,6 +1010,11 @@ try {
 
     document.getElementById('prazoSelect').addEventListener('change', function () {
         const wrap = document.getElementById('detalhePrazoWrap');
+        const prazoDataInput = document.getElementById('prazoData');
+        const hoje = new Date();
+        const hojeIso = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        prazoDataInput.min = hojeIso;
+
         if (this.value === '7+') {
             wrap.style.display = 'block';
         } else {
@@ -989,6 +1030,7 @@ try {
         }
 
         const prazo = (document.getElementById('prazoSelect').value || '').trim();
+        const prazoData = (document.getElementById('prazoData').value || '').trim();
         const detalhe = (document.getElementById('prazoDetalhe').value || '').trim();
         const hint = document.getElementById('confirmHint');
 
@@ -1005,10 +1047,29 @@ try {
             return;
         }
 
+        if (prazo === '7+' && prazoData === '') {
+            hint.textContent = 'Para 7+ dias, informe a data que você quer devolver.';
+            hint.classList.add('error');
+            document.getElementById('prazoData').focus();
+            return;
+        }
+
+        if (prazo === '7+' && prazoData !== '') {
+            const hoje = new Date();
+            const hojeIso = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            if (prazoData < hojeIso) {
+                hint.textContent = 'A data do prazo 7+ não pode ser menor que hoje.';
+                hint.classList.add('error');
+                document.getElementById('prazoData').focus();
+                return;
+            }
+        }
+
         hint.classList.remove('error');
 
         document.getElementById('cartPayloadInput').value = JSON.stringify(payload);
         document.getElementById('prazoDevolucaoInput').value = prazo;
+        document.getElementById('prazoDataInput').value = prazoData;
         document.getElementById('prazoDetalheInput').value = detalhe;
         document.getElementById('formEnviarPedido').submit();
     }

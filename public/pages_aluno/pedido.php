@@ -93,6 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'solic
                 header('Location: ' . $redirect . '&erro=renovacao_data');
                 exit;
             }
+
+            $hoje = (new DateTimeImmutable('today'))->format('Y-m-d');
+            if ($dataFinal < $hoje) {
+                header('Location: ' . $redirect . '&erro=renovacao_data_passada');
+                exit;
+            }
         }
 
         $textoOpcao = [
@@ -1173,6 +1179,10 @@ function atualizarCampos7Mais() {
 
     if (!campos || !data || !texto) return;
 
+    const hoje = new Date();
+    const hojeIso = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    data.min = hojeIso;
+
     campos.classList.toggle('open', isSeteMais);
     data.required = !!isSeteMais;
     texto.required = !!isSeteMais;
@@ -1206,6 +1216,15 @@ document.getElementById('formRenovacao')?.addEventListener('submit', function (e
         e.preventDefault();
         if (erro) erro.textContent = 'Para 7+ dias, escreva a justificativa.';
         return;
+    }
+
+    if (isSeteMais && data !== '') {
+        const hoje = new Date();
+        const hojeIso = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        if (data < hojeIso) {
+            e.preventDefault();
+            if (erro) erro.textContent = 'A data sugerida não pode ser menor que hoje.';
+        }
     }
 });
 
