@@ -364,12 +364,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $novaData = null;
                         if ($ren) {
+                            $hoje = (new DateTimeImmutable('today'))->format('Y-m-d');
+                            $prazoOpcao = (string) ($ren['prazo_opcao'] ?? '');
                             $dataSolicitada = trim((string) ($ren['data_solicitada'] ?? ''));
-                            if ($dataSolicitada !== '') {
+                            if ($prazoOpcao === '7+' && $dataSolicitada !== '' && $dataSolicitada >= $hoje) {
                                 $novaData = $dataSolicitada;
                             } else {
-                                $prazoOpcao = (string) ($ren['prazo_opcao'] ?? '');
-                                $diasMapa = ['1-3' => 3, '3-5' => 5, '3-7' => 7];
+                                $diasMapa = ['1-3' => 3, '3-5' => 5, '3-7' => 7, '7+' => 7];
                                 $diasExtra = $diasMapa[$prazoOpcao] ?? 3;
                                 $novaData = (new DateTimeImmutable('today +' . $diasExtra . ' days'))->format('Y-m-d');
                             }
@@ -471,13 +472,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 case 'negar':
                     /* Negação → justificativa obrigatória */
-                    if ($justificativa === '') {
-                        header('Location: ./acessar.php?erro=justificativa');
-                        exit;
-                    }
-
                     $statusAtualPedido = $getPedidoStatus($pdo, $id_pedido, $statusCol);
                     if ($statusAtualPedido === 'renovacao-solicitada') {
+                        if ($justificativa === '') {
+                            $justificativa = 'Proposta de extensão não aprovada.';
+                        }
                         $setStatus($pdo, $id_pedido, 'em-andamento', $statusCol, $updatedCol);
 
                         $stmtRen = $pdo->prepare('SELECT id_renovacao FROM Renovacao WHERE id_pedido = :id_pedido AND status = "pendente" ORDER BY id_renovacao DESC LIMIT 1');
@@ -501,6 +500,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             );
                         }
                     } else {
+                        if ($justificativa === '') {
+                            header('Location: ./acessar.php?erro=justificativa');
+                            exit;
+                        }
+
                         $setStatus($pdo, $id_pedido, 'negado', $statusCol, $updatedCol, $motivoCol, $justificativa);
 
                         $uid = $getUserId($pdo, $id_pedido);
@@ -1475,9 +1479,24 @@ $status_map = [
         font-size: 0.82rem;
     }
 
+    .preview-date-highlight {
+        margin-top: 10px;
+        border: 1px solid #2563eb;
+        background-color: #172554;
+        color: #dbeafe;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        line-height: 1.35;
+        display: none;
+    }
+
     .preview-close {
         display: flex;
         justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
         padding: 0 28px 22px;
     }
 
@@ -1493,6 +1512,32 @@ $status_map = [
         transition: border-color 0.15s, color 0.15s;
     }
     .btn-fechar-preview:hover { border-color: #777; color: #fff; }
+
+    .btn-confirmar-renov,
+    .btn-discordar-renov {
+        padding: 9px 18px;
+        border-radius: 10px;
+        border: none;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        font-family: inherit;
+        transition: filter 0.15s;
+    }
+
+    .btn-confirmar-renov {
+        background-color: #166534;
+    }
+
+    .btn-discordar-renov {
+        background-color: #991b1b;
+    }
+
+    .btn-confirmar-renov:hover,
+    .btn-discordar-renov:hover {
+        filter: brightness(1.08);
+    }
 
     .nota-overlay {
         display: none;
@@ -1801,9 +1846,20 @@ $status_map = [
                 <!-- populado pelo JS -->
             </div>
 
-            <div class="preview-msg-wrap">
+            <div class="preview-msg-wrap" id="previewMsgWrap">
                 <p class="preview-msg-title">Mensagem do aluno</p>
                 <div id="previewMensagemAluno" class="preview-msg-empty">Sem mensagem enviada.</div>
+            </div>
+
+            <div class="preview-msg-wrap" id="previewExtensaoWrap" style="display:none;">
+                <p class="preview-msg-title">Intervenção de data</p>
+                <div id="previewIntervencao" class="preview-msg-box"></div>
+                <div id="previewDataSeteMais" class="preview-date-highlight"></div>
+
+                <div class="preview-msg-wrap" style="padding-bottom:0;margin-top:12px;">
+                    <p class="preview-msg-title">Proposta</p>
+                    <div id="previewProposta" class="preview-msg-box"></div>
+                </div>
             </div>
         </div>
         <div class="preview-close">
@@ -1820,11 +1876,28 @@ $status_map = [
             <div class="preview-items-list" id="renovItems"></div>
 
             <div class="preview-msg-wrap">
-                <p class="preview-msg-title">Proposta de extensão da data</p>
-                <div id="renovMensagem" class="preview-msg-box"></div>
+                <p class="preview-msg-title">Intervenção de data</p>
+                <div id="renovIntervencao" class="preview-msg-box"></div>
+                <div id="renovDataSeteMais" class="preview-date-highlight"></div>
+            </div>
+
+            <div class="preview-msg-wrap">
+                <p class="preview-msg-title">Proposta</p>
+                <div id="renovProposta" class="preview-msg-box"></div>
             </div>
         </div>
         <div class="preview-close">
+            <form method="POST" action="./acessar.php" id="formConcordarRenovacao" style="margin:0;">
+                <input type="hidden" name="action" value="aprovar">
+                <input type="hidden" name="id_pedido" id="renovConcordarId" value="">
+                <button type="submit" class="btn-confirmar-renov">Concordar</button>
+            </form>
+            <form method="POST" action="./acessar.php" id="formDiscordarRenovacao" style="margin:0;">
+                <input type="hidden" name="action" value="negar">
+                <input type="hidden" name="id_pedido" id="renovDiscordarId" value="">
+                <input type="hidden" name="justificativa" value="Proposta de extensão não aprovada.">
+                <button type="submit" class="btn-discordar-renov">Discordar</button>
+            </form>
             <button class="btn-fechar-preview" onclick="fecharRenovacaoPedido()">Fechar</button>
         </div>
     </div>
@@ -1972,6 +2045,25 @@ $status_map = [
             $dataPrevistaRaw = trim((string) ($p['data_devolucao_prevista'] ?? ''));
             $dataCriacaoRaw = trim((string) ($p['data_criacao_raw'] ?? ''));
             $obsPrazo = (string) ($p['mensagem_aluno'] ?? '');
+            $prazoCarrinho = '';
+            $dataCarrinhoFmt = '';
+            $propostaCarrinho = '';
+            if (preg_match('/Prazo solicitado pelo estudante:\s*([^\.]+)(?:\.|$)/u', $obsPrazo, $mPrazoCarrinho)) {
+                $prazoCarrinho = trim((string) ($mPrazoCarrinho[1] ?? ''));
+            }
+            if (preg_match('/Data proposta:\s*([^\.]+)(?:\.|$)/u', $obsPrazo, $mDataCarrinho)) {
+                $dataCarrinhoRaw = trim((string) ($mDataCarrinho[1] ?? ''));
+                if ($dataCarrinhoRaw !== '') {
+                    try {
+                        $dataCarrinhoFmt = (new DateTimeImmutable($dataCarrinhoRaw))->format('d/m/Y');
+                    } catch (Throwable) {
+                        $dataCarrinhoFmt = $dataCarrinhoRaw;
+                    }
+                }
+            }
+            if (preg_match('/Proposta do aluno:\s*(.+)$/us', $obsPrazo, $mPropostaCarrinho)) {
+                $propostaCarrinho = trim((string) ($mPropostaCarrinho[1] ?? ''));
+            }
             $pedidoAtrasado = false;
             $diasAtraso = 0;
             $dataLimiteAtraso = null;
@@ -2125,6 +2217,9 @@ $status_map = [
                     data-foto="<?= $fotoEstud ?>"
                     data-nome="<?= $nomeEstud ?>"
                     data-msg="<?= $msgAluno ?>"
+                    data-prazo-carrinho="<?= htmlspecialchars($prazoCarrinho, ENT_QUOTES) ?>"
+                    data-data-carrinho="<?= htmlspecialchars($dataCarrinhoFmt, ENT_QUOTES) ?>"
+                    data-proposta-carrinho="<?= htmlspecialchars($propostaCarrinho, ENT_QUOTES) ?>"
                     aria-label="Ver itens do pedido"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -2138,10 +2233,12 @@ $status_map = [
                 <button
                     class="btn-extensao"
                     onclick="abrirRenovacaoPedido(this)"
+                    data-pedido="<?= (int) $p['id_pedido'] ?>"
                     data-itens="<?= $itensJson ?>"
                     data-foto="<?= $fotoEstud ?>"
                     data-nome="<?= $nomeEstud ?>"
                     data-proposta="<?= htmlspecialchars($prazoTexto, ENT_QUOTES) ?>"
+                    data-opcao="<?= htmlspecialchars($prazoRenov, ENT_QUOTES) ?>"
                     data-data="<?= htmlspecialchars($dataRenovFmt, ENT_QUOTES) ?>"
                     data-justificativa="<?= htmlspecialchars($justRenov, ENT_QUOTES) ?>"
                     aria-label="Proposta de extensão"
@@ -2392,6 +2489,9 @@ function svgIcon(string $name): string {
         const foto = btn.getAttribute('data-foto') || '';
         const nome = btn.getAttribute('data-nome') || 'Sem nome';
         const msgAluno = (btn.getAttribute('data-msg') || '').trim();
+        const prazoCarrinho = (btn.getAttribute('data-prazo-carrinho') || '').trim();
+        const dataCarrinho = (btn.getAttribute('data-data-carrinho') || '').trim();
+        const propostaCarrinho = (btn.getAttribute('data-proposta-carrinho') || '').trim();
 
         /* Monta o header */
         const headerHtml = foto
@@ -2424,11 +2524,40 @@ function svgIcon(string $name): string {
 
         document.getElementById('previewItems').innerHTML = itensHtml;
 
+        const msgWrap = document.getElementById('previewMsgWrap');
+        const extWrap = document.getElementById('previewExtensaoWrap');
+        const temExtensaoCarrinho = prazoCarrinho !== '' || dataCarrinho !== '' || propostaCarrinho !== '';
+
         const msgEl = document.getElementById('previewMensagemAluno');
-        if (msgAluno !== '') {
+        if (temExtensaoCarrinho) {
+            msgWrap.style.display = 'none';
+            extWrap.style.display = 'block';
+
+            const prazoTexto = prazoCarrinho !== '' ? prazoCarrinho : 'prazo estendido';
+            document.getElementById('previewIntervencao').innerHTML = escapeHtml(`O aluno, ${nome} está querendo ${prazoTexto}.`);
+
+            const dataEl = document.getElementById('previewDataSeteMais');
+            if (dataCarrinho !== '') {
+                const dataBr = formatDateBr(dataCarrinho);
+                dataEl.style.display = 'block';
+                dataEl.textContent = `DATA QUE O ALUNO QUER: ${dataBr}`;
+            } else {
+                dataEl.style.display = 'none';
+                dataEl.textContent = '';
+            }
+
+            const propostaTxt = propostaCarrinho !== ''
+                ? `Segue a proposta do aluno ${nome}, para aumento da data: ${propostaCarrinho}`
+                : `Segue a proposta do aluno ${nome}, para aumento da data: sem justificativa informada.`;
+            document.getElementById('previewProposta').innerHTML = escapeHtml(propostaTxt);
+        } else if (msgAluno !== '') {
+            msgWrap.style.display = 'block';
+            extWrap.style.display = 'none';
             msgEl.className = 'preview-msg-box';
             msgEl.innerHTML = escapeHtml(msgAluno);
         } else {
+            msgWrap.style.display = 'block';
+            extWrap.style.display = 'none';
             msgEl.className = 'preview-msg-empty';
             msgEl.textContent = 'Sem mensagem enviada.';
         }
@@ -2441,9 +2570,11 @@ function svgIcon(string $name): string {
     }
 
     function abrirRenovacaoPedido(btn) {
+        const idPedido = Number(btn.getAttribute('data-pedido') || '0');
         const itens = JSON.parse(btn.getAttribute('data-itens') || '[]');
         const foto = btn.getAttribute('data-foto') || '';
         const nome = btn.getAttribute('data-nome') || 'Aluno';
+        const opcaoPrazo = (btn.getAttribute('data-opcao') || '').trim();
         const proposta = (btn.getAttribute('data-proposta') || '').trim();
         const dataSug = (btn.getAttribute('data-data') || '').trim();
         const justificativa = (btn.getAttribute('data-justificativa') || '').trim();
@@ -2476,11 +2607,27 @@ function svgIcon(string $name): string {
         }
         document.getElementById('renovItems').innerHTML = itensHtml;
 
-        let msg = `O aluno, ${nome} está querendo ${proposta}.`;
-        if (dataSug !== '') msg += ` Data proposta: ${dataSug}.`;
-        if (justificativa !== '') msg += ` Justificativa: ${justificativa}`;
+        document.getElementById('renovConcordarId').value = idPedido > 0 ? String(idPedido) : '';
+        document.getElementById('renovDiscordarId').value = idPedido > 0 ? String(idPedido) : '';
 
-        document.getElementById('renovMensagem').innerHTML = escapeHtml(msg);
+        const intervencao = `O aluno, ${nome} está querendo ${proposta}.`;
+        document.getElementById('renovIntervencao').innerHTML = escapeHtml(intervencao);
+
+        const dataSeteMais = document.getElementById('renovDataSeteMais');
+        if (opcaoPrazo === '7+' && dataSug !== '') {
+            const dataBr = formatDateBr(dataSug);
+            dataSeteMais.style.display = 'block';
+            dataSeteMais.textContent = `DATA QUE O ALUNO QUER: ${dataBr}`;
+        } else {
+            dataSeteMais.style.display = 'none';
+            dataSeteMais.textContent = '';
+        }
+
+        const textoProposta = justificativa !== ''
+            ? `Segue a proposta do aluno ${nome}, para aumento da data: ${justificativa}`
+            : `Segue a proposta do aluno ${nome}, para aumento da data: sem justificativa informada.`;
+        document.getElementById('renovProposta').innerHTML = escapeHtml(textoProposta);
+
         document.getElementById('modalRenovacaoPedido').classList.add('open');
     }
 
@@ -2568,6 +2715,23 @@ function svgIcon(string $name): string {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function formatDateBr(rawDate) {
+        const txt = String(rawDate || '').trim();
+        if (!txt) return '';
+
+        const isoMatch = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+            return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+        }
+
+        const brMatch = txt.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (brMatch) {
+            return txt;
+        }
+
+        return txt;
     }
 
     /* Fecha preview ao clicar no overlay */

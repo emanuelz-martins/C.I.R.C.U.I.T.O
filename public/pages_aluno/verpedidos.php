@@ -32,6 +32,7 @@ try {
 			$numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
 			$dataCriacaoCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao' : null;
 			$dataAtualizacaoCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+			$devolucaoPrevistaCol = in_array('data_devolucao_prevista', $pedidoCols, true) ? 'data_devolucao_prevista' : null;
 
 			if ($statusCol !== null) {
 				$selectNumero = ($numeroCol !== null ? 'p.' . $numeroCol : 'p.id_pedido') . ' AS numero_pedido';
@@ -60,7 +61,8 @@ try {
 						p.id_pedido,
 						{$selectNumero},
 						{$selectStatus},
-						{$selectData}
+						{$selectData},
+						" . ($devolucaoPrevistaCol !== null ? "p.{$devolucaoPrevistaCol}" : "NULL") . " AS data_devolucao_prevista
 					FROM Pedido p
 					WHERE p.id_user = :id_user {$whereArquivado}
 					ORDER BY {$orderBy}
@@ -157,6 +159,18 @@ $status_map = [
 	.pedido-meta {
 		font-size: 0.84rem;
 		color: #9ca3af;
+	}
+
+	.pedido-prazo {
+		font-size: 0.88rem;
+		color: #d1d5db;
+		font-weight: 600;
+		margin-bottom: 4px;
+	}
+
+	.pedido-atualizacao {
+		font-size: 0.78rem;
+		color: #6b7280;
 	}
 
 	.pedido-actions {
@@ -415,11 +429,30 @@ $status_map = [
 			$status = (string) ($p['status_pedido'] ?? 'pendente');
 			$statusInfo = $status_map[$status] ?? ['label' => ucfirst($status), 'class' => 'enviado'];
 			$numFmt = sprintf('%03d', (int) ($p['numero_pedido'] ?? 0));
+			$semanasRestantesTxt = 'Semanas restantes para entrega: —';
+			$dataPrevistaRaw = trim((string) ($p['data_devolucao_prevista'] ?? ''));
+			if ($dataPrevistaRaw !== '') {
+				try {
+					$hoje = new DateTimeImmutable('today');
+					$dataPrevista = new DateTimeImmutable($dataPrevistaRaw);
+					$diasRestantes = (int) $hoje->diff($dataPrevista)->format('%r%a');
+					if ($diasRestantes < 0) {
+						$diasRestantes = 0;
+					}
+					$semanasRestantes = $diasRestantes / 7;
+					$semanasFmt = rtrim(rtrim(number_format($semanasRestantes, 1, ',', '.'), '0'), ',');
+					$txtDias = $diasRestantes === 1 ? 'dia' : 'dias';
+					$semanasRestantesTxt = 'Semanas restantes para entrega: ' . $semanasFmt . ' (' . $diasRestantes . ' ' . $txtDias . ')';
+				} catch (Throwable) {
+					$semanasRestantesTxt = 'Semanas restantes para entrega: —';
+				}
+			}
 		?>
 		<div class="pedido-card" id="pedido-<?= (int) $p['id_pedido'] ?>">
 			<div>
 				<p class="pedido-numero">Pedido #<?= htmlspecialchars($numFmt) ?></p>
-				<p class="pedido-meta">Última atualização: <?= htmlspecialchars($p['data_fmt'] ?? '—') ?></p>
+				<p class="pedido-prazo"><?= htmlspecialchars($semanasRestantesTxt) ?></p>
+				<p class="pedido-atualizacao">Última atualização do pacote: <?= htmlspecialchars($p['data_fmt'] ?? '—') ?></p>
 			</div>
 
 			<div class="pedido-actions">
