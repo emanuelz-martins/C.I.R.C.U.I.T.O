@@ -17,7 +17,7 @@ try {
     
     if ($id_usuario) {
         $stmt = $pdo->prepare('
-            SELECT id_not, titulo, mensagem, tipo, lida, data
+            SELECT id_not, titulo, mensagem, tipo, humor, lida, data
             FROM   Notificacao
             WHERE  id_user = :id_user
             ORDER  BY data DESC
@@ -36,6 +36,44 @@ try {
     $db_ok = true;
 } catch (Throwable) {
     /* BD indisponível */
+}
+
+/**
+ * Retorna o SVG do robô com a expressão correta.
+ * Se humor for null/vazio, detecta pelo conteúdo da mensagem como fallback.
+ */
+function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''): string {
+    /* Fallback: detecta pelo conteúdo se humor não veio do BD */
+    if (!$humor) {
+        $m = mb_strtolower($mensagem);
+        if (str_contains($m, 'aprovado') || str_contains($m, 'pronto para retirada')) {
+            $humor = 'feliz';
+        } elseif (str_contains($m, 'negado') || str_contains($m, 'atrasado') || str_contains($m, 'atraso')) {
+            $humor = 'triste';
+        } elseif (str_contains($m, 'falta') && (str_contains($m, 'dia') || str_contains($m, 'prazo'))) {
+            $humor = 'neutro';
+        }
+    }
+
+    [$color, $mouth] = match($humor) {
+        'feliz'  => ['#4ade80', '<path d="M9 14c.8 1 5.2 1 6 0"/>'],
+        'triste' => ['#ef4444', '<path d="M9 15c.8-1 5.2-1 6 0"/>'],
+        'neutro' => ['#f59e0b', '<line x1="9" y1="14" x2="15" y2="14"/>'],
+        default  => ['#ffffff', '<path d="M9 14c.8 1 5.2 1 6 0"/>'],
+    };
+
+    return sprintf(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="%s" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="16" rx="3"/>
+            <circle cx="8" cy="10" r="1" fill="%s"/>
+            <circle cx="16" cy="10" r="1" fill="%s"/>
+            %s
+            <line x1="12" y1="19" x2="12" y2="21"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+        </svg>',
+        $color, $color, $color, $mouth
+    );
 }
 ?>
 
@@ -297,6 +335,11 @@ try {
         transform: translateX(20px);
         transition: opacity 0.3s ease, transform 0.3s ease;
     }
+
+    /* ── Cores do ícone por humor ─────────── */
+    .notif-icon.humor-feliz  { border-color: #14532d; color: #4ade80; }
+    .notif-icon.humor-triste { border-color: #7f1d1d; color: #ef4444; }
+    .notif-icon.humor-neutro { border-color: #78350f; color: #f59e0b; }
 </style>
 </head>
 <body>
@@ -439,16 +482,23 @@ try {
         <p class="notif-empty">Nenhum aviso do laboratorista por enquanto.</p>
     <?php else: ?>
     <div class="notif-list" style="margin-bottom:48px;">
-        <?php foreach ($notificacoes['avisos'] as $n): ?>
+        <?php foreach ($notificacoes['avisos'] as $n):
+            $humor = $n['humor'] ?? '';
+            $humorClass = $humor ? 'humor-' . $humor : '';
+        ?>
         <div class="notif-card notif-aviso <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
-            <div class="notif-icon icon-aviso">
+            <div class="notif-icon icon-aviso <?= $humorClass ?>">
+                <?php if ($humor): ?>
+                    <?= robotFaceSvg($humor) ?>
+                <?php else: ?>
                 <!-- Ícone de pessoa / laboratorista -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                 </svg>
+                <?php endif; ?>
             </div>
 
             <div class="notif-body">
@@ -512,20 +562,14 @@ try {
         <p class="notif-empty">Nenhuma notificação de pedido por enquanto.</p>
     <?php else: ?>
     <div class="notif-list">
-        <?php foreach ($notificacoes['automaticas'] as $n): ?>
+        <?php foreach ($notificacoes['automaticas'] as $n):
+            $humor = $n['humor'] ?? '';
+            $humorClass = $humor ? 'humor-' . $humor : '';
+        ?>
         <div class="notif-card <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
-            <div class="notif-icon">
-                <!-- Ícone robô -->
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="3" width="20" height="16" rx="3"/>
-                    <circle cx="8"  cy="10" r="1" fill="currentColor"/>
-                    <circle cx="16" cy="10" r="1" fill="currentColor"/>
-                    <path d="M9 14c.8 1 5.2 1 6 0"/>
-                    <line x1="12" y1="19" x2="12" y2="21"/>
-                    <line x1="8"  y1="21" x2="16" y2="21"/>
-                </svg>
+            <div class="notif-icon <?= $humorClass ?>">
+                <?= robotFaceSvg($humor ?: null, $n['mensagem'], $n['tipo']) ?>
             </div>
 
             <div class="notif-body">

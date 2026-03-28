@@ -4,6 +4,10 @@ checkAccess(['laboratorista', 'admin']);
 
 require_once '../../src/config/database.php';
 
+$authUser = $_SESSION['auth_user'] ?? [];
+$laboratoristaId = (int) ($authUser['id'] ?? $authUser['id_user'] ?? 0);
+$laboratoristaNome = trim((string) ($authUser['nome'] ?? 'Laboratorista'));
+
 /* ══════════════════════════════════════════
    HANDLER DE AÇÕES (POST — PRG pattern)
 ══════════════════════════════════════════ */
@@ -16,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($id_pedido > 0) {
         try {
             $pdo = db();
+
+            /* Garante colunas de posse do pedido (idempotente) */
+            $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS id_laboratorista_responsavel INT NULL');
+            $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS nome_laboratorista_responsavel VARCHAR(150) NULL');
+            $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0');
 
             $getCols = static function (PDO $pdo, string $table): array {
                 $stmt = $pdo->prepare('
@@ -32,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 : (in_array('status', $pedidoCols, true) ? 'status' : null);
             $updatedCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
             $motivoCol = in_array('motivo_negacao', $pedidoCols, true) ? 'motivo_negacao' : null;
+            $responsavelIdCol = in_array('id_laboratorista_responsavel', $pedidoCols, true) ? 'id_laboratorista_responsavel' : null;
+            $responsavelNomeCol = in_array('nome_laboratorista_responsavel', $pedidoCols, true) ? 'nome_laboratorista_responsavel' : null;
+            $fluxoLivreCol = in_array('fluxo_livre_laboratoristas', $pedidoCols, true) ? 'fluxo_livre_laboratoristas' : null;
 
             if ($statusCol === null) {
                 throw new RuntimeException('Coluna de status do pedido não encontrada.');
@@ -93,6 +105,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare($sql)->execute($params);
             };
 
+            $getResponsavelAtual = static function (PDO $pdo, int $id, ?string $responsavelIdCol): ?int {
+                if ($responsavelIdCol === null) {
+                    return null;
+                }
+
+                $s = $pdo->prepare("SELECT {$responsavelIdCol} AS id_resp FROM Pedido WHERE id_pedido = :id LIMIT 1");
+                $s->execute(['id' => $id]);
+                $row = $s->fetch();
+                if (!$row) {
+                    throw new RuntimeException('pedido_nao_encontrado');
+                }
+
+                $idResp = isset($row['id_resp']) ? (int) $row['id_resp'] : 0;
+                return $idResp > 0 ? $idResp : null;
+            };
+
+            $getFluxoLivreAtual = static function (PDO $pdo, int $id, ?string $fluxoLivreCol): bool {
+                if ($fluxoLivreCol === null) {
+                    return false;
+                }
+
+                $s = $pdo->prepare("SELECT {$fluxoLivreCol} AS fluxo_livre FROM Pedido WHERE id_pedido = :id LIMIT 1");
+                $s->execute(['id' => $id]);
+                $row = $s->fetch();
+                if (!$row) {
+                    throw new RuntimeException('pedido_nao_encontrado');
+                }
+
+                return (int) ($row['fluxo_livre'] ?? 0) === 1;
+            };
+
             /* Cria notificação para o estudante */
             $notify = static function (
                 PDO $pdo,
@@ -100,7 +143,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 int $id_user,
                 string $mensagem,
                 string $tipo,
-                array $notCols
+                array $notCols,
+                string $humor = ''
             ): void {
                 if (!in_array('id_user', $notCols, true) || !in_array('mensagem', $notCols, true)) {
                     return;
@@ -132,6 +176,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $values[] = ':tipo';
                     $params['tipo'] = 'automatica';
                 }
+                if ($humor !== '' && in_array('humor', $notCols, true)) {
+                    $fields[] = 'humor';
+                    $values[] = ':humor';
+                    $params['humor'] = $humor;
+                }
                 if (in_array('lida', $notCols, true)) {
                     $fields[] = 'lida';
                     $values[] = '0';
@@ -152,7 +201,146 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare($sql)->execute($params);
             };
 
+            $responsavelAtualId = $getResponsavelAtual($pdo, $id_pedido, $responsavelIdCol);
+            $fluxoLivreAtual = $getFluxoLivreAtual($pdo, $id_pedido, $fluxoLivreCol);
+            if (!in_array($action, ['assumir', 'liberar'], true)
+                && !$fluxoLivreAtual
+                && ($responsavelAtualId === null || $responsavelAtualId !== $laboratoristaId)
+            ) {
+                throw new RuntimeException('pedido_bloqueado');
+            }
+
             switch ($action) {
+
+                case 'assumir':
+                    if ($responsavelIdCol === null) {
+                        throw new RuntimeException('schema_responsavel');
+                    }
+                    if ($laboratoristaId <= 0) {
+                        throw new RuntimeException('sessao_invalida');
+                    }
+
+                    $pdo->beginTransaction();
+
+                    $selectLockAssumir = "SELECT {$responsavelIdCol} AS id_resp";
+                    if ($fluxoLivreCol !== null) {
+                        $selectLockAssumir .= ", {$fluxoLivreCol} AS fluxo_livre";
+                    }
+                    $selectLockAssumir .= ' FROM Pedido WHERE id_pedido = :id FOR UPDATE';
+
+                    $stmtLockPedido = $pdo->prepare($selectLockAssumir);
+                    $stmtLockPedido->execute(['id' => $id_pedido]);
+                    $pedidoLock = $stmtLockPedido->fetch();
+
+                    if (!$pedidoLock) {
+                        throw new RuntimeException('pedido_nao_encontrado');
+                    }
+
+                    $idRespAtual = ((int) ($pedidoLock['id_resp'] ?? 0)) > 0 ? (int) $pedidoLock['id_resp'] : null;
+                    $fluxoLivreLock = (int) ($pedidoLock['fluxo_livre'] ?? 0) === 1;
+                    if ($fluxoLivreLock) {
+                        if ($pdo->inTransaction()) {
+                            $pdo->commit();
+                        }
+                        break;
+                    }
+                    if ($idRespAtual !== null && $idRespAtual !== $laboratoristaId) {
+                        throw new RuntimeException('pedido_bloqueado');
+                    }
+
+                    $sets = ["{$responsavelIdCol} = :id_lab"];
+                    $params = ['id_lab' => $laboratoristaId, 'id' => $id_pedido];
+
+                    if ($responsavelNomeCol !== null) {
+                        $sets[] = "{$responsavelNomeCol} = :nome_lab";
+                        $params['nome_lab'] = $laboratoristaNome;
+                    }
+                    if ($updatedCol !== null) {
+                        $sets[] = "{$updatedCol} = NOW()";
+                    }
+
+                    $sqlAssumir = 'UPDATE Pedido SET ' . implode(', ', $sets) . ' WHERE id_pedido = :id';
+                    $pdo->prepare($sqlAssumir)->execute($params);
+
+                    $uid = $getUserId($pdo, $id_pedido);
+                    if ($uid && $idRespAtual === null) {
+                        $notify(
+                            $pdo,
+                            $id_pedido,
+                            $uid,
+                            $laboratoristaNome . ' aceitou seu pedido.',
+                            'pedido-aceito',
+                            $notCols,
+                            'feliz'
+                        );
+                    }
+
+                    if ($pdo->inTransaction()) {
+                        $pdo->commit();
+                    }
+                    break;
+
+                case 'liberar':
+                    if ($responsavelIdCol === null) {
+                        throw new RuntimeException('schema_responsavel');
+                    }
+
+                    $pdo->beginTransaction();
+
+                    $selectLockLiberar = "SELECT {$responsavelIdCol} AS id_resp";
+                    if ($fluxoLivreCol !== null) {
+                        $selectLockLiberar .= ", {$fluxoLivreCol} AS fluxo_livre";
+                    }
+                    $selectLockLiberar .= ' FROM Pedido WHERE id_pedido = :id FOR UPDATE';
+
+                    $stmtLockPedido = $pdo->prepare($selectLockLiberar);
+                    $stmtLockPedido->execute(['id' => $id_pedido]);
+                    $pedidoLock = $stmtLockPedido->fetch();
+
+                    if (!$pedidoLock) {
+                        throw new RuntimeException('pedido_nao_encontrado');
+                    }
+
+                    $idRespAtual = ((int) ($pedidoLock['id_resp'] ?? 0)) > 0 ? (int) $pedidoLock['id_resp'] : null;
+                    if ($idRespAtual === null || $idRespAtual !== $laboratoristaId) {
+                        throw new RuntimeException('pedido_bloqueado');
+                    }
+
+                    $sets = ["{$responsavelIdCol} = 0"];
+                    $params = ['id' => $id_pedido];
+
+                    if ($responsavelNomeCol !== null) {
+                        $sets[] = "{$responsavelNomeCol} = NULL";
+                    }
+                    if ($fluxoLivreCol !== null) {
+                        $sets[] = "{$fluxoLivreCol} = 1";
+                    }
+                    if ($updatedCol !== null) {
+                        $sets[] = "{$updatedCol} = NOW()";
+                    }
+
+                    $sqlLiberar = 'UPDATE Pedido SET ' . implode(', ', $sets) . ' WHERE id_pedido = :id';
+                    $pdo->prepare($sqlLiberar)->execute($params);
+
+                    $selectConfere = "SELECT {$responsavelIdCol} AS id_resp";
+                    if ($fluxoLivreCol !== null) {
+                        $selectConfere .= ", {$fluxoLivreCol} AS fluxo_livre";
+                    }
+                    $selectConfere .= ' FROM Pedido WHERE id_pedido = :id LIMIT 1';
+
+                    $stmtConfereLiberacao = $pdo->prepare($selectConfere);
+                    $stmtConfereLiberacao->execute(['id' => $id_pedido]);
+                    $rowConf = $stmtConfereLiberacao->fetch();
+                    $idRespDepois = ((int) ($rowConf['id_resp'] ?? 0));
+                    $fluxoLivreDepois = (int) ($rowConf['fluxo_livre'] ?? 0) === 1;
+                    if ($idRespDepois > 0 || ($fluxoLivreCol !== null && !$fluxoLivreDepois)) {
+                        throw new RuntimeException('falha_liberar');
+                    }
+
+                    if ($pdo->inTransaction()) {
+                        $pdo->commit();
+                    }
+                    break;
 
                 case 'aprovar':
                     /* Aprovação → muda status para em-separacao e notifica o estudante */
@@ -220,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $uid = $getUserId($pdo, $id_pedido);
                     if ($uid) {
-                        $notify($pdo, $id_pedido, $uid, 'Pedido aprovado!', 'aprovado', $notCols);
+                        $notify($pdo, $id_pedido, $uid, 'Pedido aprovado!', 'aprovado', $notCols, 'feliz');
                     }
 
                     if ($pdo->inTransaction()) {
@@ -239,7 +427,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $uid = $getUserId($pdo, $id_pedido);
                     if ($uid) {
                         $notify($pdo, $id_pedido, $uid,
-                            'Pedido negado. Justificativa: ' . $justificativa, 'negado', $notCols);
+                            'Pedido negado. Justificativa: ' . $justificativa, 'negado', $notCols, 'triste');
                     }
                     break;
 
@@ -251,7 +439,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($uid) {
                         $notify($pdo, $id_pedido, $uid,
                             'Seu pedido está pronto para retirada! Dirija-se ao laboratório para buscar.',
-                            'pronto-para-retirada', $notCols);
+                            'pronto-para-retirada', $notCols, 'feliz');
                     }
                     break;
 
@@ -271,6 +459,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (in_array($e->getMessage(), ['estoque_insuficiente', 'schema_estoque'], true)) {
                 $redirectUrl = './acessar.php?erro=estoque';
+            } elseif (in_array($e->getMessage(), ['pedido_bloqueado', 'schema_responsavel', 'sessao_invalida', 'falha_liberar'], true)) {
+                $redirectUrl = './acessar.php?erro=bloqueado';
             }
             /* BD indisponível — falha silenciosa */
         }
@@ -295,6 +485,11 @@ $erro    = $_GET['erro'] ?? '';
 try {
     $pdo = db();
 
+    /* Garante colunas de posse do pedido (idempotente) */
+    $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS id_laboratorista_responsavel INT NULL');
+    $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS nome_laboratorista_responsavel VARCHAR(150) NULL');
+    $pdo->exec('ALTER TABLE Pedido ADD COLUMN IF NOT EXISTS fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0');
+
     $getCols = static function (PDO $pdo, string $table): array {
         $stmt = $pdo->prepare('
             SELECT COLUMN_NAME
@@ -311,6 +506,10 @@ try {
     $numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
     $dataCriacaoCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao' : null;
     $dataAtualizacaoCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+    $obsLaboratoristaCol = in_array('obs_laboratorista', $pedidoCols, true) ? 'obs_laboratorista' : null;
+    $responsavelIdCol = in_array('id_laboratorista_responsavel', $pedidoCols, true) ? 'id_laboratorista_responsavel' : null;
+    $responsavelNomeCol = in_array('nome_laboratorista_responsavel', $pedidoCols, true) ? 'nome_laboratorista_responsavel' : null;
+    $fluxoLivreCol = in_array('fluxo_livre_laboratoristas', $pedidoCols, true) ? 'fluxo_livre_laboratoristas' : null;
 
     $usuarioCols   = $getCols($pdo, 'Usuario');
     $fotoPerfilSql = in_array('foto_perfil', $usuarioCols, true) ? 'u.foto_perfil' : 'NULL';
@@ -352,6 +551,18 @@ try {
 
     $orderBy = $dataAtualizacaoCol !== null ? 'p.' . $dataAtualizacaoCol . ' DESC, p.id_pedido DESC' : 'p.id_pedido DESC';
 
+    $joinResponsavel = $responsavelIdCol !== null ? 'LEFT JOIN Usuario ulab ON ulab.id_user = p.' . $responsavelIdCol : '';
+    $selectResponsavelId = $responsavelIdCol !== null ? 'p.' . $responsavelIdCol . ' AS id_laboratorista_responsavel' : 'NULL AS id_laboratorista_responsavel';
+    if ($responsavelIdCol !== null && $responsavelNomeCol !== null) {
+        $selectResponsavelNome = 'COALESCE(p.' . $responsavelNomeCol . ', ulab.nome) AS nome_laboratorista_responsavel';
+    } elseif ($responsavelIdCol !== null) {
+        $selectResponsavelNome = 'ulab.nome AS nome_laboratorista_responsavel';
+    } else {
+        $selectResponsavelNome = 'NULL AS nome_laboratorista_responsavel';
+    }
+    $selectObsAluno = $obsLaboratoristaCol !== null ? 'p.' . $obsLaboratoristaCol . ' AS mensagem_aluno' : 'NULL AS mensagem_aluno';
+    $selectFluxoLivre = $fluxoLivreCol !== null ? 'p.' . $fluxoLivreCol . ' AS fluxo_livre_laboratoristas' : '0 AS fluxo_livre_laboratoristas';
+
     $stmt = $pdo->prepare("
         SELECT
             p.id_pedido,
@@ -359,9 +570,14 @@ try {
             {$selectStatus},
             {$selectData},
             u.nome AS nome_estudante,
-            {$fotoPerfilSql} AS foto_perfil_estudante
+            {$fotoPerfilSql} AS foto_perfil_estudante,
+            {$selectResponsavelId},
+            {$selectResponsavelNome},
+            {$selectObsAluno},
+            {$selectFluxoLivre}
         FROM Pedido p
         JOIN Usuario u ON u.id_user = p.id_user
+        {$joinResponsavel}
         {$w}
         ORDER BY {$orderBy}
     ");
@@ -623,6 +839,55 @@ $status_map = [
         flex-shrink: 0;
     }
 
+    .atendimento-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .atendimento-pergunta {
+        font-size: 0.82rem;
+        color: #b5b5b5;
+        font-weight: 600;
+    }
+
+    .btn-atendimento {
+        border: none;
+        border-radius: 10px;
+        height: 38px;
+        padding: 0 12px;
+        color: #fff;
+        font-size: 0.82rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-family: inherit;
+        text-decoration: none;
+        transition: filter 0.15s;
+    }
+
+    .btn-atendimento:hover { filter: brightness(1.08); }
+    .btn-atendimento svg { width: 15px; height: 15px; }
+
+    .btn-atendimento.verde { background-color: #166534; }
+
+    .pedido-bloqueado {
+        background-color: #2a2a2a;
+        border: 1px solid #3b3b3b;
+        color: #bdbdbd;
+        border-radius: 10px;
+        height: 38px;
+        padding: 0 14px;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
     /* ── Status badges ────────────────────── */
     .status-badge {
         padding: 9px 18px;
@@ -642,6 +907,7 @@ $status_map = [
     .status-badge.cancelado            { background-color: #7f1d1d; color: #fecaca; }
     .status-badge.finalizado           { background-color: #14532d; color: #bbf7d0; }
     .status-badge.renovacao-solicitada { background-color: #713f12; color: #fef08a; }
+    .status-badge.em-atendimento-lab   { background-color: #1f2937; color: #d1d5db; }
 
     /* ── Botão de menu (3 risquinhos) ──────── */
     .btn-menu {
@@ -996,6 +1262,39 @@ $status_map = [
         padding: 20px 0;
     }
 
+    .preview-msg-wrap {
+        border-top: 1px solid #2a2a2a;
+        margin-top: 6px;
+        padding-top: 14px;
+        padding-bottom: 16px;
+    }
+
+    .preview-msg-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 8px;
+    }
+
+    .preview-msg-box {
+        background-color: #222;
+        border: 1px solid #2e2e2e;
+        border-radius: 10px;
+        padding: 10px 12px;
+        color: #d4d4d4;
+        font-size: 0.84rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .preview-msg-empty {
+        color: #666;
+        font-size: 0.82rem;
+    }
+
     .preview-close {
         display: flex;
         justify-content: flex-end;
@@ -1116,6 +1415,11 @@ $status_map = [
             <div class="preview-items-list" id="previewItems">
                 <!-- populado pelo JS -->
             </div>
+
+            <div class="preview-msg-wrap">
+                <p class="preview-msg-title">Mensagem do aluno</p>
+                <div id="previewMensagemAluno" class="preview-msg-empty">Sem mensagem enviada.</div>
+            </div>
         </div>
         <div class="preview-close">
             <button class="btn-fechar-preview" onclick="fecharPreview()">Fechar</button>
@@ -1157,6 +1461,10 @@ $status_map = [
     <?php elseif ($erro === 'estoque'): ?>
     <div class="alert-erro">
         Não foi possível aprovar o pedido porque o estoque de um ou mais componentes é insuficiente.
+    </div>
+    <?php elseif ($erro === 'bloqueado'): ?>
+    <div class="alert-erro">
+        Este pedido já está em atendimento por outro laboratorista ou sua sessão não possui permissão para alterar este item.
     </div>
     <?php endif; ?>
 
@@ -1230,6 +1538,20 @@ $status_map = [
             $itensJson  = htmlspecialchars(json_encode($itensCard, JSON_HEX_QUOT | JSON_HEX_APOS), ENT_QUOTES);
             $fotoEstud  = htmlspecialchars($p['foto_perfil_estudante'] ?? '');
             $nomeEstud  = htmlspecialchars($p['nome_estudante'] ?? '');
+            $msgAluno   = htmlspecialchars((string) ($p['mensagem_aluno'] ?? ''), ENT_QUOTES);
+            $idLabResp  = (int) ($p['id_laboratorista_responsavel'] ?? 0);
+            $fluxoLivre = (int) ($p['fluxo_livre_laboratoristas'] ?? 0) === 1;
+            $nomeLabRespRaw = trim((string) ($p['nome_laboratorista_responsavel'] ?? ''));
+            $nomeLabResp = $nomeLabRespRaw !== '' ? $nomeLabRespRaw : 'Outro laboratorista';
+            $pedidoPego = !$fluxoLivre && $idLabResp > 0;
+            $pedidoMeu = $pedidoPego && $laboratoristaId > 0 && $idLabResp === $laboratoristaId;
+            $pedidoOutro = $pedidoPego && !$pedidoMeu;
+
+            if ($pedidoOutro) {
+                $statusInfo = ['label' => 'Pedido em andamento com ' . $nomeLabResp, 'class' => 'em-atendimento-lab'];
+            } elseif ($pedidoMeu) {
+                $statusInfo = ['label' => 'Pedido em andamento com você', 'class' => 'em-atendimento-lab'];
+            }
         ?>
         <div class="pedido-card" id="card-<?= (int) $p['id_pedido'] ?>">
 
@@ -1249,22 +1571,6 @@ $status_map = [
                 <span class="status-badge <?= htmlspecialchars($statusInfo['class']) ?>">
                     <?= htmlspecialchars($statusInfo['label']) ?>
                 </span>
-
-                <!-- Olho: ver itens do pedido -->
-                <button
-                    class="btn-eye"
-                    onclick="abrirPreview(this)"
-                    data-itens="<?= $itensJson ?>"
-                    data-foto="<?= $fotoEstud ?>"
-                    data-nome="<?= $nomeEstud ?>"
-                    aria-label="Ver itens do pedido"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                </button>
 
                 <!-- Menu de 3 risquinhos -->
                 <?php
@@ -1299,7 +1605,43 @@ $status_map = [
                 }
                 ?>
 
-                <?php if (!empty($acoes)): ?>
+                <?php if (!$fluxoLivre && !$pedidoPego): ?>
+                    <div class="atendimento-wrap" id="atendimento-wrap-<?= (int) $p['id_pedido'] ?>">
+                        <span class="atendimento-pergunta">Deseja atender esse pedido?</span>
+
+                        <form method="POST" action="./acessar.php" style="margin:0">
+                            <input type="hidden" name="action" value="assumir">
+                            <input type="hidden" name="id_pedido" value="<?= (int) $p['id_pedido'] ?>">
+                            <button type="submit" class="btn-atendimento verde" aria-label="Atender pedido">
+                                <?= svgIcon('check') ?>
+                                Sim
+                            </button>
+                        </form>
+                    </div>
+                <?php elseif ($pedidoOutro): ?>
+                    <span class="pedido-bloqueado">
+                        Pedido pego por <?= htmlspecialchars($nomeLabResp) ?>
+                    </span>
+                <?php endif; ?>
+
+                <!-- Olho: ver itens do pedido -->
+                <button
+                    class="btn-eye"
+                    onclick="abrirPreview(this)"
+                    data-itens="<?= $itensJson ?>"
+                    data-foto="<?= $fotoEstud ?>"
+                    data-nome="<?= $nomeEstud ?>"
+                    data-msg="<?= $msgAluno ?>"
+                    aria-label="Ver itens do pedido"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+
+                <?php if ($pedidoMeu || $fluxoLivre): ?>
                 <div class="menu-wrap" id="wrap-<?= (int) $p['id_pedido'] ?>">
                     <button
                         class="btn-menu"
@@ -1318,6 +1660,18 @@ $status_map = [
                     </button>
 
                     <div class="menu-dropdown" id="menu-<?= (int) $p['id_pedido'] ?>">
+                        <?php if ($pedidoMeu): ?>
+                        <form method="POST" action="./acessar.php" style="margin:0">
+                            <input type="hidden" name="action" value="liberar">
+                            <input type="hidden" name="id_pedido" value="<?= (int) $p['id_pedido'] ?>">
+                            <button type="submit" class="menu-item normal">
+                                <?= svgIcon('share') ?>
+                                Liberar para todos
+                            </button>
+                        </form>
+                        <?php endif; ?>
+
+                        <?php if (!empty($acoes) && ($pedidoMeu || $fluxoLivre)): ?>
                         <?php foreach ($acoes as $acao): ?>
                             <?php if ($acao['action'] === 'arquivar_lab'): ?>
                             <button
@@ -1355,6 +1709,7 @@ $status_map = [
                             </form>
                             <?php endif; ?>
                         <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -1373,6 +1728,8 @@ function svgIcon(string $name): string {
     $icons = [
         'check'   => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
         'x'       => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+        'eye'     => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+        'share'   => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
         'package' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
         'truck'   => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
         'archive' => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
@@ -1497,6 +1854,7 @@ function svgIcon(string $name): string {
         const itens = JSON.parse(btn.getAttribute('data-itens') || '[]');
         const foto = btn.getAttribute('data-foto') || '';
         const nome = btn.getAttribute('data-nome') || 'Sem nome';
+        const msgAluno = (btn.getAttribute('data-msg') || '').trim();
 
         /* Monta o header */
         const headerHtml = foto
@@ -1528,6 +1886,16 @@ function svgIcon(string $name): string {
         }
 
         document.getElementById('previewItems').innerHTML = itensHtml;
+
+        const msgEl = document.getElementById('previewMensagemAluno');
+        if (msgAluno !== '') {
+            msgEl.className = 'preview-msg-box';
+            msgEl.innerHTML = escapeHtml(msgAluno);
+        } else {
+            msgEl.className = 'preview-msg-empty';
+            msgEl.textContent = 'Sem mensagem enviada.';
+        }
+
         document.getElementById('modalPreview').classList.add('open');
     }
 

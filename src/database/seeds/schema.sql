@@ -191,3 +191,27 @@ ALTER TABLE Notificacao
 -- ------------------------------------------------------------
 ALTER TABLE Usuario
     ADD COLUMN IF NOT EXISTS foto_perfil VARCHAR(255) NULL AFTER tipo_perfil;
+
+-- ------------------------------------------------------------
+-- Migração: adiciona coluna humor em Notificacao
+-- 'feliz'  = pedido aceito / boas notícias
+-- 'triste' = pedido negado / atraso
+-- 'neutro' = aviso de prazo / mensagem neutra
+-- NULL     = sem rosto (usa padrão)
+-- ------------------------------------------------------------
+ALTER TABLE Notificacao
+    ADD COLUMN IF NOT EXISTS humor VARCHAR(10) NULL DEFAULT NULL AFTER tipo;
+
+-- ------------------------------------------------------------
+-- Migração: controle de posse de pedido por laboratorista
+-- id_laboratorista_responsavel / nome_laboratorista_responsavel
+-- fluxo_livre_laboratoristas = 1 libera acesso para todos sem etapa inicial
+-- ------------------------------------------------------------
+ALTER TABLE Pedido
+    ADD COLUMN IF NOT EXISTS id_laboratorista_responsavel INT NULL AFTER id_user;
+
+ALTER TABLE Pedido
+    ADD COLUMN IF NOT EXISTS nome_laboratorista_responsavel VARCHAR(150) NULL AFTER id_laboratorista_responsavel;
+
+ALTER TABLE Pedido
+    ADD COLUMN IF NOT EXISTS fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0 AFTER nome_laboratorista_responsavel;

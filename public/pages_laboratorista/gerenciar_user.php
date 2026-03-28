@@ -33,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($_POST['action'] === 'send_notice') {
             $titulo   = trim($_POST['titulo']   ?? '');
             $mensagem = trim($_POST['mensagem'] ?? '');
+            $humor    = trim($_POST['humor']    ?? '');
+
+            if (!in_array($humor, ['feliz', 'triste', 'neutro'], true)) $humor = '';
 
             if ($titulo   === '') $titulo   = 'Aviso do Laboratório';
             if ($mensagem === '') {
@@ -40,8 +43,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit;
             }
 
-            $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
-                ->execute(['u' => $id_user, 't' => $titulo, 'm' => $mensagem, 'tp' => 'aviso']);
+            /* verifica se coluna humor existe */
+            $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
+            $notCols->execute(['t' => 'Notificacao']);
+            $cols = $notCols->fetchAll(PDO::FETCH_COLUMN);
+
+            if ($humor !== '' && in_array('humor', $cols, true)) {
+                $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo, humor) VALUES (:u, :t, :m, :tp, :h)')
+                    ->execute(['u' => $id_user, 't' => $titulo, 'm' => $mensagem, 'tp' => 'aviso', 'h' => $humor]);
+            } else {
+                $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
+                    ->execute(['u' => $id_user, 't' => $titulo, 'm' => $mensagem, 'tp' => 'aviso']);
+            }
 
             echo json_encode(['ok' => true]);
             exit;
@@ -462,6 +475,38 @@ require_once '../includes/header.php';
     .toast.show    { transform: translateX(-50%) translateY(0); opacity: 1; }
     .toast.success { border-color: #166534; color: #4ade80; }
     .toast.error   { border-color: #7f1d1d; color: #f87171; }
+
+    /* ── Seletor de rosto ───────────────────── */
+    .face-picker {
+        display: flex;
+        gap: 10px;
+        margin-top: 4px;
+    }
+
+    .face-btn {
+        flex: 1;
+        padding: 10px 6px;
+        background-color: #141414;
+        border: 1.5px solid #2e2e2e;
+        border-radius: 10px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        transition: border-color 0.15s, background-color 0.15s;
+        color: #aaa;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .face-btn svg { width: 32px; height: 32px; }
+
+    .face-btn:hover { background-color: #1e1e1e; }
+
+    .face-btn[data-humor="feliz"].selected  { border-color: #4ade80; background-color: #0d2b16; color: #4ade80; }
+    .face-btn[data-humor="triste"].selected { border-color: #ef4444; background-color: #2b0d0d; color: #ef4444; }
+    .face-btn[data-humor="neutro"].selected { border-color: #f59e0b; background-color: #2b200d; color: #f59e0b; }
 </style>
 </head>
 <body>
@@ -674,6 +719,48 @@ require_once '../includes/header.php';
             ></textarea>
         </div>
 
+        <div>
+            <label>Rosto da notificação <span style="color:#555;font-weight:400">(opcional)</span></label>
+            <div class="face-picker" id="facePicker">
+                <button type="button" class="face-btn" data-humor="feliz" onclick="selectFace(this)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="16" rx="3"/>
+                        <circle cx="8" cy="10" r="1" fill="currentColor"/>
+                        <circle cx="16" cy="10" r="1" fill="currentColor"/>
+                        <path d="M9 14c.8 1 5.2 1 6 0"/>
+                        <line x1="12" y1="19" x2="12" y2="21"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                    </svg>
+                    Feliz
+                </button>
+                <button type="button" class="face-btn" data-humor="neutro" onclick="selectFace(this)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="16" rx="3"/>
+                        <circle cx="8" cy="10" r="1" fill="currentColor"/>
+                        <circle cx="16" cy="10" r="1" fill="currentColor"/>
+                        <line x1="9" y1="14" x2="15" y2="14"/>
+                        <line x1="12" y1="19" x2="12" y2="21"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                    </svg>
+                    Neutro
+                </button>
+                <button type="button" class="face-btn" data-humor="triste" onclick="selectFace(this)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="16" rx="3"/>
+                        <circle cx="8" cy="10" r="1" fill="currentColor"/>
+                        <circle cx="16" cy="10" r="1" fill="currentColor"/>
+                        <path d="M9 15c.8-1 5.2-1 6 0"/>
+                        <line x1="12" y1="19" x2="12" y2="21"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                    </svg>
+                    Triste
+                </button>
+            </div>
+        </div>
+
         <div class="modal-actions">
             <button class="btn-cancel" onclick="closeNoticeModal()">Cancelar</button>
             <button class="btn-send" id="btnSend" onclick="sendNotice()">Enviar</button>
@@ -752,13 +839,26 @@ function svgLockClosed() {
 
 /* ── Modal de aviso ──────────────────────────────── */
 let currentUserId = null;
+let selectedHumor = '';
+
+function selectFace(btn) {
+    document.querySelectorAll('#facePicker .face-btn').forEach(b => b.classList.remove('selected'));
+    if (selectedHumor === btn.dataset.humor) {
+        selectedHumor = '';
+    } else {
+        btn.classList.add('selected');
+        selectedHumor = btn.dataset.humor;
+    }
+}
 
 function openNoticeModal(id, nome) {
     closeAllMenus();
     currentUserId = id;
+    selectedHumor = '';
     document.getElementById('modalRecipient').textContent  = nome;
     document.getElementById('noticeTitulo').value          = '';
     document.getElementById('noticeMensagem').value        = '';
+    document.querySelectorAll('#facePicker .face-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('noticeModal').classList.add('open');
     setTimeout(() => document.getElementById('noticeTitulo').focus(), 50);
 }
@@ -797,7 +897,8 @@ function sendNotice() {
             action:   'send_notice',
             id_user:  currentUserId,
             titulo:   titulo || 'Aviso do Laboratório',
-            mensagem: mensagem
+            mensagem: mensagem,
+            humor:    selectedHumor
         })
     })
     .then(r => r.json())

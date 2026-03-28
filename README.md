@@ -6,6 +6,14 @@ Sistema web para gerenciamento de empréstimos de componentes do Laboratório de
 
 ---
 
+## Regras de Atendimento de Pedidos (Laboratorista)
+
+Para consultar somente as regras de posse/liberação de pedidos (fluxo Sim/Não, bloqueio entre laboratoristas e modo aberto após liberar), veja:
+
+- [`README_REGRAS_PEDIDOS_LAB.md`](README_REGRAS_PEDIDOS_LAB.md)
+
+---
+
 ## Estrutura do Projeto
 
 ```

@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($perfil === 'laboratorista') {
                         header('Location: pages_laboratorista/index.php');
                     } elseif ($perfil === 'admin') {
-                        header('Location: ../src/views/ldap_control/ldaptest.php');
+                        header('Location: pages_admin/index.php');
                     } else {
                         // Estudante
                         header('Location: index.php');

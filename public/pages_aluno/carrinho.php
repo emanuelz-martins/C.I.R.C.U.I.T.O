@@ -9,6 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
     $id_usuario = (int) ($_SESSION['auth_user']['id'] ?? 0);
     $payloadRaw = (string) ($_POST['cart_payload'] ?? '');
     $payloadArr = json_decode($payloadRaw, true);
+    $prazoOpcao = trim((string) ($_POST['prazo_devolucao_opcao'] ?? ''));
+    $prazoDetalhe = trim((string) ($_POST['prazo_devolucao_detalhe'] ?? ''));
 
     if ($id_usuario <= 0) {
         header('Location: ./carrinho.php?erro=usuario');
@@ -18,6 +20,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
     if (!is_array($payloadArr) || empty($payloadArr)) {
         header('Location: ./carrinho.php?erro=itens');
         exit;
+    }
+
+    if (!in_array($prazoOpcao, ['1-3', '3-7', '7+'], true)) {
+        header('Location: ./carrinho.php?erro=prazo');
+        exit;
+    }
+
+    if ($prazoOpcao === '7+' && $prazoDetalhe === '') {
+        header('Location: ./carrinho.php?erro=prazo_detalhe');
+        exit;
+    }
+
+    if (mb_strlen($prazoDetalhe) > 1500) {
+        $prazoDetalhe = mb_substr($prazoDetalhe, 0, 1500);
     }
 
     $itensPayload = [];
@@ -63,6 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
             : (in_array('data', $pedidoCols, true) ? 'data' : null);
         $updatedCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
         $numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
+        $devolucaoPrevistaCol = in_array('data_devolucao_prevista', $pedidoCols, true) ? 'data_devolucao_prevista' : null;
+        $obsLaboratoristaCol = in_array('obs_laboratorista', $pedidoCols, true) ? 'obs_laboratorista' : null;
 
         if ($statusCol === null || $createdCol === null) {
             throw new RuntimeException('Colunas essenciais de Pedido não encontradas.');
@@ -150,6 +168,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
             'status' => 'pendente',
         ];
 
+        $prazoLabel = [
+            '1-3' => '1 a 3 dias',
+            '3-7' => '3 a 7 dias',
+            '7+' => '7+ dias',
+        ][$prazoOpcao] ?? 'Não informado';
+
+        $dataDevolucaoPrevista = null;
+        if ($prazoOpcao === '1-3') {
+            $dataDevolucaoPrevista = (new DateTimeImmutable('today +3 days'))->format('Y-m-d');
+        } elseif ($prazoOpcao === '3-7') {
+            $dataDevolucaoPrevista = (new DateTimeImmutable('today +7 days'))->format('Y-m-d');
+        }
+
+        $obsPrazo = 'Prazo solicitado pelo estudante: ' . $prazoLabel;
+        if ($prazoOpcao === '7+' && $prazoDetalhe !== '') {
+            $obsPrazo .= '. Detalhes: ' . $prazoDetalhe;
+        }
+
         if ($numeroCol !== null) {
             $pedidoFields[] = $numeroCol;
             $pedidoValues[] = ':numero_pedido';
@@ -158,6 +194,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
         if ($updatedCol !== null) {
             $pedidoFields[] = $updatedCol;
             $pedidoValues[] = 'NOW()';
+        }
+        if ($devolucaoPrevistaCol !== null && $dataDevolucaoPrevista !== null) {
+            $pedidoFields[] = $devolucaoPrevistaCol;
+            $pedidoValues[] = ':data_devolucao_prevista';
+            $paramsPedido['data_devolucao_prevista'] = $dataDevolucaoPrevista;
+        }
+        if ($obsLaboratoristaCol !== null) {
+            $pedidoFields[] = $obsLaboratoristaCol;
+            $pedidoValues[] = ':obs_laboratorista';
+            $paramsPedido['obs_laboratorista'] = $obsPrazo;
         }
 
         $sqlPedido = sprintf(
@@ -492,6 +538,110 @@ try {
         opacity: 0.4;
         cursor: not-allowed;
     }
+
+    .confirm-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 220;
+        background-color: rgba(0, 0, 0, 0.75);
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .confirm-overlay.open { display: flex; }
+
+    .confirm-box {
+        width: 100%;
+        max-width: 540px;
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 16px;
+        padding: 28px 26px;
+    }
+
+    .confirm-title {
+        font-size: 1.4rem;
+        color: #fff;
+        margin-bottom: 6px;
+    }
+
+    .confirm-desc {
+        color: #b1b1b1;
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+    }
+
+    .confirm-label {
+        display: block;
+        font-size: 0.84rem;
+        color: #d4d4d4;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .confirm-select,
+    .confirm-textarea {
+        width: 100%;
+        background-color: #141414;
+        color: #fff;
+        border: 1px solid #3a3a3a;
+        border-radius: 10px;
+        padding: 11px 12px;
+        font-family: inherit;
+        font-size: 0.9rem;
+        outline: none;
+    }
+
+    .confirm-select:focus,
+    .confirm-textarea:focus { border-color: #5a5a5a; }
+
+    .confirm-textarea {
+        min-height: 96px;
+        resize: vertical;
+    }
+
+    .confirm-hint {
+        margin-top: 10px;
+        font-size: 0.8rem;
+        color: #8c8c8c;
+    }
+
+    .confirm-hint.error { color: #fca5a5; }
+
+    .confirm-actions {
+        margin-top: 18px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .btn-confirm-cancel,
+    .btn-confirm-submit {
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 0.88rem;
+        font-weight: 700;
+        padding: 10px 16px;
+        cursor: pointer;
+    }
+
+    .btn-confirm-cancel {
+        background: transparent;
+        color: #bdbdbd;
+        border: 1px solid #444;
+    }
+
+    .btn-confirm-cancel:hover { border-color: #777; color: #fff; }
+
+    .btn-confirm-submit {
+        background: #fff;
+        color: #141414;
+        border: none;
+    }
+
+    .btn-confirm-submit:hover { background: #e6e6e6; }
 </style>
 </head>
 <body>
@@ -606,6 +756,10 @@ try {
                 echo 'Um ou mais itens ultrapassam o limite permitido por usuário ou o estoque disponível.';
             } elseif ($erro === 'indisponivel') {
                 echo 'Um ou mais itens ficaram indisponíveis para empréstimo.';
+            } elseif ($erro === 'prazo') {
+                echo 'Selecione um prazo de devolução válido antes de enviar o pedido.';
+            } elseif ($erro === 'prazo_detalhe') {
+                echo 'Para prazo 7+ dias, informe quantos dias/meses pretende ficar e o motivo.';
             } else {
                 echo 'Não foi possível finalizar o pedido agora. Tente novamente em instantes.';
             }
@@ -702,8 +856,37 @@ try {
     <form method="POST" action="./carrinho.php" id="formEnviarPedido" style="display:none;">
         <input type="hidden" name="action" value="finalizar-pedido">
         <input type="hidden" name="cart_payload" id="cartPayloadInput" value="">
+        <input type="hidden" name="prazo_devolucao_opcao" id="prazoDevolucaoInput" value="">
+        <input type="hidden" name="prazo_devolucao_detalhe" id="prazoDetalheInput" value="">
     </form>
     <?php endif; ?>
+
+    <div class="confirm-overlay" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitulo">
+        <div class="confirm-box">
+            <h2 class="confirm-title" id="confirmTitulo">Você tem certeza?</h2>
+            <p class="confirm-desc">Antes de prosseguir, preencha mais algumas informações:</p>
+
+            <label for="prazoSelect" class="confirm-label">Data/prazo para devolução *</label>
+            <select id="prazoSelect" class="confirm-select">
+                <option value="">Selecione uma opção</option>
+                <option value="1-3">1 a 3 dias</option>
+                <option value="3-7">3 a 7 dias</option>
+                <option value="7+">7+ dias</option>
+            </select>
+
+            <div id="detalhePrazoWrap" style="display:none; margin-top:12px;">
+                <label for="prazoDetalhe" class="confirm-label">Informe quantos dias/meses pretende ficar e por quê *</label>
+                <textarea id="prazoDetalhe" class="confirm-textarea" maxlength="1500" placeholder="Ex.: 2 meses, pois vou usar no TCC e nas aulas práticas de eletrônica."></textarea>
+            </div>
+
+            <p class="confirm-hint" id="confirmHint">Essa informação ajuda o laboratorista a organizar os pacotes.</p>
+
+            <div class="confirm-actions">
+                <button type="button" class="btn-confirm-cancel" onclick="fecharModalConfirmacao()">Cancelar</button>
+                <button type="button" class="btn-confirm-submit" onclick="confirmarEnvioPedido()">Confirmar envio</button>
+            </div>
+        </div>
+    </div>
 
 </main>
 
@@ -742,9 +925,9 @@ try {
         }
     }
 
-    function enviarPedido() {
+    function coletarPayloadCarrinho() {
         const lista = document.getElementById('cartList');
-        if (!lista) return;
+        if (!lista) return [];
 
         const payload = [];
         lista.querySelectorAll('.cart-item').forEach(function (itemEl) {
@@ -759,14 +942,77 @@ try {
             }
         });
 
+        return payload;
+    }
+
+    function enviarPedido() {
+        const payload = coletarPayloadCarrinho();
+
         if (payload.length === 0) {
             alert('Seu carrinho está vazio.');
             return;
         }
 
+        document.getElementById('confirmHint').textContent = 'Essa informação ajuda o laboratorista a organizar os pacotes.';
+        document.getElementById('confirmHint').classList.remove('error');
+        document.getElementById('prazoSelect').value = '';
+        document.getElementById('prazoDetalhe').value = '';
+        document.getElementById('detalhePrazoWrap').style.display = 'none';
+        document.getElementById('confirmModal').classList.add('open');
+    }
+
+    function fecharModalConfirmacao() {
+        document.getElementById('confirmModal').classList.remove('open');
+    }
+
+    document.getElementById('prazoSelect').addEventListener('change', function () {
+        const wrap = document.getElementById('detalhePrazoWrap');
+        if (this.value === '7+') {
+            wrap.style.display = 'block';
+        } else {
+            wrap.style.display = 'none';
+        }
+    });
+
+    function confirmarEnvioPedido() {
+        const payload = coletarPayloadCarrinho();
+        if (payload.length === 0) {
+            alert('Seu carrinho está vazio.');
+            return;
+        }
+
+        const prazo = (document.getElementById('prazoSelect').value || '').trim();
+        const detalhe = (document.getElementById('prazoDetalhe').value || '').trim();
+        const hint = document.getElementById('confirmHint');
+
+        if (!['1-3', '3-7', '7+'].includes(prazo)) {
+            hint.textContent = 'Selecione um prazo de devolução para continuar.';
+            hint.classList.add('error');
+            return;
+        }
+
+        if (prazo === '7+' && detalhe === '') {
+            hint.textContent = 'Para 7+ dias, informe quantos dias/meses pretende ficar e o motivo.';
+            hint.classList.add('error');
+            document.getElementById('prazoDetalhe').focus();
+            return;
+        }
+
+        hint.classList.remove('error');
+
         document.getElementById('cartPayloadInput').value = JSON.stringify(payload);
+        document.getElementById('prazoDevolucaoInput').value = prazo;
+        document.getElementById('prazoDetalheInput').value = detalhe;
         document.getElementById('formEnviarPedido').submit();
     }
+
+    document.getElementById('confirmModal').addEventListener('click', function (e) {
+        if (e.target === this) fecharModalConfirmacao();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') fecharModalConfirmacao();
+    });
 </script>
 
 </body>
