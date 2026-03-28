@@ -31,6 +31,20 @@ if ($id <= 0 || !in_array($acao, ['arquivar', 'desarquivar'], true)) {
 try {
     $pdo = db();
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Atraso_Nota (
+        id_nota INT NOT NULL AUTO_INCREMENT,
+        id_pedido INT NOT NULL,
+        id_user INT NOT NULL,
+        id_laboratorista INT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'aguardando-aluno',
+        obrigatoria TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id_nota),
+        KEY idx_pan_pedido_status (id_pedido, status),
+        KEY idx_pan_user_status (id_user, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
     /* Garante que a coluna existe (executa uma vez, idempotente) */
     $pdo->exec('
         ALTER TABLE Pedido
@@ -38,6 +52,25 @@ try {
     ');
 
     $valor = ($acao === 'arquivar') ? 1 : 0;
+
+    if ($acao === 'arquivar') {
+        $stmtBloqueio = $pdo->prepare('
+            SELECT 1
+            FROM Pedido_Atraso_Nota pan
+            WHERE pan.id_pedido = :id
+              AND pan.id_user = :uid
+              AND pan.obrigatoria = 1
+              AND pan.status = "aguardando-aluno"
+            LIMIT 1
+        ');
+        $stmtBloqueio->execute(['id' => $id, 'uid' => $id_usuario]);
+
+        if ($stmtBloqueio->fetch()) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'erro' => 'Responda a nota de atraso antes de arquivar o pedido']);
+            exit;
+        }
+    }
 
     $stmt = $pdo->prepare('
         UPDATE Pedido

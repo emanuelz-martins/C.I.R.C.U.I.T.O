@@ -225,6 +225,83 @@ try {
         line-height: 1.3;
     }
 
+    /* ── Modal de escolha ─────────────────── */
+    .choice-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0,0,0,0.75);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+    }
+    .choice-overlay.open { display: flex; }
+
+    .choice-modal {
+        background-color: #1e1e1e;
+        border: 1px solid #2e2e2e;
+        border-radius: 20px;
+        padding: 36px;
+        width: 100%;
+        max-width: 460px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .choice-title {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #ffffff;
+    }
+
+    .choice-subtitle {
+        font-size: 0.9rem;
+        color: #888;
+        margin-top: -12px;
+    }
+
+    .choice-btns {
+        display: flex;
+        gap: 14px;
+    }
+
+    .choice-btn {
+        flex: 1;
+        padding: 20px 16px;
+        border-radius: 14px;
+        border: 1.5px solid #2e2e2e;
+        background-color: #141414;
+        color: #ffffff;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: border-color 0.15s, background-color 0.15s;
+        text-align: center;
+    }
+
+    .choice-btn:hover { background-color: #1e1e1e; border-color: #555; }
+
+    .choice-btn svg { width: 36px; height: 36px; color: #aaa; }
+    .choice-btn:hover svg { color: #fff; }
+
+    .choice-cancel {
+        background: none;
+        border: none;
+        color: #666;
+        font-size: 0.85rem;
+        cursor: pointer;
+        align-self: center;
+        padding: 4px 8px;
+        transition: color 0.15s;
+    }
+    .choice-cancel:hover { color: #aaa; }
+
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 1100px) {
         .funcionalidades-grid { grid-template-columns: repeat(3, 1fr); }
@@ -356,17 +433,21 @@ try {
             <span class="func-label">Relatórios omitidos pelo<br>laboratorista</span>
         </a>
 
-        <!-- 3. Data e hora do servidor / LDAP -->
-        <a href="./config_datetime.php" class="func-card">
+        <!-- 3. Controle de Categorias -->
+        <button class="func-card" onclick="openCatModal()">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12 6 12 12 16 14"/>
+                    <line x1="8"  y1="6"  x2="21" y2="6"/>
+                    <line x1="8"  y1="12" x2="21" y2="12"/>
+                    <line x1="8"  y1="18" x2="21" y2="18"/>
+                    <line x1="3"  y1="6"  x2="3.01" y2="6"/>
+                    <line x1="3"  y1="12" x2="3.01" y2="12"/>
+                    <line x1="3"  y1="18" x2="3.01" y2="18"/>
                 </svg>
             </div>
-            <span class="func-label">Data e hora do<br>servidor/LDAP</span>
-        </a>
+            <span class="func-label">Controle de<br>Categorias</span>
+        </button>
 
         <!-- 4. Controle de Login / LDAP (painel antigo) -->
         <a href="../../src/views/ldap_control/ldaptest.php" class="func-card">
@@ -381,7 +462,7 @@ try {
         </a>
 
         <!-- 5. Controlar Laboratoristas / Alunos -->
-        <a href="./controlar_usuarios.php" class="func-card">
+        <button class="func-card" onclick="openChoiceModal()">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -392,11 +473,82 @@ try {
                 </svg>
             </div>
             <span class="func-label">Controlar<br>Laboratoristas/Alunos</span>
-        </a>
+        </button>
 
     </div>
 
 </main>
+
+<!-- ══════ MODAL: Controle de Categorias ══════ -->
+<div class="choice-overlay" id="catModal" onclick="if(event.target===this)closeCatModal()">
+    <div class="choice-modal" role="dialog" aria-modal="true">
+        <h2 class="choice-title">Controle de Categorias</h2>
+        <p class="choice-subtitle">Escolha qual tipo de categoria deseja gerenciar:</p>
+
+        <div class="choice-btns">
+            <a href="./categoria_itens.php" class="choice-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/>
+                    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                </svg>
+                Categorias de<br>produtos
+            </a>
+            <a href="./categoria_turma.php" class="choice-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Categorias de<br>turmas
+            </a>
+        </div>
+
+        <button class="choice-cancel" onclick="closeCatModal()">Cancelar</button>
+    </div>
+</div>
+
+<!-- ══════ MODAL: Escolher tipo de usuário ══════ -->
+<div class="choice-overlay" id="choiceModal" onclick="closeChoiceOnBackdrop(event)">
+    <div class="choice-modal" role="dialog" aria-modal="true">
+        <h2 class="choice-title">Controlar usuários</h2>
+        <p class="choice-subtitle">Escolha qual grupo deseja gerenciar:</p>
+
+        <div class="choice-btns">
+            <a href="./controlar_aluno.php" class="choice-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                Aluno
+            </a>
+            <a href="./controlar_laboratorista.php" class="choice-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Laboratorista
+            </a>
+        </div>
+
+        <button class="choice-cancel" onclick="closeChoiceModal()">Cancelar</button>
+    </div>
+</div>
+
+<script>
+    function openCatModal()    { document.getElementById('catModal').classList.add('open'); }
+    function closeCatModal()   { document.getElementById('catModal').classList.remove('open'); }
+    function openChoiceModal() { document.getElementById('choiceModal').classList.add('open'); }
+    function closeChoiceModal(){ document.getElementById('choiceModal').classList.remove('open'); }
+    function closeChoiceOnBackdrop(e) { if (e.target === document.getElementById('choiceModal')) closeChoiceModal(); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeCatModal(); closeChoiceModal(); } });
+</script>
 
 </body>
 </html>

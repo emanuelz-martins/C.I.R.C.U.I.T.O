@@ -18,6 +18,37 @@ try {
     $pdo = db();
     $id_usuario = (int) ($_SESSION['auth_user']['id'] ?? $_SESSION['auth_user']['id_user'] ?? 0);
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Atraso_Nota (
+        id_nota INT NOT NULL AUTO_INCREMENT,
+        id_pedido INT NOT NULL,
+        id_user INT NOT NULL,
+        id_laboratorista INT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'aguardando-aluno',
+        obrigatoria TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id_nota),
+        KEY idx_pan_pedido_status (id_pedido, status),
+        KEY idx_pan_user_status (id_user, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    if ($id_usuario > 0 && $id_pedido !== null) {
+        $stmtBloqueio = $pdo->prepare('
+            SELECT 1
+            FROM Pedido_Atraso_Nota pan
+            WHERE pan.id_pedido = :id_pedido
+              AND pan.id_user = :id_user
+              AND pan.obrigatoria = 1
+              AND pan.status = "aguardando-aluno"
+            LIMIT 1
+        ');
+        $stmtBloqueio->execute(['id_pedido' => $id_pedido, 'id_user' => $id_usuario]);
+        if ($stmtBloqueio->fetch()) {
+            header('Location: ./notificacoes.php?erro=resposta_atraso');
+            exit;
+        }
+    }
+
     if ($id_usuario > 0) {
         $getCols = static function (PDO $pdo, string $table): array {
             $stmt = $pdo->prepare('
@@ -276,38 +307,147 @@ $etapas = [
         font-weight: 700;
     }
 
-    /* ── Bloco de renovação ───────────────── */
-    .renovacao-bloco {
+    /* ── Chat de acompanhamento ───────────── */
+    .chat-bloco {
         margin-bottom: 40px;
+        background-color: #1b1b1b;
+        border: 1px solid #2a2a2a;
+        border-radius: 16px;
+        overflow: hidden;
     }
 
-    .renovacao-texto {
-        font-size: 0.92rem;
-        color: #cccccc;
-        margin-bottom: 16px;
-        line-height: 1.6;
+    .chat-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid #2a2a2a;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
 
-    .renovacao-texto strong {
+    .chat-title {
+        font-size: 0.95rem;
+        font-weight: 700;
         color: #ffffff;
     }
 
-    .btn-renovar {
-        display: block;
-        width: 100%;
-        padding: 14px;
-        background-color: #ffffff;
-        color: #141414;
-        font-size: 0.95rem;
-        font-weight: 700;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        text-align: center;
-        transition: background-color 0.15s;
+    .chat-status {
+        font-size: 0.78rem;
+        color: #a3a3a3;
     }
 
-    .btn-renovar:hover { background-color: #e0e0e0; }
+    .chat-status.atrasado {
+        color: #fca5a5;
+        font-weight: 700;
+    }
+
+    .chat-mensagens {
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 14px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border-bottom: 1px solid #2a2a2a;
+    }
+
+    .chat-vazio {
+        color: #777;
+        text-align: center;
+        padding: 10px 0;
+        font-size: 0.84rem;
+    }
+
+    .chat-baloon {
+        max-width: 85%;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 0.84rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .chat-baloon.aluno {
+        align-self: flex-end;
+        background-color: #1f2937;
+        border: 1px solid #374151;
+        color: #e5e7eb;
+    }
+
+    .chat-baloon.laboratorista {
+        align-self: flex-start;
+        background-color: #2a1a1a;
+        border: 1px solid #7f1d1d;
+        color: #fecaca;
+    }
+
+    .chat-baloon.sistema {
+        align-self: center;
+        background-color: #202020;
+        border: 1px solid #333;
+        color: #d4d4d4;
+    }
+
+    .chat-acoes {
+        padding: 12px 18px 0;
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-renovar-chat {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        background-color: #f5f5f5;
+        color: #141414;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+    }
+
+    .chat-form {
+        padding: 12px 18px 16px;
+    }
+
+    .chat-textarea {
+        width: 100%;
+        min-height: 90px;
+        border-radius: 10px;
+        border: 1.5px solid #333;
+        background-color: #111;
+        color: #fff;
+        font-size: 0.88rem;
+        padding: 10px 12px;
+        resize: vertical;
+        outline: none;
+        font-family: inherit;
+    }
+
+    .chat-erro {
+        margin-top: 8px;
+        color: #f87171;
+        font-size: 0.8rem;
+        min-height: 16px;
+    }
+
+    .chat-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 10px;
+    }
+
+    .btn-chat-enviar {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background-color: #7f1d1d;
+        color: #fff;
+        font-size: 0.84rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+    }
 
     /* ── Itens do pedido ──────────────────── */
     .item-card {
@@ -567,16 +707,30 @@ $etapas = [
         <?php endforeach; ?>
     </div>
 
-    <!-- Renovação -->
-    <?php if (($pedido['status'] ?? '') === 'em-andamento'): ?>
-    <div class="renovacao-bloco">
-        <p class="renovacao-texto">
-            Precisa de um prazo maior? <strong>Solicite renovação e espere a confirmação do responsável</strong>.
-            Você será notificado em caso de sucesso ou negação do pedido.
-        </p>
-        <button class="btn-renovar" onclick="solicitarRenovacao()">Solicitar renovação</button>
+    <!-- Chat de acompanhamento -->
+    <h2 class="section-title">Chat de acompanhamento</h2>
+    <div class="chat-bloco">
+        <div class="chat-header">
+            <span class="chat-title">Conversa do pedido #<?= htmlspecialchars($pedido['numero'] ?? $pedido['numero_pedido'] ?? '') ?></span>
+            <span class="chat-status" id="pedidoChatStatus">Carregando status...</span>
+        </div>
+
+        <div class="chat-mensagens" id="pedidoChatMensagens">
+            <p class="chat-vazio">Carregando conversa...</p>
+        </div>
+
+        <div class="chat-acoes" id="pedidoChatAcoes" style="display:none">
+            <button type="button" class="btn-renovar-chat" onclick="solicitarRenovacaoChat()">Solicitar renovação pelo chat</button>
+        </div>
+
+        <form class="chat-form" id="pedidoChatForm">
+            <textarea class="chat-textarea" id="pedidoChatMensagem" maxlength="2000" placeholder="Escreva sua mensagem para o laboratorista..."></textarea>
+            <p class="chat-erro" id="pedidoChatErro"></p>
+            <div class="chat-form-actions">
+                <button type="submit" class="btn-chat-enviar">Enviar mensagem</button>
+            </div>
+        </form>
     </div>
-    <?php endif; ?>
 
     <!-- Itens do pedido -->
     <h2 class="section-title">Itens do pedido</h2>
@@ -644,9 +798,121 @@ $etapas = [
 </main>
 
 <script>
-    function solicitarRenovacao() {
-        // TODO: implementar lógica de renovação (AJAX ou redirect)
-        alert('Pedido de renovação enviado! Aguarde a confirmação do responsável.');
+    const pedidoChatId = <?= (int) ($pedido['id_pedido'] ?? 0) ?>;
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function carregarPedidoChat() {
+        if (!pedidoChatId) return;
+
+        const statusEl = document.getElementById('pedidoChatStatus');
+        const listEl = document.getElementById('pedidoChatMensagens');
+        const erroEl = document.getElementById('pedidoChatErro');
+        const acoesEl = document.getElementById('pedidoChatAcoes');
+
+        erroEl.textContent = '';
+
+        try {
+            const params = new URLSearchParams({ acao: 'listar', id_pedido: String(pedidoChatId) });
+            const res = await fetch('../api/pedido_chat.php?' + params.toString());
+            const data = await res.json();
+
+            if (!data.ok) {
+                listEl.innerHTML = '<p class="chat-vazio">Não foi possível carregar o chat.</p>';
+                statusEl.textContent = data.erro || 'Erro no carregamento';
+                return;
+            }
+
+            const status = (data.pedido && data.pedido.status) ? data.pedido.status : '—';
+            const atrasado = Boolean(data.pedido && data.pedido.atrasado);
+            const dias = Number((data.pedido && data.pedido.dias_atraso) || 0);
+            statusEl.classList.toggle('atrasado', atrasado);
+            statusEl.textContent = atrasado ? `Atrasado há ${dias} dia(s)` : `Status atual: ${status}`;
+
+            const mensagens = Array.isArray(data.mensagens) ? data.mensagens : [];
+            if (mensagens.length === 0) {
+                listEl.innerHTML = '<p class="chat-vazio">Sem mensagens ainda.</p>';
+            } else {
+                listEl.innerHTML = mensagens.map((m) => {
+                    const tipo = m.autor_tipo || 'sistema';
+                    return `<div class="chat-baloon ${escapeHtml(tipo)}">${escapeHtml(m.mensagem || '')}</div>`;
+                }).join('');
+                listEl.scrollTop = listEl.scrollHeight;
+            }
+
+            const podeRenovar = Boolean(data.chat && data.chat.pode_solicitar_renovacao);
+            acoesEl.style.display = podeRenovar ? 'flex' : 'none';
+        } catch (_) {
+            listEl.innerHTML = '<p class="chat-vazio">Falha de comunicação com o servidor.</p>';
+        }
+    }
+
+    async function solicitarRenovacaoChat() {
+        const erroEl = document.getElementById('pedidoChatErro');
+        erroEl.textContent = '';
+
+        const texto = (window.prompt('Descreva rapidamente o motivo da renovação:') || '').trim();
+
+        const fd = new FormData();
+        fd.append('acao', 'solicitar_renovacao');
+        fd.append('id_pedido', String(pedidoChatId));
+        if (texto) fd.append('mensagem', texto);
+
+        try {
+            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.ok) {
+                erroEl.textContent = data.erro || 'Não foi possível solicitar renovação.';
+                return;
+            }
+            await carregarPedidoChat();
+        } catch (_) {
+            erroEl.textContent = 'Falha de comunicação com o servidor.';
+        }
+    }
+
+    const pedidoChatForm = document.getElementById('pedidoChatForm');
+    if (pedidoChatForm) {
+    pedidoChatForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const erroEl = document.getElementById('pedidoChatErro');
+        const textarea = document.getElementById('pedidoChatMensagem');
+        const mensagem = textarea.value.trim();
+
+        erroEl.textContent = '';
+        if (!mensagem) {
+            erroEl.textContent = 'Digite uma mensagem antes de enviar.';
+            textarea.focus();
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('acao', 'enviar_mensagem');
+        fd.append('id_pedido', String(pedidoChatId));
+        fd.append('mensagem', mensagem);
+
+        try {
+            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.ok) {
+                erroEl.textContent = data.erro || 'Não foi possível enviar a mensagem.';
+                return;
+            }
+            textarea.value = '';
+            await carregarPedidoChat();
+        } catch (_) {
+            erroEl.textContent = 'Falha de comunicação com o servidor.';
+        }
+    });
+    }
+
+    if (pedidoChatId > 0) {
+        carregarPedidoChat();
     }
 </script>
 

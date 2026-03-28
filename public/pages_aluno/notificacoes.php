@@ -10,14 +10,34 @@ require_once '../includes/header.php';
 /* ── Notificações: serão carregadas do BD ── */
 $notificacoes = ['avisos' => [], 'automaticas' => []];
 $db_ok = false;
+$erroFluxo = trim((string) ($_GET['erro'] ?? ''));
 
 try {
     $pdo = db();
     $id_usuario = $_SESSION['auth_user']['id'] ?? null;
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Atraso_Nota (
+        id_nota INT NOT NULL AUTO_INCREMENT,
+        id_pedido INT NOT NULL,
+        id_user INT NOT NULL,
+        id_laboratorista INT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'aguardando-aluno',
+        obrigatoria TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id_nota),
+        KEY idx_pan_pedido_status (id_pedido, status),
+        KEY idx_pan_user_status (id_user, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_pedido INT NULL');
+    $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_nota_atraso INT NULL');
+    $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS requer_resposta TINYINT(1) NOT NULL DEFAULT 0');
+    $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS resposta_pendente TINYINT(1) NOT NULL DEFAULT 0');
     
     if ($id_usuario) {
         $stmt = $pdo->prepare('
-            SELECT id_not, titulo, mensagem, tipo, humor, lida, data
+            SELECT id_not, titulo, mensagem, tipo, humor, lida, data, id_pedido, id_nota_atraso, requer_resposta, resposta_pendente
             FROM   Notificacao
             WHERE  id_user = :id_user
             ORDER  BY data DESC
@@ -148,6 +168,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         display: flex;
         align-items: center;
         gap: 20px;
+        flex-wrap: wrap;
     }
 
     /* ── Ícone do robô ────────────────────── */
@@ -340,6 +361,80 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
     .notif-icon.humor-feliz  { border-color: #14532d; color: #4ade80; }
     .notif-icon.humor-triste { border-color: #7f1d1d; color: #ef4444; }
     .notif-icon.humor-neutro { border-color: #78350f; color: #f59e0b; }
+
+    .notif-resposta {
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #7f1d1d;
+        border-radius: 10px;
+        background-color: #1f1212;
+    }
+
+    .notif-resposta label {
+        display: block;
+        color: #fca5a5;
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+
+    .notif-resposta textarea {
+        width: 100%;
+        min-height: 72px;
+        border-radius: 8px;
+        border: 1px solid #3a3a3a;
+        background-color: #111;
+        color: #fff;
+        font-size: 0.84rem;
+        padding: 8px 10px;
+        font-family: inherit;
+        resize: vertical;
+        outline: none;
+    }
+
+    .notif-resposta textarea:focus { border-color: #555; }
+
+    .notif-resposta-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 8px;
+    }
+
+    .btn-responder {
+        border: none;
+        border-radius: 8px;
+        padding: 8px 12px;
+        background-color: #7f1d1d;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-responder:hover { background-color: #991b1b; }
+
+    .notif-resposta-erro {
+        margin-top: 6px;
+        color: #f87171;
+        font-size: 0.75rem;
+        min-height: 14px;
+    }
+
+    .btn-notif[disabled] {
+        opacity: 0.35;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .alert-fluxo {
+        background-color: #2a1212;
+        border: 1px solid #7f1d1d;
+        color: #fca5a5;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        font-size: 0.85rem;
+    }
 </style>
 </head>
 <body>
@@ -457,6 +552,12 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         </a>
     </div>
 
+    <?php if ($erroFluxo === 'resposta_atraso'): ?>
+    <div class="alert-fluxo">
+        Você possui um pedido em atraso. Responda a mensagem do laboratorista antes de visualizar detalhes do pedido ou arquivar.
+    </div>
+    <?php endif; ?>
+
     <?php if (!$db_ok): ?>
     <div style="background-color:#1c1c1c;border:1px solid #3a1a1a;border-radius:16px;padding:40px;text-align:center;color:#aaa;">
         <h2 style="color:#ef4444;margin-bottom:8px;">Banco de dados indisponível</h2>
@@ -485,6 +586,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         <?php foreach ($notificacoes['avisos'] as $n):
             $humor = $n['humor'] ?? '';
             $humorClass = $humor ? 'humor-' . $humor : '';
+            $respostaPendente = (int) ($n['resposta_pendente'] ?? 0) === 1;
         ?>
         <div class="notif-card notif-aviso <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
@@ -514,6 +616,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
 
             <div class="notif-actions">
                 <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
+                        <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Marcar como lida"
                         onclick="marcarLida(this, <?= $n['id_not'] ?>)">
                     <!-- Olho -->
@@ -524,6 +627,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
                 <button class="btn-notif btn-excluir"
+                    <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Excluir notificação"
                         onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
                     <!-- Lixeira -->
@@ -536,6 +640,17 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
             </div>
+
+            <?php if ($respostaPendente): ?>
+            <div class="notif-resposta" style="width:100%;margin-top:14px;">
+                <label for="resposta-<?= $n['id_not'] ?>">Resposta obrigatória para o laboratorista</label>
+                <textarea id="resposta-<?= $n['id_not'] ?>" placeholder="Escreva sua resposta sobre o atraso..."></textarea>
+                <div class="notif-resposta-actions">
+                    <button class="btn-responder" onclick="responderAtraso(<?= $n['id_not'] ?>)">Enviar resposta</button>
+                </div>
+                <p class="notif-resposta-erro" id="resposta-erro-<?= $n['id_not'] ?>"></p>
+            </div>
+            <?php endif; ?>
 
         </div>
         <?php endforeach; ?>
@@ -565,6 +680,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
         <?php foreach ($notificacoes['automaticas'] as $n):
             $humor = $n['humor'] ?? '';
             $humorClass = $humor ? 'humor-' . $humor : '';
+            $respostaPendente = (int) ($n['resposta_pendente'] ?? 0) === 1;
         ?>
         <div class="notif-card <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
 
@@ -585,6 +701,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
 
             <div class="notif-actions">
                 <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
+                        <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Marcar como lida"
                         onclick="marcarLida(this, <?= $n['id_not'] ?>)">
                     <!-- Olho -->
@@ -595,6 +712,7 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
                 <button class="btn-notif btn-excluir"
+                    <?= $respostaPendente ? 'disabled' : '' ?>
                         title="Excluir notificação"
                         onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
                     <!-- Lixeira -->
@@ -607,6 +725,17 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
                     </svg>
                 </button>
             </div>
+
+            <?php if ($respostaPendente): ?>
+            <div class="notif-resposta" style="width:100%;margin-top:14px;">
+                <label for="resposta-<?= $n['id_not'] ?>">Resposta obrigatória para o laboratorista</label>
+                <textarea id="resposta-<?= $n['id_not'] ?>" placeholder="Escreva sua resposta sobre o atraso..."></textarea>
+                <div class="notif-resposta-actions">
+                    <button class="btn-responder" onclick="responderAtraso(<?= $n['id_not'] ?>)">Enviar resposta</button>
+                </div>
+                <p class="notif-resposta-erro" id="resposta-erro-<?= $n['id_not'] ?>"></p>
+            </div>
+            <?php endif; ?>
 
         </div>
         <?php endforeach; ?>
@@ -629,7 +758,10 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
     async function marcarLida(btn, id) {
         if (btn.classList.contains('active')) return;
         const data = await notifAction('marcar_lida', id);
-        if (!data.ok) return;
+        if (!data.ok) {
+            if (data.erro) alert(data.erro);
+            return;
+        }
 
         const card = document.getElementById('notif-' + id);
         card.classList.add('lida');
@@ -643,7 +775,10 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
     async function excluirNotif(btn, id) {
         const card = document.getElementById('notif-' + id);
         const data = await notifAction('excluir', id);
-        if (!data.ok) return;
+        if (!data.ok) {
+            if (data.erro) alert(data.erro);
+            return;
+        }
 
         // decrementa o badge da seção correspondente
         const lista = card.closest('.notif-list');
@@ -661,6 +796,39 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
 
         card.classList.add('removendo');
         card.addEventListener('transitionend', () => card.remove(), { once: true });
+    }
+
+    async function responderAtraso(id) {
+        const textarea = document.getElementById('resposta-' + id);
+        const erro = document.getElementById('resposta-erro-' + id);
+        if (!textarea) return;
+
+        const mensagem = textarea.value.trim();
+        if (mensagem === '') {
+            if (erro) erro.textContent = 'Digite sua resposta antes de enviar.';
+            textarea.focus();
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('acao', 'responder_atraso');
+        fd.append('id', id);
+        fd.append('mensagem', mensagem);
+
+        try {
+            const res = await fetch('../api/notificacao_action.php', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (!data.ok) {
+                if (erro) erro.textContent = data.erro || 'Não foi possível enviar sua resposta.';
+                return;
+            }
+
+            if (erro) erro.textContent = '';
+            location.reload();
+        } catch (_) {
+            if (erro) erro.textContent = 'Falha de comunicação com o servidor.';
+        }
     }
 </script>
 </body>

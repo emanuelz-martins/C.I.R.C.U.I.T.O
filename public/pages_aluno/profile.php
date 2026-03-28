@@ -3,27 +3,45 @@ require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 $page_title = 'Perfil';
 require_once '../includes/header.php';
 
 /* ── Dados do usuário: carregados da sessão ── */
 $usuario_role = ucfirst($_SESSION['auth_user']['perfil'] ?? 'Usuário');
+$alunoPreBloqueado = false;
 
 /* ── Pedidos: serão carregados do BD ── */
 $pedidos = [];
 $db_ok = false;
 
-$foto_perfil = null;
+$foto_perfil      = null;
+$perfil_email     = '';
+$perfil_turma     = '';
+$perfil_descricao = '';
+$turmas_lista     = [];
 
 try {
     $pdo = db();
     $id_usuario = $_SESSION['auth_user']['id'] ?? null;
 
+    /* Carrega turmas disponíveis */
+    try {
+        $turmas_lista = $pdo->query('SELECT id_turma, nome FROM Turma ORDER BY nome')->fetchAll();
+    } catch (Throwable) {}
+
     if ($id_usuario) {
-        $stmt = $pdo->prepare('SELECT foto_perfil FROM Usuario WHERE id_user = :id');
+        $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, (int) $id_usuario);
+        $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
+
+        $stmt = $pdo->prepare('SELECT foto_perfil, email, turma, descricao FROM Usuario WHERE id_user = :id');
         $stmt->execute(['id' => $id_usuario]);
-        $foto_perfil = $stmt->fetchColumn() ?: null;
+        $row_up           = $stmt->fetch();
+        $foto_perfil      = $row_up ? ($row_up['foto_perfil'] ?: null) : null;
+        $perfil_email     = $row_up ? (string)($row_up['email']     ?? '') : '';
+        $perfil_turma     = $row_up ? (string)($row_up['turma']     ?? '') : '';
+        $perfil_descricao = $row_up ? (string)($row_up['descricao'] ?? '') : '';
 
         /* Sincroniza sessão */
         $_SESSION['auth_user']['foto_perfil'] = $foto_perfil;
@@ -111,6 +129,8 @@ try {
     /* BD indisponível */
     $foto_perfil = $_SESSION['auth_user']['foto_perfil'] ?? null;
 }
+
+$usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_role;
 ?>
 
 <style>
@@ -171,6 +191,16 @@ try {
             align-items: center;
             gap: 32px;
             margin-bottom: 48px;
+        }
+
+        .profile-card.prebloqueado {
+            background-color: #2a1212;
+            border-color: #7f1d1d;
+        }
+
+        .profile-card.prebloqueado .profile-role {
+            color: #fca5a5;
+            font-weight: 700;
         }
 
         .profile-avatar-wrap {
@@ -522,12 +552,21 @@ try {
     <!-- Cabeçalho -->
     <div class="page-header">
         <h1 class="page-title">Página do usuário</h1>
-        <a href="javascript:history.back()" class="btn-back" aria-label="Voltar">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 18 9 12 15 6"/>
-            </svg>
-        </a>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <button class="btn-edit-perfil" onclick="openPerfilModal()" title="Editar meu perfil" aria-label="Editar perfil">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            </button>
+            <a href="javascript:history.back()" class="btn-back" aria-label="Voltar">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+            </a>
+        </div>
     </div>
 
     <!-- Input de upload oculto -->
@@ -537,7 +576,7 @@ try {
     <div class="toast" id="toast"></div>
 
     <!-- Card de perfil -->
-    <div class="profile-card">
+    <div class="profile-card <?= $alunoPreBloqueado ? 'prebloqueado' : '' ?>">
         <div class="profile-avatar-wrap" onclick="document.getElementById('inputFoto').click()" title="Trocar foto">
             <div class="profile-avatar" id="avatarBox">
                 <?php if ($foto_perfil): ?>
@@ -611,6 +650,140 @@ try {
     <?php endif; ?>
 
 </main>
+
+<!-- ══════ MODAL: Editar perfil ══════ -->
+<div class="perfil-overlay" id="perfilModal">
+    <div class="perfil-modal" role="dialog" aria-modal="true">
+        <h2>Editar meu perfil</h2>
+
+        <input type="file" id="perfilFotoInput" accept="image/*" style="display:none" onchange="onPerfilFoto(this)">
+
+        <div>
+            <label>Foto de perfil</label>
+            <div class="perfil-foto-row">
+                <div class="perfil-avatar-preview" id="perfilAvatarPreview">
+                    <?php if ($foto_perfil): ?>
+                        <img src="<?= htmlspecialchars($foto_perfil) ?>" alt="">
+                    <?php else: ?>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                        </svg>
+                    <?php endif; ?>
+                </div>
+                <button type="button" class="perfil-foto-btn" onclick="document.getElementById('perfilFotoInput').click()">
+                    Trocar foto
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <label for="perfilEmail">E-mail</label>
+            <input type="email" id="perfilEmail" value="<?= htmlspecialchars($perfil_email) ?>" placeholder="seu@email.com">
+        </div>
+
+        <div>
+            <label for="perfilTurma">Turma</label>
+            <?php if (!empty($turmas_lista)): ?>
+            <select id="perfilTurma">
+                <option value="">— Nenhuma —</option>
+                <?php foreach ($turmas_lista as $t): ?>
+                <option value="<?= htmlspecialchars($t['nome']) ?>"
+                    <?= ($perfil_turma === $t['nome']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($t['nome']) ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+            <?php else: ?>
+            <input type="text" id="perfilTurma" value="<?= htmlspecialchars($perfil_turma) ?>" placeholder="Ex: Turma 11A">
+            <?php endif; ?>
+        </div>
+
+        <div>
+            <label for="perfilDescricao">Descrição</label>
+            <textarea id="perfilDescricao" placeholder="Conte um pouco sobre você..."><?= htmlspecialchars($perfil_descricao) ?></textarea>
+        </div>
+
+        <div id="perfilNotice" class="perfil-notice"></div>
+
+        <div class="perfil-modal-actions">
+            <button class="perfil-btn-cancel" onclick="closePerfilModal()">Cancelar</button>
+            <button class="perfil-btn-save" id="perfilBtnSave" onclick="savePerfilModal()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-edit-perfil {
+        width: 44px; height: 44px;
+        border-radius: 50%;
+        background-color: #2a2a2a;
+        border: 1px solid #3a3a3a;
+        color: #ffffff;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        transition: background-color 0.15s;
+    }
+    .btn-edit-perfil:hover { background-color: #333; }
+    .btn-edit-perfil svg { width: 20px; height: 20px; }
+
+    .perfil-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.75); z-index: 200;
+        align-items: center; justify-content: center;
+    }
+    .perfil-overlay.open { display: flex; }
+    .perfil-modal {
+        background: #1e1e1e; border: 1px solid #2e2e2e;
+        border-radius: 20px; padding: 36px;
+        width: 100%; max-width: 480px;
+        display: flex; flex-direction: column; gap: 18px;
+        max-height: 90vh; overflow-y: auto;
+    }
+    .perfil-modal h2 { font-size: 1.4rem; font-weight: 800; color: #fff; margin: 0; }
+    .perfil-modal label { display: block; font-size: 0.85rem; font-weight: 600; color: #aaa; margin-bottom: 6px; }
+    .perfil-modal input, .perfil-modal textarea, .perfil-modal select {
+        width: 100%; background: #141414; border: 1.5px solid #2e2e2e;
+        border-radius: 10px; color: #fff; font-size: 0.95rem; font-family: inherit;
+        outline: none; padding: 11px 14px; transition: border-color 0.2s; resize: vertical;
+    }
+    .perfil-modal select option { background: #1e1e1e; }
+    .perfil-modal input::placeholder, .perfil-modal textarea::placeholder { color: #444; }
+    .perfil-modal input:focus, .perfil-modal textarea:focus, .perfil-modal select:focus { border-color: #555; }
+    .perfil-modal textarea { min-height: 80px; }
+    .perfil-foto-row { display: flex; align-items: center; gap: 14px; }
+    .perfil-avatar-preview {
+        width: 56px; height: 56px; border-radius: 12px;
+        background: #2a2a2a; border: 1px solid #3a3a3a;
+        overflow: hidden; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .perfil-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .perfil-avatar-preview svg { width: 28px; height: 28px; color: #555; }
+    .perfil-foto-btn {
+        padding: 9px 16px; background: #2a2a2a; border: 1px solid #3a3a3a;
+        border-radius: 9px; color: #fff; font-size: 0.85rem; cursor: pointer;
+        transition: background 0.15s;
+    }
+    .perfil-foto-btn:hover { background: #333; }
+    .perfil-modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+    .perfil-btn-cancel {
+        padding: 11px 22px; background: #2a2a2a; border: 1px solid #3a3a3a;
+        border-radius: 10px; color: #fff; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+        transition: background 0.15s;
+    }
+    .perfil-btn-cancel:hover { background: #333; }
+    .perfil-btn-save {
+        padding: 11px 22px; background: #fff; border: none;
+        border-radius: 10px; color: #000; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+        transition: background 0.15s;
+    }
+    .perfil-btn-save:hover { background: #e5e5e5; }
+    .perfil-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .perfil-notice { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; display: none; }
+    .perfil-notice.ok   { background: #0d2b16; border: 1px solid #166534; color: #4ade80; display: block; }
+    .perfil-notice.erro { background: #2b0d0d; border: 1px solid #7f1d1d; color: #f87171; display: block; }
+</style>
 
 <script>
     /* ── Toggle de tema ── */
@@ -686,6 +859,76 @@ try {
         /* Limpa o input para permitir reenvio do mesmo arquivo */
         this.value = '';
     });
+
+    /* ── Modal editar perfil ── */
+    function openPerfilModal()  { document.getElementById('perfilModal').classList.add('open'); }
+    function closePerfilModal() { document.getElementById('perfilModal').classList.remove('open'); }
+
+    document.getElementById('perfilModal').addEventListener('click', function (e) {
+        if (e.target === this) closePerfilModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closePerfilModal();
+    });
+
+    function onPerfilFoto(input) {
+        if (!input.files || !input.files[0]) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const preview = document.getElementById('perfilAvatarPreview');
+            preview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+
+    async function savePerfilModal() {
+        const btn    = document.getElementById('perfilBtnSave');
+        const notice = document.getElementById('perfilNotice');
+        btn.disabled    = true;
+        btn.textContent = 'Salvando…';
+        notice.className   = 'perfil-notice';
+        notice.textContent = '';
+
+        const fd = new FormData();
+        fd.append('email',     document.getElementById('perfilEmail').value.trim());
+        fd.append('turma',     document.getElementById('perfilTurma').value.trim());
+        fd.append('descricao', document.getElementById('perfilDescricao').value.trim());
+
+        const fotoInput = document.getElementById('perfilFotoInput');
+        if (fotoInput.files && fotoInput.files[0]) {
+            fd.append('foto', fotoInput.files[0]);
+        }
+
+        try {
+            const res  = await fetch('./update_perfil.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.ok) {
+                notice.className   = 'perfil-notice ok';
+                notice.textContent = 'Perfil atualizado com sucesso!';
+                if (data.foto) {
+                    /* Atualiza avatar no card de perfil também */
+                    const box = document.getElementById('avatarBox');
+                    if (box) {
+                        const icon = document.getElementById('avatarIcon');
+                        if (icon) icon.remove();
+                        let img = document.getElementById('avatarImg');
+                        if (!img) { img = document.createElement('img'); img.id='avatarImg'; img.alt='Foto de perfil'; box.prepend(img); }
+                        img.src = data.foto + '?t=' + Date.now();
+                    }
+                }
+                setTimeout(closePerfilModal, 1400);
+            } else {
+                notice.className   = 'perfil-notice erro';
+                notice.textContent = data.erro || 'Erro ao salvar.';
+            }
+        } catch {
+            notice.className   = 'perfil-notice erro';
+            notice.textContent = 'Falha de comunicação.';
+        }
+
+        btn.disabled    = false;
+        btn.textContent = 'Salvar';
+    }
 </script>
 
 </body>

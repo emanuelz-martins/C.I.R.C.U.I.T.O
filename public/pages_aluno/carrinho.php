@@ -3,6 +3,7 @@ require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 /* ── Finalizar pedido (POST) ─────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'finalizar-pedido') {
@@ -22,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
         exit;
     }
 
-    if (!in_array($prazoOpcao, ['1-3', '3-7', '7+'], true)) {
+    if (!in_array($prazoOpcao, ['1-3', '3-5', '3-7', '7+', 'teste'], true)) {
         header('Location: ./carrinho.php?erro=prazo');
         exit;
     }
@@ -67,6 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
             $stmt->execute(['table' => $table]);
             return $stmt->fetchAll(PDO::FETCH_COLUMN);
         };
+        $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, $id_usuario);
+        if (($statusPreBloqueio['pre_bloqueado'] ?? false) === true) {
+            header('Location: ./carrinho.php?erro=prebloqueado');
+            exit;
+        }
 
         $pedidoCols = $getCols($pdo, 'Pedido');
         if (empty($pedidoCols)) {
@@ -170,15 +176,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'final
 
         $prazoLabel = [
             '1-3' => '1 a 3 dias',
+            '3-5' => '3 a 5 dias',
             '3-7' => '3 a 7 dias',
             '7+' => '7+ dias',
+            'teste' => 'Teste (forçar atraso)',
         ][$prazoOpcao] ?? 'Não informado';
 
         $dataDevolucaoPrevista = null;
         if ($prazoOpcao === '1-3') {
             $dataDevolucaoPrevista = (new DateTimeImmutable('today +3 days'))->format('Y-m-d');
+        } elseif ($prazoOpcao === '3-5') {
+            $dataDevolucaoPrevista = (new DateTimeImmutable('today +5 days'))->format('Y-m-d');
         } elseif ($prazoOpcao === '3-7') {
             $dataDevolucaoPrevista = (new DateTimeImmutable('today +7 days'))->format('Y-m-d');
+        } elseif ($prazoOpcao === 'teste') {
+            $dataDevolucaoPrevista = (new DateTimeImmutable('today -1 days'))->format('Y-m-d');
         }
 
         $obsPrazo = 'Prazo solicitado pelo estudante: ' . $prazoLabel;
@@ -258,11 +270,15 @@ require_once '../includes/header.php';
 /* ── Itens do carrinho: carregados da sessão ── */
 $itens = [];
 $db_ok = false;
+$alunoPreBloqueado = false;
 $erro = (string) ($_GET['erro'] ?? '');
 $sucesso = (string) ($_GET['sucesso'] ?? '');
 
 try {
     $pdo = db();
+    $id_usuario = (int) ($_SESSION['auth_user']['id'] ?? 0);
+    $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, $id_usuario);
+    $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
     
     /* Obtém itens da sessão (carrinho armazenado localmente) */
     $carrinho_sessao = $_SESSION['carrinho'] ?? [];
@@ -760,10 +776,18 @@ try {
                 echo 'Selecione um prazo de devolução válido antes de enviar o pedido.';
             } elseif ($erro === 'prazo_detalhe') {
                 echo 'Para prazo 7+ dias, informe quantos dias/meses pretende ficar e o motivo.';
+            } elseif ($erro === 'prebloqueado') {
+                echo 'Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...';
             } else {
                 echo 'Não foi possível finalizar o pedido agora. Tente novamente em instantes.';
             }
         ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($alunoPreBloqueado): ?>
+    <div class="alert-error" style="margin-bottom:18px;">
+        Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...
     </div>
     <?php endif; ?>
 
@@ -849,7 +873,7 @@ try {
     </div>
 
     <!-- Botão enviar -->
-    <button class="btn-enviar" id="btnEnviar" onclick="enviarPedido()">
+    <button class="btn-enviar" id="btnEnviar" onclick="enviarPedido()" <?= $alunoPreBloqueado ? 'disabled' : '' ?>>
         Enviar pedido
     </button>
 
@@ -870,8 +894,9 @@ try {
             <select id="prazoSelect" class="confirm-select">
                 <option value="">Selecione uma opção</option>
                 <option value="1-3">1 a 3 dias</option>
-                <option value="3-7">3 a 7 dias</option>
+                <option value="3-5">3 a 5 dias</option>
                 <option value="7+">7+ dias</option>
+                <option value="teste">Teste (forçar atraso)</option>
             </select>
 
             <div id="detalhePrazoWrap" style="display:none; margin-top:12px;">
@@ -891,6 +916,8 @@ try {
 </main>
 
 <script>
+    const alunoPreBloqueado = <?= $alunoPreBloqueado ? 'true' : 'false' ?>;
+
     function alterarQtd(id, delta) {
         const input = document.getElementById('qty-' + id);
         const max = Math.max(1, parseInt(input.max || '1', 10) || 1);
@@ -946,6 +973,11 @@ try {
     }
 
     function enviarPedido() {
+        if (alunoPreBloqueado) {
+            alert('Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...');
+            return;
+        }
+
         const payload = coletarPayloadCarrinho();
 
         if (payload.length === 0) {
@@ -985,7 +1017,7 @@ try {
         const detalhe = (document.getElementById('prazoDetalhe').value || '').trim();
         const hint = document.getElementById('confirmHint');
 
-        if (!['1-3', '3-7', '7+'].includes(prazo)) {
+        if (!['1-3', '3-5', '3-7', '7+', 'teste'].includes(prazo)) {
             hint.textContent = 'Selecione um prazo de devolução para continuar.';
             hint.classList.add('error');
             return;

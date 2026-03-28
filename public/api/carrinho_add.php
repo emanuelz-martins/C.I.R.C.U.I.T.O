@@ -20,6 +20,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 header('Content-Type: application/json');
 
@@ -51,6 +52,17 @@ if ($quantidade < 1) {
 /* ── Verifica se o item existe e está disponível ─── */
 try {
     $pdo = db();
+    $idUsuario = (int) ($_SESSION['auth_user']['id'] ?? $_SESSION['auth_user']['id_user'] ?? 0);
+    $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, $idUsuario);
+    if (($statusPreBloqueio['pre_bloqueado'] ?? false) === true) {
+        http_response_code(403);
+        echo json_encode([
+            'ok' => false,
+            'mensagem' => 'Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...',
+        ]);
+        exit;
+    }
+
     $stmt = $pdo->prepare('
         SELECT id_comp, qtd_disponivel, qtd_max_user, status_atual
         FROM Componente

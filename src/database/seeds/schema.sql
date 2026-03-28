@@ -203,6 +203,24 @@ ALTER TABLE Notificacao
     ADD COLUMN IF NOT EXISTS humor VARCHAR(10) NULL DEFAULT NULL AFTER tipo;
 
 -- ------------------------------------------------------------
+-- Migração: perfil expandido do usuário
+-- email, turma, descricao
+-- ------------------------------------------------------------
+ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS email    VARCHAR(150) NULL AFTER foto_perfil;
+ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS turma    VARCHAR(100) NULL AFTER email;
+ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS descricao TEXT         NULL AFTER turma;
+
+-- ------------------------------------------------------------
+-- Turma: categorias de turmas criadas pelo administrador
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS Turma (
+    id_turma  INT          NOT NULL AUTO_INCREMENT,
+    nome      VARCHAR(100) NOT NULL,
+    descricao VARCHAR(300) NULL,
+    PRIMARY KEY (id_turma)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
 -- Migração: controle de posse de pedido por laboratorista
 -- id_laboratorista_responsavel / nome_laboratorista_responsavel
 -- fluxo_livre_laboratoristas = 1 libera acesso para todos sem etapa inicial
@@ -215,3 +233,63 @@ ALTER TABLE Pedido
 
 ALTER TABLE Pedido
     ADD COLUMN IF NOT EXISTS fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0 AFTER nome_laboratorista_responsavel;
+
+-- ------------------------------------------------------------
+-- Migração: suporte a notas obrigatórias de atraso
+-- ------------------------------------------------------------
+ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_pedido INT NULL;
+ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_nota_atraso INT NULL;
+ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS requer_resposta TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS resposta_pendente TINYINT(1) NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS Pedido_Atraso_Nota (
+    id_nota INT NOT NULL AUTO_INCREMENT,
+    id_pedido INT NOT NULL,
+    id_user INT NOT NULL,
+    id_laboratorista INT NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'aguardando-aluno',
+    obrigatoria TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_nota),
+    KEY idx_pan_pedido_status (id_pedido, status),
+    KEY idx_pan_user_status (id_user, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS Pedido_Atraso_Mensagem (
+    id_msg INT NOT NULL AUTO_INCREMENT,
+    id_nota INT NOT NULL,
+    autor_tipo VARCHAR(20) NOT NULL,
+    mensagem TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_msg),
+    KEY idx_pam_nota_data (id_nota, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Migração: chat unificado de acompanhamento do pedido
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS Pedido_Chat (
+    id_chat INT NOT NULL AUTO_INCREMENT,
+    id_pedido INT NOT NULL,
+    id_user INT NOT NULL,
+    id_laboratorista INT NULL,
+    status_renovacao VARCHAR(20) NOT NULL DEFAULT 'nenhuma',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_chat),
+    UNIQUE KEY uk_pedido_chat (id_pedido),
+    KEY idx_chat_user (id_user)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS Pedido_Chat_Mensagem (
+    id_msg INT NOT NULL AUTO_INCREMENT,
+    id_chat INT NOT NULL,
+    autor_tipo VARCHAR(20) NOT NULL,
+    tipo_evento VARCHAR(40) NOT NULL DEFAULT 'mensagem',
+    mensagem TEXT NOT NULL,
+    metadata_json TEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id_msg),
+    KEY idx_pcm_chat_data (id_chat, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -201,6 +201,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare($sql)->execute($params);
             };
 
+            $garantirTabelaChat = static function (PDO $pdo): void {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Chat (
+                    id_chat INT NOT NULL AUTO_INCREMENT,
+                    id_pedido INT NOT NULL,
+                    id_user INT NOT NULL,
+                    id_laboratorista INT NULL,
+                    status_renovacao VARCHAR(20) NOT NULL DEFAULT 'nenhuma',
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id_chat),
+                    UNIQUE KEY uk_pedido_chat (id_pedido),
+                    KEY idx_chat_user (id_user)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS Pedido_Chat_Mensagem (
+                    id_msg INT NOT NULL AUTO_INCREMENT,
+                    id_chat INT NOT NULL,
+                    autor_tipo VARCHAR(20) NOT NULL,
+                    tipo_evento VARCHAR(40) NOT NULL DEFAULT 'mensagem',
+                    mensagem TEXT NOT NULL,
+                    metadata_json TEXT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id_msg),
+                    KEY idx_pcm_chat_data (id_chat, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            };
+
+            $registrarEventoChat = static function (
+                PDO $pdo,
+                int $idPedido,
+                ?int $idAluno,
+                ?int $idLab,
+                string $mensagem,
+                string $tipoEvento = 'status'
+            ) use ($garantirTabelaChat): void {
+                if ($idPedido <= 0 || trim($mensagem) === '') {
+                    return;
+                }
+
+                $garantirTabelaChat($pdo);
+
+                $chatStmt = $pdo->prepare('SELECT id_chat FROM Pedido_Chat WHERE id_pedido = :id_pedido LIMIT 1');
+                $chatStmt->execute(['id_pedido' => $idPedido]);
+                $chat = $chatStmt->fetch();
+
+                if (!$chat) {
+                    $idAlunoFinal = (int) ($idAluno ?? 0);
+                    if ($idAlunoFinal <= 0) {
+                        $tmp = $pdo->prepare('SELECT id_user FROM Pedido WHERE id_pedido = :id LIMIT 1');
+                        $tmp->execute(['id' => $idPedido]);
+                        $tmpRow = $tmp->fetch();
+                        $idAlunoFinal = (int) ($tmpRow['id_user'] ?? 0);
+                    }
+                    if ($idAlunoFinal <= 0) {
+                        return;
+                    }
+
+                    $ins = $pdo->prepare('INSERT INTO Pedido_Chat (id_pedido, id_user, id_laboratorista) VALUES (:id_pedido, :id_user, :id_lab)');
+                    $ins->execute([
+                        'id_pedido' => $idPedido,
+                        'id_user' => $idAlunoFinal,
+                        'id_lab' => $idLab ?: null,
+                    ]);
+                    $idChat = (int) $pdo->lastInsertId();
+                } else {
+                    $idChat = (int) ($chat['id_chat'] ?? 0);
+                }
+
+                if ($idChat <= 0) {
+                    return;
+                }
+
+                $insMsg = $pdo->prepare('INSERT INTO Pedido_Chat_Mensagem (id_chat, autor_tipo, tipo_evento, mensagem) VALUES (:id_chat, "sistema", :tipo_evento, :mensagem)');
+                $insMsg->execute([
+                    'id_chat' => $idChat,
+                    'tipo_evento' => $tipoEvento,
+                    'mensagem' => $mensagem,
+                ]);
+
+                if ($idLab !== null && $idLab > 0) {
+                    $pdo->prepare('UPDATE Pedido_Chat SET id_laboratorista = :id_lab, updated_at = NOW() WHERE id_chat = :id_chat')
+                        ->execute(['id_lab' => $idLab, 'id_chat' => $idChat]);
+                }
+            };
+
             $responsavelAtualId = $getResponsavelAtual($pdo, $id_pedido, $responsavelIdCol);
             $fluxoLivreAtual = $getFluxoLivreAtual($pdo, $id_pedido, $fluxoLivreCol);
             if (!in_array($action, ['assumir', 'liberar'], true)
@@ -275,6 +360,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
                     }
 
+                    $registrarEventoChat(
+                        $pdo,
+                        $id_pedido,
+                        $uid,
+                        $laboratoristaId,
+                        $laboratoristaNome . ' assumiu o atendimento deste pedido.'
+                    );
+
                     if ($pdo->inTransaction()) {
                         $pdo->commit();
                     }
@@ -336,6 +429,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($idRespDepois > 0 || ($fluxoLivreCol !== null && !$fluxoLivreDepois)) {
                         throw new RuntimeException('falha_liberar');
                     }
+
+                    $uid = $getUserId($pdo, $id_pedido);
+                    $registrarEventoChat(
+                        $pdo,
+                        $id_pedido,
+                        $uid,
+                        $laboratoristaId,
+                        'Atendimento liberado para outros laboratoristas.'
+                    );
 
                     if ($pdo->inTransaction()) {
                         $pdo->commit();
@@ -411,6 +513,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $notify($pdo, $id_pedido, $uid, 'Pedido aprovado!', 'aprovado', $notCols, 'feliz');
                     }
 
+                    $registrarEventoChat(
+                        $pdo,
+                        $id_pedido,
+                        $uid,
+                        $laboratoristaId,
+                        'Pedido aprovado e movido para separação.'
+                    );
+
                     if ($pdo->inTransaction()) {
                         $pdo->commit();
                     }
@@ -429,6 +539,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $notify($pdo, $id_pedido, $uid,
                             'Pedido negado. Justificativa: ' . $justificativa, 'negado', $notCols, 'triste');
                     }
+
+                    $registrarEventoChat(
+                        $pdo,
+                        $id_pedido,
+                        $uid,
+                        $laboratoristaId,
+                        'Pedido negado. Justificativa: ' . $justificativa,
+                        'negado'
+                    );
                     break;
 
                 case 'pronto-para-retirada':
@@ -441,15 +560,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'Seu pedido está pronto para retirada! Dirija-se ao laboratório para buscar.',
                             'pronto-para-retirada', $notCols, 'feliz');
                     }
+
+                    $registrarEventoChat(
+                        $pdo,
+                        $id_pedido,
+                        $uid,
+                        $laboratoristaId,
+                        'Pacote separado e pronto para retirada.'
+                    );
                     break;
 
                 case 'em-andamento':
                     /* Estudante retirou o pacote — prazo de 1 semana para devolução */
                     $setStatus($pdo, $id_pedido, 'em-andamento', $statusCol, $updatedCol);
+
+                    $uid = $getUserId($pdo, $id_pedido);
+                    $registrarEventoChat(
+                        $pdo,
+                        $id_pedido,
+                        $uid,
+                        $laboratoristaId,
+                        'Pedido retirado pelo estudante e marcado como em andamento.'
+                    );
                     break;
 
                 case 'finalizar':
                     $setStatus($pdo, $id_pedido, 'finalizado', $statusCol, $updatedCol);
+
+                    $uid = $getUserId($pdo, $id_pedido);
+                    $registrarEventoChat(
+                        $pdo,
+                        $id_pedido,
+                        $uid,
+                        $laboratoristaId,
+                        'Pedido finalizado e devolução concluída.'
+                    );
                     break;
             }
 
@@ -506,6 +651,7 @@ try {
     $numeroCol = in_array('numero_pedido', $pedidoCols, true) ? 'numero_pedido' : null;
     $dataCriacaoCol = in_array('data_criacao', $pedidoCols, true) ? 'data_criacao' : null;
     $dataAtualizacaoCol = in_array('data_atualizacao', $pedidoCols, true) ? 'data_atualizacao' : null;
+    $devolucaoPrevistaCol = in_array('data_devolucao_prevista', $pedidoCols, true) ? 'data_devolucao_prevista' : null;
     $obsLaboratoristaCol = in_array('obs_laboratorista', $pedidoCols, true) ? 'obs_laboratorista' : null;
     $responsavelIdCol = in_array('id_laboratorista_responsavel', $pedidoCols, true) ? 'id_laboratorista_responsavel' : null;
     $responsavelNomeCol = in_array('nome_laboratorista_responsavel', $pedidoCols, true) ? 'nome_laboratorista_responsavel' : null;
@@ -548,6 +694,7 @@ try {
     } else {
         $selectData = 'NULL AS data_fmt';
     }
+    $selectDataCriacaoRaw = $dataCriacaoCol !== null ? 'p.' . $dataCriacaoCol . ' AS data_criacao_raw' : 'NULL AS data_criacao_raw';
 
     $orderBy = $dataAtualizacaoCol !== null ? 'p.' . $dataAtualizacaoCol . ' DESC, p.id_pedido DESC' : 'p.id_pedido DESC';
 
@@ -562,19 +709,23 @@ try {
     }
     $selectObsAluno = $obsLaboratoristaCol !== null ? 'p.' . $obsLaboratoristaCol . ' AS mensagem_aluno' : 'NULL AS mensagem_aluno';
     $selectFluxoLivre = $fluxoLivreCol !== null ? 'p.' . $fluxoLivreCol . ' AS fluxo_livre_laboratoristas' : '0 AS fluxo_livre_laboratoristas';
+    $selectDataDevolucaoPrevista = $devolucaoPrevistaCol !== null ? 'p.' . $devolucaoPrevistaCol . ' AS data_devolucao_prevista' : 'NULL AS data_devolucao_prevista';
 
     $stmt = $pdo->prepare("
         SELECT
             p.id_pedido,
+            p.id_user,
             {$selectNumero},
             {$selectStatus},
             {$selectData},
+            {$selectDataCriacaoRaw},
             u.nome AS nome_estudante,
             {$fotoPerfilSql} AS foto_perfil_estudante,
             {$selectResponsavelId},
             {$selectResponsavelNome},
             {$selectObsAluno},
-            {$selectFluxoLivre}
+            {$selectFluxoLivre},
+            {$selectDataDevolucaoPrevista}
         FROM Pedido p
         JOIN Usuario u ON u.id_user = p.id_user
         {$joinResponsavel}
@@ -1125,6 +1276,67 @@ $status_map = [
     .btn-eye:hover { background-color: #2d2d2d; }
     .btn-eye svg   { width: 18px; height: 18px; pointer-events: none; }
 
+    .btn-chat,
+    .btn-atrasado {
+        height: 42px;
+        border-radius: 10px;
+        border: 1px solid #3a3a3a;
+        background-color: #1f1f1f;
+        color: #c4c4c4;
+        padding: 0 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background-color 0.15s, border-color 0.15s;
+    }
+
+    .btn-chat:hover,
+    .btn-atrasado:hover {
+        background-color: #262626;
+        border-color: #4a4a4a;
+    }
+
+    .btn-chat.atrasado,
+    .btn-atrasado.atrasado {
+        border-color: #7f1d1d;
+        background-color: #2a1212;
+        color: #fca5a5;
+    }
+
+    .btn-chat.atrasado:hover,
+    .btn-atrasado.atrasado:hover {
+        background-color: #3a1515;
+        border-color: #991b1b;
+    }
+
+    .btn-chat .alerta,
+    .btn-atrasado .alerta {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background-color: #4b5563;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        line-height: 1;
+        font-weight: 800;
+    }
+
+    .btn-chat.atrasado .alerta,
+    .btn-atrasado.atrasado .alerta {
+        background-color: #4b5563;
+    }
+
+    .btn-chat.atrasado .alerta,
+    .btn-atrasado.atrasado .alerta {
+        background-color: #7f1d1d;
+    }
+
     /* ── Modal preview do pedido ─────────── */
     .preview-overlay {
         display: none;
@@ -1314,6 +1526,220 @@ $status_map = [
     }
     .btn-fechar-preview:hover { border-color: #777; color: #fff; }
 
+    .nota-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.8);
+        z-index: 350;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .nota-overlay.open { display: flex; }
+
+    .nota-box {
+        width: 100%;
+        max-width: 560px;
+        background-color: #1b1b1b;
+        border: 1px solid #2f2f2f;
+        border-radius: 18px;
+        overflow: hidden;
+    }
+
+    .nota-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 18px 20px;
+        border-bottom: 1px solid #2a2a2a;
+        background-color: #141414;
+    }
+
+    .nota-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        background-color: #2a2a2a;
+        border: 1px solid #3a3a3a;
+        flex-shrink: 0;
+    }
+
+    .nota-avatar-placeholder {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #2a2a2a;
+        border: 1px solid #3a3a3a;
+        color: #666;
+        flex-shrink: 0;
+    }
+
+    .nota-header-text { min-width: 0; }
+
+    .nota-nome {
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+
+    .nota-prazo {
+        color: #fca5a5;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .nota-chat {
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 14px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border-bottom: 1px solid #2a2a2a;
+    }
+
+    .nota-empty {
+        color: #666;
+        font-size: 0.84rem;
+        text-align: center;
+        padding: 12px 0;
+    }
+
+    .baloon {
+        max-width: 85%;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 0.84rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .baloon.lab {
+        align-self: flex-end;
+        background-color: #1f2937;
+        border: 1px solid #374151;
+        color: #e5e7eb;
+    }
+
+    .baloon.aluno {
+        align-self: flex-start;
+        background-color: #2a1a1a;
+        border: 1px solid #7f1d1d;
+        color: #fecaca;
+    }
+
+    .baloon.sistema {
+        align-self: center;
+        background-color: #202020;
+        border: 1px solid #343434;
+        color: #d4d4d4;
+        font-size: 0.8rem;
+    }
+
+    .nota-renovacao-acoes {
+        display: flex;
+        gap: 10px;
+        padding: 12px 20px 0;
+    }
+
+    .btn-renovacao-chat {
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        border: 1px solid #333;
+    }
+
+    .btn-renovacao-chat.aprovar {
+        background-color: #14532d;
+        border-color: #166534;
+        color: #dcfce7;
+    }
+
+    .btn-renovacao-chat.recusar {
+        background-color: #3f1515;
+        border-color: #7f1d1d;
+        color: #fecaca;
+    }
+
+    .nota-form {
+        padding: 14px 20px 18px;
+    }
+
+    .nota-form label {
+        display: block;
+        color: #ccc;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .nota-textarea {
+        width: 100%;
+        min-height: 90px;
+        border-radius: 10px;
+        border: 1.5px solid #333;
+        background-color: #111;
+        color: #fff;
+        font-size: 0.88rem;
+        padding: 10px 12px;
+        resize: vertical;
+        outline: none;
+        font-family: inherit;
+    }
+
+    .nota-textarea:focus { border-color: #555; }
+
+    .nota-erro {
+        margin-top: 8px;
+        color: #f87171;
+        font-size: 0.8rem;
+        min-height: 16px;
+    }
+
+    .nota-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .btn-nota-cancelar,
+    .btn-nota-enviar {
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+    }
+
+    .btn-nota-cancelar {
+        background: none;
+        color: #aaa;
+        border: 1px solid #444;
+    }
+
+    .btn-nota-cancelar:hover { border-color: #888; color: #fff; }
+
+    .btn-nota-enviar {
+        background-color: #7f1d1d;
+        color: #fff;
+        border: none;
+    }
+
+    .btn-nota-enviar:hover { background-color: #991b1b; }
+
     /* ── Responsivo ───────────────────────── */
     /* ── Animação de arquivar card ───────── */
     .pedido-card.arquivando {
@@ -1424,6 +1850,36 @@ $status_map = [
         <div class="preview-close">
             <button class="btn-fechar-preview" onclick="fecharPreview()">Fechar</button>
         </div>
+    </div>
+</div>
+
+<!-- ══════════════════ MODAL — CHAT DE ACOMPANHAMENTO ══════════════════ -->
+<div class="nota-overlay" id="modalNotaAtraso" role="dialog" aria-modal="true" aria-label="Chat de acompanhamento do pedido">
+    <div class="nota-box">
+        <div class="nota-header" id="notaHeader">
+            <!-- preenchido via JS -->
+        </div>
+
+        <div class="nota-chat" id="notaChat">
+            <p class="nota-empty">Carregando conversa...</p>
+        </div>
+
+        <div class="nota-renovacao-acoes" id="notaRenovacaoAcoes" style="display:none"></div>
+
+        <form class="nota-form" id="formNotaAtraso">
+            <label for="notaMensagem">Mensagem para o chat</label>
+            <textarea
+                class="nota-textarea"
+                id="notaMensagem"
+                placeholder="Digite sua mensagem..."
+                maxlength="2000"
+            ></textarea>
+            <p class="nota-erro" id="notaErro"></p>
+            <div class="nota-actions">
+                <button type="button" class="btn-nota-cancelar" onclick="fecharNotaAtraso()">Fechar</button>
+                <button type="submit" class="btn-nota-enviar">Enviar mensagem</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -1546,11 +2002,59 @@ $status_map = [
             $pedidoPego = !$fluxoLivre && $idLabResp > 0;
             $pedidoMeu = $pedidoPego && $laboratoristaId > 0 && $idLabResp === $laboratoristaId;
             $pedidoOutro = $pedidoPego && !$pedidoMeu;
+            $dataPrevistaRaw = trim((string) ($p['data_devolucao_prevista'] ?? ''));
+            $dataCriacaoRaw = trim((string) ($p['data_criacao_raw'] ?? ''));
+            $obsPrazo = (string) ($p['mensagem_aluno'] ?? '');
+            $pedidoAtrasado = false;
+            $diasAtraso = 0;
+            $dataLimiteAtraso = null;
+            if ($status === 'em-andamento' && $dataPrevistaRaw !== '') {
+                try {
+                    $dataLimiteAtraso = new DateTimeImmutable($dataPrevistaRaw);
+                } catch (Throwable) {
+                    $dataLimiteAtraso = null;
+                }
+            }
+            if ($status === 'em-andamento' && $dataLimiteAtraso === null && $dataCriacaoRaw !== '') {
+                $diasPrazo = 0;
+                if (preg_match('/Prazo solicitado pelo estudante:\s*([^\.]+)(?:\.|$)/u', $obsPrazo, $m)) {
+                    $prazoTxt = mb_strtolower(trim((string) ($m[1] ?? '')));
+                    if (str_contains($prazoTxt, '1 a 3')) {
+                        $diasPrazo = 3;
+                    } elseif (str_contains($prazoTxt, '3 a 5')) {
+                        $diasPrazo = 5;
+                    } elseif (str_contains($prazoTxt, '3 a 7')) {
+                        $diasPrazo = 7;
+                    } elseif (str_contains($prazoTxt, 'teste')) {
+                        $diasPrazo = -1;
+                    }
+                }
 
-            if ($pedidoOutro) {
-                $statusInfo = ['label' => 'Pedido em andamento com ' . $nomeLabResp, 'class' => 'em-atendimento-lab'];
-            } elseif ($pedidoMeu) {
-                $statusInfo = ['label' => 'Pedido em andamento com você', 'class' => 'em-atendimento-lab'];
+                if ($diasPrazo !== 0) {
+                    try {
+                        $dataLimiteAtraso = (new DateTimeImmutable($dataCriacaoRaw))->modify('+' . $diasPrazo . ' days');
+                    } catch (Throwable) {
+                        $dataLimiteAtraso = null;
+                    }
+                }
+            }
+            if ($status === 'em-andamento' && $dataLimiteAtraso !== null) {
+                try {
+                    $hoje = new DateTimeImmutable('today');
+                    if ($hoje > $dataLimiteAtraso) {
+                        $pedidoAtrasado = true;
+                        $diasAtraso = (int) $dataLimiteAtraso->diff($hoje)->days;
+                    }
+                } catch (Throwable) {
+                    $pedidoAtrasado = false;
+                }
+            }
+            $mostrarOpcaoAtraso = ($pedidoMeu || $fluxoLivre);
+            $atendimentoInfo = '';
+            if ($pedidoMeu) {
+                $atendimentoInfo = 'Em atendimento com você';
+            } elseif ($pedidoOutro) {
+                $atendimentoInfo = 'Em atendimento com ' . $nomeLabResp;
             }
         ?>
         <div class="pedido-card" id="card-<?= (int) $p['id_pedido'] ?>">
@@ -1561,6 +2065,9 @@ $status_map = [
                 <div class="pedido-meta">
                     <span>Pedido feito por: <strong style="color:#ccc"><?= htmlspecialchars($p['nome_estudante']) ?></strong></span>
                     <span>Data da última atualização: <?= htmlspecialchars($p['data_fmt'] ?? '—') ?></span>
+                    <?php if ($atendimentoInfo !== ''): ?>
+                        <span>Atendimento: <?= htmlspecialchars($atendimentoInfo) ?></span>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -1640,6 +2147,18 @@ $status_map = [
                         <circle cx="12" cy="12" r="3"/>
                     </svg>
                 </button>
+
+                <?php if ($mostrarOpcaoAtraso): ?>
+                <button
+                    class="btn-chat <?= $pedidoAtrasado ? 'atrasado' : 'neutro' ?>"
+                    onclick="abrirNotaAtraso(<?= (int) $p['id_pedido'] ?>)"
+                    aria-label="Abrir chat de acompanhamento"
+                    title="<?= $pedidoAtrasado ? ('Chat do pedido atrasado há ' . (int) $diasAtraso . ' dia(s)') : 'Abrir chat de acompanhamento do pedido' ?>"
+                >
+                    <span class="alerta">💬</span>
+                    Chat
+                </button>
+                <?php endif; ?>
 
                 <?php if ($pedidoMeu || $fluxoLivre): ?>
                 <div class="menu-wrap" id="wrap-<?= (int) $p['id_pedido'] ?>">
@@ -1808,6 +2327,7 @@ function svgIcon(string $name): string {
         if (e.key === 'Escape') {
             fecharModalNegar();
             fecharPreview();
+            fecharNotaAtraso();
         }
     });
 
@@ -1902,6 +2422,162 @@ function svgIcon(string $name): string {
     function fecharPreview() {
         document.getElementById('modalPreview').classList.remove('open');
     }
+
+    let pedidoNotaAtual = null;
+
+    async function decidirRenovacaoChat(decisao) {
+        if (!pedidoNotaAtual) return;
+
+        const erro = document.getElementById('notaErro');
+        erro.textContent = '';
+
+        let motivo = '';
+        if (decisao === 'recusar') {
+            motivo = (window.prompt('Informe o motivo da recusa:') || '').trim();
+            if (!motivo) {
+                erro.textContent = 'A recusa exige um motivo.';
+                return;
+            }
+        }
+
+        const fd = new FormData();
+        fd.append('acao', 'decidir_renovacao');
+        fd.append('id_pedido', String(pedidoNotaAtual));
+        fd.append('decisao', decisao);
+        if (motivo) fd.append('motivo', motivo);
+
+        try {
+            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.ok) {
+                erro.textContent = data.erro || 'Não foi possível concluir a decisão.';
+                return;
+            }
+            await abrirNotaAtraso(pedidoNotaAtual);
+        } catch (_) {
+            erro.textContent = 'Falha de comunicação com o servidor.';
+        }
+    }
+
+    async function abrirNotaAtraso(idPedido) {
+        pedidoNotaAtual = idPedido;
+
+        const modal = document.getElementById('modalNotaAtraso');
+        const chat = document.getElementById('notaChat');
+        const header = document.getElementById('notaHeader');
+        const erro = document.getElementById('notaErro');
+        const textarea = document.getElementById('notaMensagem');
+        const blocoRenovacao = document.getElementById('notaRenovacaoAcoes');
+        const btnEnviar = document.querySelector('#formNotaAtraso .btn-nota-enviar');
+
+        chat.innerHTML = '<p class="nota-empty">Carregando conversa...</p>';
+        header.innerHTML = '';
+        blocoRenovacao.style.display = 'none';
+        blocoRenovacao.innerHTML = '';
+        erro.textContent = '';
+        textarea.value = '';
+        if (btnEnviar) {
+            btnEnviar.disabled = false;
+            btnEnviar.textContent = 'Enviar mensagem';
+        }
+        modal.classList.add('open');
+
+        try {
+            const params = new URLSearchParams({ acao: 'listar', id_pedido: String(idPedido) });
+            const res = await fetch('../api/pedido_chat.php?' + params.toString());
+            const data = await res.json();
+
+            if (!data.ok) {
+                erro.textContent = data.erro || 'Não foi possível carregar o chat.';
+                chat.innerHTML = '<p class="nota-empty">Não foi possível carregar as mensagens.</p>';
+                return;
+            }
+
+            const aluno = data.aluno || {};
+            const foto = aluno.foto || '';
+            const nome = aluno.nome || 'Aluno';
+            const statusPedido = (data.pedido && data.pedido.status) ? data.pedido.status : '';
+            const atrasoDias = Number((data.pedido && data.pedido.dias_atraso) || 0);
+            const atrasado = Boolean(data.pedido && data.pedido.atrasado);
+
+            header.innerHTML = `
+                ${foto ? `<img src="${escapeHtml(foto)}" alt="${escapeHtml(nome)}" class="nota-avatar">` : '<div class="nota-avatar-placeholder">👤</div>'}
+                <div class="nota-header-text">
+                    <p class="nota-nome">${escapeHtml(nome)}</p>
+                    <p class="nota-prazo" style="color:${atrasado ? '#fca5a5' : '#c4c4c4'}">Status: ${escapeHtml(statusPedido)}${atrasoDias > 0 ? ` · Atraso: ${atrasoDias} dia(s)` : ''}</p>
+                </div>
+            `;
+
+            const mensagens = Array.isArray(data.mensagens) ? data.mensagens : [];
+            if (mensagens.length === 0) {
+                chat.innerHTML = '<p class="nota-empty">Ainda não há mensagens neste chat.</p>';
+            } else {
+                chat.innerHTML = mensagens.map((m) => {
+                    let classe = 'sistema';
+                    if (m.autor_tipo === 'aluno') classe = 'aluno';
+                    if (m.autor_tipo === 'laboratorista') classe = 'lab';
+                    return `<div class="baloon ${classe}">${escapeHtml(m.mensagem || '')}</div>`;
+                }).join('');
+                chat.scrollTop = chat.scrollHeight;
+            }
+
+            if (data.chat && data.chat.renovacao_pendente_laboratorio) {
+                blocoRenovacao.style.display = 'flex';
+                blocoRenovacao.innerHTML = `
+                    <button type="button" class="btn-renovacao-chat aprovar" onclick="decidirRenovacaoChat('aceitar')">Aceitar renovação</button>
+                    <button type="button" class="btn-renovacao-chat recusar" onclick="decidirRenovacaoChat('recusar')">Recusar renovação</button>
+                `;
+            }
+        } catch (_) {
+            erro.textContent = 'Falha de comunicação com o servidor.';
+            chat.innerHTML = '<p class="nota-empty">Não foi possível carregar as mensagens.</p>';
+        }
+    }
+
+    function fecharNotaAtraso() {
+        document.getElementById('modalNotaAtraso').classList.remove('open');
+    }
+
+    document.getElementById('modalNotaAtraso').addEventListener('click', function (e) {
+        if (e.target === this) fecharNotaAtraso();
+    });
+
+    document.getElementById('formNotaAtraso').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const erro = document.getElementById('notaErro');
+        const textarea = document.getElementById('notaMensagem');
+        const mensagem = textarea.value.trim();
+
+        if (!pedidoNotaAtual) return;
+
+        if (mensagem === '') {
+            erro.textContent = 'Digite a mensagem antes de enviar.';
+            textarea.focus();
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('acao', 'enviar_mensagem');
+        fd.append('id_pedido', String(pedidoNotaAtual));
+        fd.append('mensagem', mensagem);
+
+        try {
+            const res = await fetch('../api/pedido_chat.php', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (!data.ok) {
+                erro.textContent = data.erro || 'Não foi possível enviar a mensagem.';
+                return;
+            }
+
+            textarea.value = '';
+            erro.textContent = '';
+            await abrirNotaAtraso(pedidoNotaAtual);
+        } catch (_) {
+            erro.textContent = 'Falha de comunicação com o servidor.';
+        }
+    });
 
     function escapeHtml(text) {
         const div = document.createElement('div');

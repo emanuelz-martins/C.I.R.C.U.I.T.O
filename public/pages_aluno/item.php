@@ -3,6 +3,7 @@ require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 /* ══════════════════════════════════════════════════════════
    Busca o componente pelo id_comp passado via GET (?id=X)
@@ -17,9 +18,13 @@ if (!$id_comp || $id_comp <= 0) {
 
 $item  = null;
 $db_ok = false;
+$alunoPreBloqueado = false;
 
 try {
     $pdo = db();
+    $idUsuario = (int) ($_SESSION['auth_user']['id'] ?? $_SESSION['auth_user']['id_user'] ?? 0);
+    $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, $idUsuario);
+    $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
 
     $stmt = $pdo->prepare('
         SELECT
@@ -581,7 +586,7 @@ require_once '../includes/header.php';
                 class="btn-cart"
                 id="btnCart"
                 onclick="addToCart(<?= (int) $item['id_comp'] ?>)"
-                <?= !$disponivel ? 'disabled' : '' ?>
+                <?= (!$disponivel || $alunoPreBloqueado) ? 'disabled' : '' ?>
             >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -600,6 +605,8 @@ require_once '../includes/header.php';
 </body>
 
 <script>
+    const alunoPreBloqueado = <?= $alunoPreBloqueado ? 'true' : 'false' ?>;
+
     /* ── Controle de quantidade ─────────────── */
     function changeQty(delta, max) {
         const input = document.getElementById('qty');
@@ -611,6 +618,11 @@ require_once '../includes/header.php';
 
     /* ── Adicionar ao carrinho ──────────────── */
     function addToCart(idComp) {
+        if (alunoPreBloqueado) {
+            alert('Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...');
+            return;
+        }
+
         const qty = parseInt(document.getElementById('qty').value, 10);
         const btn = document.getElementById('btnCart');
 

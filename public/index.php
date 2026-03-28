@@ -16,11 +16,13 @@ if ($user_perfil === 'laboratorista') {
 }
 
 require_once '../src/config/database.php';
+require_once 'includes/pre_bloqueio_aluno.php';
 
 /* ── Dados do usuário autenticado (via sessão) ── */
 $authUser = $_SESSION['auth_user'] ?? [];
 $usuario_nome = is_array($authUser) ? (string) ($authUser['nome'] ?? '') : '';
 $usuario_tipo_conta = is_array($authUser) ? (string) ($authUser['perfil'] ?? '') : '';
+$alunoPreBloqueado = false;
 
 /* ── Categorias e componentes: serão carregados do BD ── */
 $categorias = [];
@@ -28,6 +30,9 @@ $db_ok = false;
 
 try {
     $pdo = db();
+    $idUsuario = (int) ($authUser['id'] ?? $authUser['id_user'] ?? 0);
+    $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, $idUsuario);
+    $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
     
     /* Busca todas as categorias com seus componentes */
     $stmt = $pdo->prepare('
@@ -444,6 +449,12 @@ require_once 'includes/header.php';
 
 <!-- ══════════════════ CONTEÚDO ══════════════════ -->
 <main class="main">
+
+    <?php if ($alunoPreBloqueado): ?>
+    <div style="background-color:#2a1212;border:1px solid #7f1d1d;border-radius:14px;padding:14px 16px;color:#fca5a5;font-size:0.88rem;margin-bottom:18px;">
+        Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...
+    </div>
+    <?php endif; ?>
 
     <!-- Card "Como usar a plataforma?" -->
     <section class="how-to-card">

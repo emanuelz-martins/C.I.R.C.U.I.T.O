@@ -81,6 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				'tipo_perfil' => $tipo_perfil,
 			]);
 
+			$novoId = (int) $pdo->lastInsertId();
+
 			$dominio = match($tipo_perfil) {
 				'admin' => 'ADMIN - Acesso total (alunos, laboratoristas e bloqueios)',
 				'laboratorista' => 'LABORATORISTA - Painel de controle do laboratório',
@@ -89,6 +91,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 			$mensagem = "Usuário local criado com sucesso!\nDomínio: {$dominio}\nCPF: {$cpf_formatado}\nAgora use o login abaixo.";
 			$tipoMensagem = 'ok';
+
+			/* Para estudantes: abre popup de dados extras */
+			if ($tipo_perfil === 'estudante') {
+				$novoEstudanteId   = $novoId;
+				$novoEstudanteNome = $nome;
+			}
+		}
+
+		/* ── Salvar dados extras do estudante ── */
+		if ($acao === 'extra_estudante') {
+			header('Content-Type: application/json');
+			$id_user  = (int) ($_POST['id_user']  ?? 0);
+			$email    = trim((string) ($_POST['email']    ?? ''));
+			$turma    = trim((string) ($_POST['turma']    ?? ''));
+			$descricao = trim((string) ($_POST['descricao'] ?? ''));
+
+			if (!$id_user) {
+				echo json_encode(['ok' => false, 'error' => 'ID inválido.']);
+				exit;
+			}
+
+			$pdo = db();
+			$cols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
+			$cols->execute(['t' => 'Usuario']);
+			$existing = $cols->fetchAll(PDO::FETCH_COLUMN);
+
+			$sets = []; $params = ['id' => $id_user];
+			if (in_array('email',     $existing, true)) { $sets[] = 'email = :email';         $params['email']     = $email ?: null; }
+			if (in_array('turma',     $existing, true)) { $sets[] = 'turma = :turma';         $params['turma']     = $turma ?: null; }
+			if (in_array('descricao', $existing, true)) { $sets[] = 'descricao = :descricao'; $params['descricao'] = $descricao ?: null; }
+
+			if (!empty($sets)) {
+				$pdo->prepare('UPDATE Usuario SET ' . implode(', ', $sets) . ' WHERE id_user = :id')->execute($params);
+			}
+
+			echo json_encode(['ok' => true]);
+			exit;
 		}
 
 		if ($acao === 'local_login') {
@@ -136,6 +175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $usuarioSessao = $_SESSION['auth_user'] ?? null;
+
+/* ── Carrega turmas para o select ── */
+$turmas_lista = [];
+try {
+    $pdo_t = db();
+    $turmas_lista = $pdo_t->query('SELECT id_turma, nome FROM Turma ORDER BY nome')->fetchAll();
+} catch (Throwable) {}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -150,9 +196,9 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 		.full { grid-column: 1 / -1; }
 		h1, h2 { margin-top: 0; }
 		label { display: block; margin: 12px 0 6px; }
-		input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #121212; color: #fff; }
+		input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #121212; color: #fff; font-family: inherit; font-size: 0.95rem; }
 		button { margin-top: 14px; padding: 10px 14px; border-radius: 6px; border: 0; cursor: pointer; }
-		.ok { margin-top: 14px; padding: 10px; background: #12361f; border: 1px solid #1f6a39; border-radius: 6px; }
+		.ok { margin-top: 14px; padding: 10px; background: #12361f; border: 1px solid #1f6a39; border-radius: 6px; white-space: pre-line; }
 		.erro { margin-top: 14px; padding: 10px; background: #3a1616; border: 1px solid #7a2d2d; border-radius: 6px; }
 		.muted { color: #aaa; font-size: 0.92rem; }
 		code { color: #9cdcfe; }
@@ -163,6 +209,21 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 		.admin-link.lab { background-color: #8b5cf6; }
 		.admin-link.lab:hover { background-color: #7c3aed; }
 		@media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+
+		/* Modal de dados extras */
+		.extra-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:100; align-items:center; justify-content:center; }
+		.extra-overlay.open { display:flex; }
+		.extra-modal { background:#1d1d1d; border:1px solid #333; border-radius:14px; padding:28px; width:100%; max-width:440px; display:flex; flex-direction:column; gap:16px; }
+		.extra-modal h2 { margin:0; font-size:1.2rem; }
+		.extra-modal p  { margin:0; color:#aaa; font-size:0.88rem; }
+		.extra-modal textarea { min-height:80px; resize:vertical; }
+		.extra-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:4px; }
+		.btn-extra-cancel { background:#2a2a2a; border:1px solid #444; color:#fff; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:0.9rem; }
+		.btn-extra-save   { background:#3b82f6; border:none; color:#fff; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:700; font-size:0.9rem; }
+		.btn-extra-save:disabled { opacity:0.5; cursor:not-allowed; }
+		.extra-notice { padding:8px 12px; border-radius:6px; font-size:0.85rem; display:none; }
+		.extra-notice.ok   { background:#12361f; border:1px solid #1f6a39; color:#4ade80; display:block; }
+		.extra-notice.erro { background:#3a1616; border:1px solid #7a2d2d; color:#f87171; display:block; }
 	</style>
 </head>
 <body>
@@ -279,6 +340,41 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 		</div>
 		<?php endif; ?>
 	</div>
+
+<!-- ══ Modal dados extras estudante ══ -->
+<div class="extra-overlay" id="extraModal">
+	<div class="extra-modal" role="dialog" aria-modal="true">
+		<h2>Informações adicionais</h2>
+		<p id="extraNomeLabel" style="color:#aaa;font-size:0.88rem;">Complete o perfil do novo estudante.</p>
+		<input type="hidden" id="extraUserId" value="">
+
+		<label for="extraEmail">E-mail</label>
+		<input type="email" id="extraEmail" placeholder="aluno@escola.edu.br">
+
+		<label for="extraTurma">Turma</label>
+		<?php if (!empty($turmas_lista)): ?>
+		<select id="extraTurma">
+			<option value="">— Nenhuma —</option>
+			<?php foreach ($turmas_lista as $tl): ?>
+			<option value="<?= htmlspecialchars($tl['nome']) ?>"><?= htmlspecialchars($tl['nome']) ?></option>
+			<?php endforeach; ?>
+		</select>
+		<?php else: ?>
+		<input type="text" id="extraTurma" placeholder="Ex: Turma 11A">
+		<?php endif; ?>
+
+		<label for="extraDescricao">Descrição / Observação</label>
+		<textarea id="extraDescricao" placeholder="Opcional..."></textarea>
+
+		<div id="extraNotice" class="extra-notice"></div>
+
+		<div class="extra-actions">
+			<button class="btn-extra-cancel" onclick="closeExtraModal()">Pular</button>
+			<button class="btn-extra-save" id="btnExtraSave" onclick="saveExtra()">Salvar</button>
+		</div>
+	</div>
+</div>
+
 </body>
 <script>
 	// Máscara de CPF para cadastro
@@ -298,5 +394,53 @@ $usuarioSessao = $_SESSION['auth_user'] ?? null;
 		else if (v.length > 2) v = v.replace(/^(\d{3})(\d{1,3})$/, '$1.$2');
 		this.value = v;
 	});
+
+	/* ── Modal dados extras estudante ── */
+	<?php if (!empty($novoEstudanteId)): ?>
+	window.addEventListener('DOMContentLoaded', function () {
+		document.getElementById('extraUserId').value  = <?= (int) $novoEstudanteId ?>;
+		document.getElementById('extraNomeLabel').textContent = 'Complete o perfil de: <?= addslashes(htmlspecialchars($novoEstudanteNome ?? '')) ?>';
+		document.getElementById('extraModal').classList.add('open');
+	});
+	<?php endif; ?>
+
+	function closeExtraModal() {
+		document.getElementById('extraModal').classList.remove('open');
+	}
+
+	async function saveExtra() {
+		const btn    = document.getElementById('btnExtraSave');
+		const notice = document.getElementById('extraNotice');
+		btn.disabled = true;
+		btn.textContent = 'Salvando…';
+		notice.className = 'extra-notice';
+		notice.textContent = '';
+
+		const fd = new FormData();
+		fd.append('acao',      'extra_estudante');
+		fd.append('id_user',   document.getElementById('extraUserId').value);
+		fd.append('email',     document.getElementById('extraEmail').value.trim());
+		fd.append('turma',     document.getElementById('extraTurma').value.trim());
+		fd.append('descricao', document.getElementById('extraDescricao').value.trim());
+
+		try {
+			const res  = await fetch('', { method: 'POST', body: fd });
+			const data = await res.json();
+			if (data.ok) {
+				notice.className   = 'extra-notice ok';
+				notice.textContent = 'Dados salvos com sucesso!';
+				setTimeout(closeExtraModal, 1200);
+			} else {
+				notice.className   = 'extra-notice erro';
+				notice.textContent = data.error || 'Erro ao salvar.';
+			}
+		} catch {
+			notice.className   = 'extra-notice erro';
+			notice.textContent = 'Falha de comunicação.';
+		}
+
+		btn.disabled    = false;
+		btn.textContent = 'Salvar';
+	}
 </script>
 </html>
