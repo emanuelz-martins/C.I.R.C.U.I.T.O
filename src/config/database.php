@@ -1,6 +1,8 @@
 <?php
-
+//SERVIDOR LOCAL TIPO XAMP E NOSSOS AMIGOS
 declare(strict_types=1);
+
+require_once __DIR__ . '/database_always.php';
 
 if (!function_exists('env')) {
 	function env(string $key, ?string $default = null): ?string
@@ -50,13 +52,13 @@ if (!function_exists('loadEnv')) {
 	}
 }
 
-if (!function_exists('db')) {
-	function db(): PDO
+if (!function_exists('dbXampp')) {
+	function dbXampp(): PDO
 	{
-		static $pdo = null;
+		static $pdoXampp = null;
 
-		if ($pdo instanceof PDO) {
-			return $pdo;
+		if ($pdoXampp instanceof PDO) {
+			return $pdoXampp;
 		}
 
 		loadEnv(dirname(__DIR__, 2) . '/.env');
@@ -69,7 +71,7 @@ if (!function_exists('db')) {
 
 		$dsn = "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4";
 
-		$pdo = new PDO(
+		$pdoXampp = new PDO(
 			$dsn,
 			$username,
 			$password,
@@ -80,6 +82,21 @@ if (!function_exists('db')) {
 			]
 		);
 
-		return $pdo;
+		return $pdoXampp;
+	}
+}
+
+if (!function_exists('db')) {
+	function db(): PDO
+	{
+		loadEnv(dirname(__DIR__, 2) . '/.env');
+
+		$profile = strtolower((string) env('DB_PROFILE', 'xampp'));
+
+		if ($profile === 'alwaysdata') {
+			return dbAlwaysData();
+		}
+
+		return dbXampp();
 	}
 }
