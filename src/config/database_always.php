@@ -65,7 +65,7 @@ if (!function_exists('dbAlwaysData')) {
 		$port = env('ALWAYSDATA_DB_PORT', env('DB_PORT', '3306'));
 		$database = env('ALWAYSDATA_DB_DATABASE', env('DB_DATABASE', 'circuito-circuito'));
 		$username = env('ALWAYSDATA_DB_USERNAME', env('DB_USERNAME', 'circuito'));
-		$password = env('ALWAYSDATA_DB_PASSWORD', env('DB_PASSWORD', 'bishbashboshmapadaminhaescola'));
+		$password = env('ALWAYSDATA_DB_PASSWORD', env('DB_PASSWORD', ''));
 
 		$dsn = "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4";
 

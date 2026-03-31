@@ -4,3 +4,10 @@ public/assets/img/componentes/*
 public/assets/img/perfil/*
 !public/assets/img/perfil/.gitkeep
 public/uploads/foto_perfil
+
+# Segredos / ambiente local
+.env
+.env.*
+!.env.example
+config.php
+conexao.php

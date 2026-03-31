@@ -1,0 +1,22 @@
+name: Deploy PHP para Alwaysdata
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Conectar no servidor e atualizar os arquivos
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.CIRCUITO_HOST }}
+          username: circuito
+          password: ${{ secrets.CIRCUITO_SENHA }}
+          script: |
+            cd /home/circuito/www/
+            git pull origin main
+  
