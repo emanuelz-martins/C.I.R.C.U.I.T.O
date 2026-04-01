@@ -14,9 +14,11 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.CIRCUITO_HOST }}
-          username: circuito
+          username: ${{ secrets.CIRCUITO_USER }}
+          port: 22
           password: ${{ secrets.CIRCUITO_SENHA }}
+          script_stop: true
           script: |
-            cd /home/circuito/www/
+            cd /home/${{ secrets.CIRCUITO_USER }}/www/
             git pull origin main
   

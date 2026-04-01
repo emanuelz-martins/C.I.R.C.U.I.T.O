@@ -152,6 +152,73 @@ C.I.R.C.U.I.T.O/
 
 ---
 
+## Como rodar local (XAMPP)
+
+### 1) Pré-requisitos
+
+- Git instalado
+- XAMPP instalado (Apache + MySQL)
+- PHP 8.0+ recomendado
+
+### 2) Clonar o projeto
+
+```bash
+git clone git@github.com:emanueca/C.I.R.C.U.I.T.O.git
+cd C.I.R.C.U.I.T.O
+```
+
+### 3) Colocar a pasta no diretório do XAMPP
+
+- Linux (XAMPP): copie para `htdocs` (ex.: `/opt/lampp/htdocs/C.I.R.C.U.I.T.O`)
+- Windows (XAMPP): copie para `C:\xampp\htdocs\C.I.R.C.U.I.T.O`
+
+### 4) Subir Apache e MySQL
+
+- Abra o XAMPP Control Panel
+- Inicie **Apache** e **MySQL**
+
+### 5) Criar banco e importar schema (phpMyAdmin)
+
+1. Abra o phpMyAdmin
+2. Crie o banco `circuito`
+3. Vá em **Importar**
+4. Selecione o arquivo `src/database/seeds/schema.sql`
+5. Execute a importação
+
+### 6) Configurar variáveis locais
+
+No projeto, crie o arquivo local `.env` a partir do modelo `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+> Se você anotou `ssh.example`, no projeto atual o arquivo correto é `.env.example` e o arquivo final deve ser `.env`.
+
+Depois, edite o `.env` com dados locais (XAMPP):
+
+```dotenv
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost/C.I.R.C.U.I.T.O/public
+
+DB_CONNECTION=mysql
+DB_PROFILE=xampp
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=circuito
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### 7) Acessar no navegador
+
+- URL: `http://localhost/C.I.R.C.U.I.T.O/public/login.php`
+
+Se aparecer erro de conexão, revise primeiro os campos `DB_HOST`, `DB_DATABASE`, `DB_USERNAME` e `DB_PASSWORD` no `.env`.
+
+---
+
 ## Banco de Dados
 
 O modelo físico completo está em [`src/database/seeds/schema.sql`](src/database/seeds/schema.sql).
