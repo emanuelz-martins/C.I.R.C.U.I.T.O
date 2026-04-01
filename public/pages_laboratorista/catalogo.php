@@ -5,7 +5,9 @@ checkAccess(['laboratorista', 'admin']);
 require_once '../../src/config/database.php';
 
 $upload_dir = __DIR__ . '/../assets/img/componentes/';
-$upload_url_base = '/C.I.R.C.U.I.T.O/public/assets/img/componentes/';
+$appUrlPath = (string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH);
+$appUrlPath = rtrim($appUrlPath, '/');
+$upload_url_base = ($appUrlPath !== '' ? $appUrlPath : '') . '/assets/img/componentes/';
 
 /* ══════════════════════════════════════════
    HANDLER DE AÇÕES (POST — PRG pattern)
@@ -62,9 +64,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmtImgAntiga->execute(['id' => $id_comp]);
                         $imgAntiga = $stmtImgAntiga->fetchColumn();
                         if ($imgAntiga) {
-                            $pathAntigo = str_starts_with($imgAntiga, '/')
-                                ? '/opt/lampp/htdocs' . $imgAntiga
-                                : '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/' . $imgAntiga;
+                            $imgAntigaPath = ltrim((string) $imgAntiga, '/');
+                            if (substr($imgAntigaPath, 0, 21) === 'C.I.R.C.U.I.T.O/public/') {
+                                $imgAntigaPath = substr($imgAntigaPath, 22);
+                            }
+                            if (substr($imgAntigaPath, 0, 7) === 'public/') {
+                                $imgAntigaPath = substr($imgAntigaPath, 7);
+                            }
+                            $pathAntigo = dirname(__DIR__) . '/' . $imgAntigaPath;
                             if (is_file($pathAntigo)) @unlink($pathAntigo);
                         }
                     }

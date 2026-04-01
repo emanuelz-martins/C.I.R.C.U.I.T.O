@@ -4,6 +4,10 @@ checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
 
+$appUrlPath = (string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH);
+$appUrlPath = rtrim($appUrlPath, '/');
+$publicUrlBase = $appUrlPath !== '' ? $appUrlPath : '';
+
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -73,14 +77,19 @@ try {
                 $old->execute(['id' => $id_usuario]);
                 $antiga = $old->fetchColumn();
                 if ($antiga) {
-                    $path_antiga = str_starts_with($antiga, '/')
-                        ? '/opt/lampp/htdocs' . $antiga
-                        : '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/' . $antiga;
+                    $antigaPath = ltrim((string) $antiga, '/');
+                    if (substr($antigaPath, 0, 21) === 'C.I.R.C.U.I.T.O/public/') {
+                        $antigaPath = substr($antigaPath, 22);
+                    }
+                    if (substr($antigaPath, 0, 7) === 'public/') {
+                        $antigaPath = substr($antigaPath, 7);
+                    }
+                    $path_antiga = dirname(__DIR__) . '/' . $antigaPath;
                     if (is_file($path_antiga)) @unlink($path_antiga);
                 }
             }
 
-            $nova_foto = '/C.I.R.C.U.I.T.O/public/assets/img/perfil/' . $nome_arq;
+            $nova_foto = $publicUrlBase . '/assets/img/perfil/' . $nome_arq;
             if (in_array('foto_perfil', $cols, true)) {
                 $sets[]            = 'foto_perfil = :foto_perfil';
                 $params['foto_perfil'] = $nova_foto;

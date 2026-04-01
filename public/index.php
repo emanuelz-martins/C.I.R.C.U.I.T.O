@@ -352,9 +352,9 @@ require_once 'includes/header.php';
 <!-- ══════════════════ NAVBAR ══════════════════ -->
 <nav class="navbar">
 
-    <a href="/C.I.R.C.U.I.T.O/public/index.php" class="nav-logo">C.I.R.C.U.I.T.O.</a>
+    <a href="index.php" class="nav-logo">C.I.R.C.U.I.T.O.</a>
 
-    <form class="nav-search" action="/C.I.R.C.U.I.T.O/public/index.php" method="GET">
+    <form class="nav-search" action="index.php" method="GET">
         <input
             type="text"
             name="q"
@@ -372,7 +372,7 @@ require_once 'includes/header.php';
 
     <div class="nav-actions">
 
-        <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/carrinho.php" class="nav-action-btn">
+        <a href="pages_aluno/carrinho.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
@@ -381,7 +381,7 @@ require_once 'includes/header.php';
             Carrinho
         </a>
 
-        <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/verpedidos.php" class="nav-action-btn">
+        <a href="pages_aluno/verpedidos.php" class="nav-action-btn">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -406,7 +406,7 @@ require_once 'includes/header.php';
             </button>
 
             <div class="dropdown" role="menu">
-                <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/profile.php" role="menuitem">
+                <a href="pages_aluno/profile.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -414,7 +414,7 @@ require_once 'includes/header.php';
                     </svg>
                     Acessar perfil
                 </a>
-                <a href="/C.I.R.C.U.I.T.O/public/pages_aluno/notificacoes.php" role="menuitem">
+                <a href="pages_aluno/notificacoes.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -422,7 +422,7 @@ require_once 'includes/header.php';
                     </svg>
                     Notificações
                 </a>
-                <a href="/C.I.R.C.U.I.T.O/public/logout.php" role="menuitem">
+                <a href="logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -509,7 +509,7 @@ require_once 'includes/header.php';
                 <?php foreach ($categoria['itens'] as $item): ?>
                 <a
                     class="component-card <?= !($item['disponivel'] ?? true) ? 'out-of-stock' : '' ?>"
-                    href="/C.I.R.C.U.I.T.O/public/pages_aluno/item.php?id=<?= (int) $item['id'] ?>"
+                    href="pages_aluno/item.php?id=<?= (int) $item['id'] ?>"
                     data-disabled="<?= !($item['disponivel'] ?? true) ? '1' : '0' ?>"
                     onclick="if (this.dataset.disabled === '1') { event.preventDefault(); alert('Produto fora de estoque.'); }"
                 >

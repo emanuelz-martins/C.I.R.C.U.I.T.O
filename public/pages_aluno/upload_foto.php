@@ -68,13 +68,17 @@ if (!is_dir($dir_upload)) mkdir($dir_upload, 0755, true);
 $nome_arquivo = 'user_' . $id_usuario . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
 $caminho_destino = $dir_upload . $nome_arquivo;
 
+$appUrlPath = (string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH);
+$appUrlPath = rtrim($appUrlPath, '/');
+$publicUrlBase = $appUrlPath !== '' ? $appUrlPath : '';
+
 if (!move_uploaded_file($arquivo['tmp_name'], $caminho_destino)) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'erro' => 'Não foi possível salvar a imagem.']);
     exit;
 }
 
-$caminho_bd = '/C.I.R.C.U.I.T.O/public/assets/img/perfil/' . $nome_arquivo;
+$caminho_bd = $publicUrlBase . '/assets/img/perfil/' . $nome_arquivo;
 
 try {
     $pdo = db();
@@ -93,11 +97,14 @@ try {
 
     /* Remover foto antiga do disco se existir */
     if ($foto_antiga) {
-        $caminho_antigo = '/opt/lampp/htdocs' . '/' . ltrim($foto_antiga, '/');
-        /* Compatibilidade com caminhos relativos antigos (ex: uploads/fotos_perfil/...) */
-        if (!str_starts_with($foto_antiga, '/')) {
-            $caminho_antigo = '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/' . $foto_antiga;
+        $fotoAntigaPath = ltrim((string) $foto_antiga, '/');
+        if (substr($fotoAntigaPath, 0, 21) === 'C.I.R.C.U.I.T.O/public/') {
+            $fotoAntigaPath = substr($fotoAntigaPath, 22);
         }
+        if (substr($fotoAntigaPath, 0, 7) === 'public/') {
+            $fotoAntigaPath = substr($fotoAntigaPath, 7);
+        }
+        $caminho_antigo = dirname(__DIR__) . '/' . $fotoAntigaPath;
         if (is_file($caminho_antigo)) {
             unlink($caminho_antigo);
         }

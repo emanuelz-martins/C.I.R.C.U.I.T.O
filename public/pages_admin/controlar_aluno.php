@@ -247,6 +247,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $colStmt->execute(['t' => 'Usuario']);
             $userCols = $colStmt->fetchAll(PDO::FETCH_COLUMN);
 
+            $appUrlPath = (string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH);
+            $appUrlPath = rtrim($appUrlPath, '/');
+            $publicUrlBase = $appUrlPath !== '' ? $appUrlPath : '';
+
             /* upload de foto */
             $novaFoto = null;
             if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
@@ -272,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ];
                 $ext       = $extMap[$mime];
                 $filename  = 'user_' . $id_user . '_' . uniqid() . '.' . $ext;
-                $uploadDir = '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/assets/img/perfil/';
+                $uploadDir = __DIR__ . '/../assets/img/perfil/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
                 $destPath  = $uploadDir . $filename;
 
@@ -287,14 +291,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $stmtFoto->execute(['id' => $id_user]);
                     $fotoAntiga = $stmtFoto->fetchColumn();
                     if ($fotoAntiga) {
-                        $oldPath = str_starts_with($fotoAntiga, '/')
-                            ? '/opt/lampp/htdocs' . $fotoAntiga
-                            : '/opt/lampp/htdocs/C.I.R.C.U.I.T.O/public/' . $fotoAntiga;
+                        $fotoAntigaPath = ltrim((string) $fotoAntiga, '/');
+                        if (substr($fotoAntigaPath, 0, 21) === 'C.I.R.C.U.I.T.O/public/') {
+                            $fotoAntigaPath = substr($fotoAntigaPath, 22);
+                        }
+                        if (substr($fotoAntigaPath, 0, 7) === 'public/') {
+                            $fotoAntigaPath = substr($fotoAntigaPath, 7);
+                        }
+                        $oldPath = dirname(__DIR__) . '/' . $fotoAntigaPath;
                         if (is_file($oldPath)) @unlink($oldPath);
                     }
                 }
 
-                $novaFoto = '/C.I.R.C.U.I.T.O/public/assets/img/perfil/' . $filename;
+                $novaFoto = $publicUrlBase . '/assets/img/perfil/' . $filename;
             }
 
             /* monta UPDATE dinâmico */

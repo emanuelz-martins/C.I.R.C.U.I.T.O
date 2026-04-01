@@ -6,7 +6,9 @@ require_once '../../src/config/database.php';
 
 /* ── Diretório de upload ─────────────────────── */
 $upload_dir      = __DIR__ . '/../assets/img/componentes/';
-$upload_url_base = '/C.I.R.C.U.I.T.O/public/assets/img/componentes/';
+$appUrlPath = (string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH);
+$appUrlPath = rtrim($appUrlPath, '/');
+$upload_url_base = ($appUrlPath !== '' ? $appUrlPath : '') . '/assets/img/componentes/';
 $upload_bootstrap_error = null;
 
 if (!is_dir($upload_dir) && !@mkdir($upload_dir, 0755, true)) {

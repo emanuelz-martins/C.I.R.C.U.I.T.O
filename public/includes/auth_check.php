@@ -22,7 +22,7 @@ function checkAccess($allowed_roles) {
 
     // Verificar se há sessão de usuário
     if (empty($_SESSION['auth_user']) || !is_array($_SESSION['auth_user'])) {
-        header('Location: /C.I.R.C.U.I.T.O/public/login.php');
+        header('Location: ../login.php');
         exit;
     }
 
