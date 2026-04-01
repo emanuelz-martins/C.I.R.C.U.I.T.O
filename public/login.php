@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } catch (Throwable $e) {
-            $error = 'Erro ao conectar no banco. Verifique o .env e o MySQL do XAMPP.';
+            $error = 'Erro ao conectar no banco. Fique calmo, já estamos resolvendo!';
         }
     }
 }

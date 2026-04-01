@@ -31,7 +31,7 @@ if (!function_exists('loadEnv')) {
 		foreach ($lines as $line) {
 			$line = trim($line);
 
-			if ($line === '' || str_starts_with($line, '#')) {
+			if ($line === '' || substr($line, 0, 1) === '#') {
 				continue;
 			}
 

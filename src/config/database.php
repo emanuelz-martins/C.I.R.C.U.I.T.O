@@ -33,7 +33,7 @@ if (!function_exists('loadEnv')) {
 		foreach ($lines as $line) {
 			$line = trim($line);
 
-			if ($line === '' || str_starts_with($line, '#')) {
+			if ($line === '' || substr($line, 0, 1) === '#') {
 				continue;
 			}
 
@@ -49,6 +49,19 @@ if (!function_exists('loadEnv')) {
 			$_SERVER[$key] = $value;
 			putenv("{$key}={$value}");
 		}
+	}
+}
+
+if (!function_exists('isAlwaysDataHost')) {
+	function isAlwaysDataHost(): bool
+	{
+		$host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
+
+		if ($host === '') {
+			return false;
+		}
+
+		return str_contains($host, 'alwaysdata.net');
 	}
 }
 
@@ -91,7 +104,8 @@ if (!function_exists('db')) {
 	{
 		loadEnv(dirname(__DIR__, 2) . '/.env');
 
-		$profile = strtolower((string) env('DB_PROFILE', 'xampp'));
+		$defaultProfile = isAlwaysDataHost() ? 'alwaysdata' : 'xampp';
+		$profile = strtolower((string) env('DB_PROFILE', $defaultProfile));
 
 		if ($profile === 'alwaysdata') {
 			return dbAlwaysData();
