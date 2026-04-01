@@ -207,6 +207,20 @@ try {
 
     .func-card:hover { background-color: #262626; }
 
+    .func-card.disabled {
+        background-color: #151515;
+        border: 1px solid #2a2a2a;
+        color: #777;
+        cursor: not-allowed;
+        pointer-events: none;
+        opacity: 0.55;
+    }
+
+    .func-card.disabled .func-label,
+    .func-card.disabled .func-icon {
+        color: #777;
+    }
+
     .func-icon {
         width: 48px;
         height: 48px;
@@ -456,7 +470,7 @@ try {
         </button>
 
         <!-- 4. Controle de Login / LDAP (painel antigo) -->
-        <a href="../ldaptest.php" class="func-card">
+        <a class="func-card disabled" aria-disabled="true" tabindex="-1" title="Temporariamente indisponível">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -464,7 +478,7 @@ try {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
             </div>
-            <span class="func-label">Controle de<br>Login/acesso LDAP</span>
+            <span class="func-label">Controle de<br>Login/acesso LDAP<br>(indisponível)</span>
         </a>
 
         <!-- 5. Controlar Laboratoristas / Alunos -->
