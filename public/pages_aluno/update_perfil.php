@@ -38,7 +38,7 @@ try {
         $sets[] = 'email = :email';
         $params['email'] = trim($_POST['email'] ?? '') ?: null;
     }
-    if (in_array('turma', $cols, true)) {
+    if (array_key_exists('turma', $_POST) && in_array('turma', $cols, true)) {
         $sets[] = 'turma = :turma';
         $params['turma'] = trim($_POST['turma'] ?? '') ?: null;
     }

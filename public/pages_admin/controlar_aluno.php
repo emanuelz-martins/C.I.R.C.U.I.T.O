@@ -314,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $setParts[]      = 'email = :email';
                 $params['email'] = $email;
             }
-            if (in_array('turma', $userCols, true)) {
+            if (array_key_exists('turma', $_POST) && in_array('turma', $userCols, true)) {
                 $setParts[]      = 'turma = :turma';
                 $params['turma'] = $turma;
             }
@@ -398,13 +398,6 @@ try {
 
     $db_ok    = true;
 } catch (Throwable) { /* BD indisponível */ }
-
-/* ── Carrega turmas para o select ── */
-$turmas_lista = [];
-try {
-    $pdo = db();
-    $turmas_lista = $pdo->query('SELECT id_turma, nome FROM Turma ORDER BY nome')->fetchAll();
-} catch (Throwable) {}
 
 $page_title = 'Gerenciar Alunos';
 require_once '../includes/header.php';
@@ -1142,7 +1135,6 @@ require_once '../includes/header.php';
                         '<?= htmlspecialchars(addslashes($u['nome'])) ?>',
                         '<?= htmlspecialchars(addslashes($u['login'])) ?>',
                         '<?= htmlspecialchars(addslashes($emailVal)) ?>',
-                        '<?= htmlspecialchars(addslashes($turmaVal)) ?>',
                         '<?= htmlspecialchars(addslashes($descricaoVal)) ?>',
                         '<?= htmlspecialchars(addslashes($u['foto_perfil'] ?? '')) ?>'
                     )">
@@ -1281,20 +1273,6 @@ require_once '../includes/header.php';
         <div>
             <label for="editEmail">E-mail</label>
             <input type="email" id="editEmail" placeholder="email@exemplo.com" maxlength="255">
-        </div>
-
-        <div>
-            <label for="editTurma">Turma</label>
-            <?php if (!empty($turmas_lista)): ?>
-            <select id="editTurma">
-                <option value="">— Nenhuma —</option>
-                <?php foreach ($turmas_lista as $tl): ?>
-                <option value="<?= htmlspecialchars($tl['nome']) ?>"><?= htmlspecialchars($tl['nome']) ?></option>
-                <?php endforeach; ?>
-            </select>
-            <?php else: ?>
-            <input type="text" id="editTurma" placeholder="Ex: Turma 11A" maxlength="100">
-            <?php endif; ?>
         </div>
 
         <div>
@@ -1576,7 +1554,7 @@ function sendNotice() {
 /* ── Modal de edição ─────────────────────────────── */
 let editUserId = null;
 
-function openEditModal(id, nome, login, email, turma, descricao, foto) {
+function openEditModal(id, nome, login, email, descricao, foto) {
     closeAllMenus();
     editUserId = id;
 
@@ -1584,7 +1562,6 @@ function openEditModal(id, nome, login, email, turma, descricao, foto) {
     document.getElementById('editNome').value            = nome;
     document.getElementById('editLogin').value           = login;
     document.getElementById('editEmail').value           = email;
-    document.getElementById('editTurma').value           = turma;
     document.getElementById('editDescricao').value       = descricao;
     document.getElementById('editFotoInput').value       = '';
 
@@ -1648,7 +1625,6 @@ function saveEdit() {
     const nome      = document.getElementById('editNome').value.trim();
     const login     = document.getElementById('editLogin').value.trim();
     const email     = document.getElementById('editEmail').value.trim();
-    const turma     = document.getElementById('editTurma').value.trim();
     const descricao = document.getElementById('editDescricao').value.trim();
     const fotoFile  = document.getElementById('editFotoInput').files[0];
 
@@ -1667,7 +1643,6 @@ function saveEdit() {
     fd.append('nome',      nome);
     fd.append('login',     login);
     fd.append('email',     email);
-    fd.append('turma',     turma);
     fd.append('descricao', descricao);
     if (fotoFile) fd.append('foto', fotoFile);
 

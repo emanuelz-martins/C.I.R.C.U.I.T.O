@@ -104,7 +104,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			header('Content-Type: application/json');
 			$id_user  = (int) ($_POST['id_user']  ?? 0);
 			$email    = trim((string) ($_POST['email']    ?? ''));
-			$turma    = trim((string) ($_POST['turma']    ?? ''));
 			$descricao = trim((string) ($_POST['descricao'] ?? ''));
 
 			if (!$id_user) {
@@ -119,7 +118,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 			$sets = []; $params = ['id' => $id_user];
 			if (in_array('email',     $existing, true)) { $sets[] = 'email = :email';         $params['email']     = $email ?: null; }
-			if (in_array('turma',     $existing, true)) { $sets[] = 'turma = :turma';         $params['turma']     = $turma ?: null; }
 			if (in_array('descricao', $existing, true)) { $sets[] = 'descricao = :descricao'; $params['descricao'] = $descricao ?: null; }
 
 			if (!empty($sets)) {
@@ -176,12 +174,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $usuarioSessao = $_SESSION['auth_user'] ?? null;
 
-/* ── Carrega turmas para o select ── */
-$turmas_lista = [];
-try {
-    $pdo_t = db();
-    $turmas_lista = $pdo_t->query('SELECT id_turma, nome FROM Turma ORDER BY nome')->fetchAll();
-} catch (Throwable) {}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -351,18 +343,6 @@ try {
 		<label for="extraEmail">E-mail</label>
 		<input type="email" id="extraEmail" placeholder="aluno@escola.edu.br">
 
-		<label for="extraTurma">Turma</label>
-		<?php if (!empty($turmas_lista)): ?>
-		<select id="extraTurma">
-			<option value="">— Nenhuma —</option>
-			<?php foreach ($turmas_lista as $tl): ?>
-			<option value="<?= htmlspecialchars($tl['nome']) ?>"><?= htmlspecialchars($tl['nome']) ?></option>
-			<?php endforeach; ?>
-		</select>
-		<?php else: ?>
-		<input type="text" id="extraTurma" placeholder="Ex: Turma 11A">
-		<?php endif; ?>
-
 		<label for="extraDescricao">Descrição / Observação</label>
 		<textarea id="extraDescricao" placeholder="Opcional..."></textarea>
 
@@ -420,7 +400,6 @@ try {
 		fd.append('acao',      'extra_estudante');
 		fd.append('id_user',   document.getElementById('extraUserId').value);
 		fd.append('email',     document.getElementById('extraEmail').value.trim());
-		fd.append('turma',     document.getElementById('extraTurma').value.trim());
 		fd.append('descricao', document.getElementById('extraDescricao').value.trim());
 
 		try {

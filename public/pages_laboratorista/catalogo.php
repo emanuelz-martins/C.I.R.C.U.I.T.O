@@ -15,6 +15,8 @@ $upload_url_base = ($appUrlPath !== '' ? $appUrlPath : '') . '/assets/img/compon
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action  = $_POST['action']  ?? '';
     $id_comp = (int) ($_POST['id_comp'] ?? 0);
+    $feedback = '';
+    $feedbackType = '';
 
     if ($id_comp > 0) {
         try {
@@ -103,18 +105,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             elseif ($action === 'deletar') {
-                $pdo->prepare('
+                $stmtVinculos = $pdo->prepare('SELECT COUNT(*) FROM Item_Pedido WHERE id_comp = :id');
+                $stmtVinculos->execute(['id' => $id_comp]);
+                $totalVinculos = (int) $stmtVinculos->fetchColumn();
+
+                if ($totalVinculos > 0) {
+                    throw new RuntimeException(
+                        'Não é possível excluir este item porque ele está vinculado a ' . $totalVinculos . ' pedido(s).'
+                    );
+                }
+
+                $stmtExcluir = $pdo->prepare('
                     DELETE FROM Componente
                     WHERE id_comp = :id
-                ')->execute(['id' => $id_comp]);
+                ');
+                $stmtExcluir->execute(['id' => $id_comp]);
+
+                if ($stmtExcluir->rowCount() === 0) {
+                    throw new RuntimeException('Item não encontrado.');
+                }
+
+                $feedback = 'Item excluído com sucesso.';
+                $feedbackType = 'sucesso';
             }
 
+        } catch (RuntimeException $e) {
+            $feedback = $e->getMessage();
+            $feedbackType = 'erro';
         } catch (Throwable) {
-            /* BD indisponível — falha silenciosa */
+            $feedback = 'Não foi possível concluir a ação. Tente novamente.';
+            $feedbackType = 'erro';
         }
     }
 
-    header('Location: ./catalogo.php');
+    $redirect = './catalogo.php';
+    if ($feedback !== '') {
+        $redirect .= '?' . http_build_query([
+            'feedback' => $feedback,
+            'feedback_type' => $feedbackType,
+        ]);
+    }
+    header('Location: ' . $redirect);
     exit;
 }
 
@@ -130,6 +161,8 @@ $itens  = [];
 $db_ok  = false;
 $busca    = trim($_GET['q'] ?? '');
 $cadastro = $_GET['cadastro'] ?? '';
+$feedback = trim((string) ($_GET['feedback'] ?? ''));
+$feedbackType = $_GET['feedback_type'] ?? '';
 
 try {
     $pdo = db();
@@ -802,6 +835,12 @@ try {
     <?php if ($cadastro === 'ok'): ?>
     <div style="background-color:#0d2018;border:1px solid #166534;border-radius:12px;padding:14px 20px;margin-bottom:24px;color:#bbf7d0;font-size:0.9rem;">
         Item cadastrado com sucesso e adicionado ao catálogo.
+    </div>
+    <?php endif; ?>
+
+    <?php if ($feedback !== ''): ?>
+    <div style="background-color:<?= $feedbackType === 'sucesso' ? '#0d2018' : '#2a1010' ?>;border:1px solid <?= $feedbackType === 'sucesso' ? '#166534' : '#991b1b' ?>;border-radius:12px;padding:14px 20px;margin-bottom:24px;color:<?= $feedbackType === 'sucesso' ? '#bbf7d0' : '#fecaca' ?>;font-size:0.9rem;">
+        <?= htmlspecialchars($feedback) ?>
     </div>
     <?php endif; ?>
 

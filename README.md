@@ -141,13 +141,31 @@ C.I.R.C.U.I.T.O/
 | **Laboratorista** | Pedidos, itens, categorias, devoluções, ocorrências |
 | **Administrador** | Usuários, relatórios, termos de uso, notificações |
 
+## Autenticação
+
+O login oferece três métodos. As senhas institucionais são enviadas apenas aos serviços do IFFar para validação e não são salvas no banco local.
+
+| Método | Validação | Perfil aplicado |
+|---|---|---|
+| **SIGAA** | Serviço institucional, com `tipo=S` | Sempre `estudante` |
+| **LDAP** | Servidor LDAP institucional | Mantém `admin` quando já for administrador; nos demais casos usa `laboratorista` |
+| **Teste** | CPF e senha com hash no banco local | Mantém o perfil salvo no banco |
+
+Nos acessos SIGAA e LDAP, se o CPF ainda não existir no banco, o sistema cria o perfil local automaticamente. O SIGAA cria estudantes; o LDAP cria laboratoristas.
+
+Configure a URL do serviço no `.env` (o valor padrão já aponta para o serviço do IFFar):
+
+```dotenv
+IFFAR_AUTH_URL=https://www3.fw.iffarroupilha.edu.br/auth/index.php
+```
+
 ---
 
 ## Tecnologias
 
 - **Backend:** PHP (MVC)
 - **Banco de dados:** MySQL
-- **Autenticação:** LDAP institucional
+- **Autenticação:** SIGAA, LDAP e modo de teste local
 - **Frontend:** HTML, CSS, JavaScript
 
 ---

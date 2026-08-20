@@ -18,29 +18,21 @@ $db_ok = false;
 
 $foto_perfil      = null;
 $perfil_email     = '';
-$perfil_turma     = '';
 $perfil_descricao = '';
-$turmas_lista     = [];
 
 try {
     $pdo = db();
     $id_usuario = $_SESSION['auth_user']['id'] ?? null;
 
-    /* Carrega turmas disponíveis */
-    try {
-        $turmas_lista = $pdo->query('SELECT id_turma, nome FROM Turma ORDER BY nome')->fetchAll();
-    } catch (Throwable) {}
-
     if ($id_usuario) {
         $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, (int) $id_usuario);
         $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
 
-        $stmt = $pdo->prepare('SELECT foto_perfil, email, turma, descricao FROM Usuario WHERE id_user = :id');
+        $stmt = $pdo->prepare('SELECT foto_perfil, email, descricao FROM Usuario WHERE id_user = :id');
         $stmt->execute(['id' => $id_usuario]);
         $row_up           = $stmt->fetch();
         $foto_perfil      = $row_up ? ($row_up['foto_perfil'] ?: null) : null;
         $perfil_email     = $row_up ? (string)($row_up['email']     ?? '') : '';
-        $perfil_turma     = $row_up ? (string)($row_up['turma']     ?? '') : '';
         $perfil_descricao = $row_up ? (string)($row_up['descricao'] ?? '') : '';
 
         /* Sincroniza sessão */
@@ -674,23 +666,6 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         </div>
 
         <div>
-            <label for="perfilTurma">Turma</label>
-            <?php if (!empty($turmas_lista)): ?>
-            <select id="perfilTurma">
-                <option value="">— Nenhuma —</option>
-                <?php foreach ($turmas_lista as $t): ?>
-                <option value="<?= htmlspecialchars($t['nome']) ?>"
-                    <?= ($perfil_turma === $t['nome']) ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($t['nome']) ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-            <?php else: ?>
-            <input type="text" id="perfilTurma" value="<?= htmlspecialchars($perfil_turma) ?>" placeholder="Ex: Turma 11A">
-            <?php endif; ?>
-        </div>
-
-        <div>
             <label for="perfilDescricao">Descrição</label>
             <textarea id="perfilDescricao" placeholder="Conte um pouco sobre você..."><?= htmlspecialchars($perfil_descricao) ?></textarea>
         </div>
@@ -883,7 +858,6 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
 
         const fd = new FormData();
         fd.append('email',     document.getElementById('perfilEmail').value.trim());
-        fd.append('turma',     document.getElementById('perfilTurma').value.trim());
         fd.append('descricao', document.getElementById('perfilDescricao').value.trim());
 
         const fotoInput = document.getElementById('perfilFotoInput');

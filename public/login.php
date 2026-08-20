@@ -1,62 +1,150 @@
 <?php
 declare(strict_types=1);
-//http://localhost/C.I.R.C.U.I.T.O/src/views/ldap_control/ldaptest.php (pagina adm para criar acesso)
+
 session_start();
 
 require_once __DIR__ . '/../src/config/database.php';
+require_once __DIR__ . '/../src/config/sigaa.php';
+require_once __DIR__ . '/../src/config/ldap.php';
 
 $error = '';
+$accessType = 'sigaa';
+
+function normalizarLogin(string $login): string
+{
+    $digits = preg_replace('/\D/', '', $login);
+    if (is_string($digits) && strlen($digits) === 11) {
+        return preg_replace('/^(\d{3})(\d{3})(\d{3})(\d{2})$/', '$1.$2.$3-$4', $digits) ?? $login;
+    }
+
+    return trim($login);
+}
+
+function iniciarSessaoUsuario(array $user, string $origem): never
+{
+    session_regenerate_id(true);
+    $_SESSION['auth_user'] = [
+        'id' => (int) $user['id_user'],
+        'nome' => (string) $user['nome'],
+        'login' => (string) $user['login'],
+        'perfil' => (string) $user['tipo_perfil'],
+        'origem' => $origem,
+    ];
+
+    $destinos = [
+        'laboratorista' => 'pages_laboratorista/index.php',
+        'admin' => 'pages_admin/index.php',
+        'estudante' => 'index.php',
+    ];
+    header('Location: ' . ($destinos[$user['tipo_perfil']] ?? 'index.php'));
+    exit;
+}
+
+function buscarUsuario(PDO $pdo, string $login): ?array
+{
+    $stmt = $pdo->prepare(
+        'SELECT id_user, nome, login, hash_senha, tipo_perfil, bloqueado
+         FROM Usuario
+         WHERE login = :login
+         LIMIT 1'
+    );
+    $stmt->execute(['login' => $login]);
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return is_array($usuario) ? $usuario : null;
+}
+
+function sincronizarUsuario(PDO $pdo, ?array $usuario, string $login, string $nome, string $perfil): array
+{
+    if ($usuario) {
+        $atualizar = $pdo->prepare(
+            'UPDATE Usuario
+             SET nome = :nome, tipo_perfil = :perfil
+             WHERE id_user = :id'
+        );
+        $atualizar->execute([
+            'nome' => $nome,
+            'perfil' => $perfil,
+            'id' => $usuario['id_user'],
+        ]);
+
+        $usuario['nome'] = $nome;
+        $usuario['tipo_perfil'] = $perfil;
+        return $usuario;
+    }
+
+    $hashPlaceholder = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
+    $criar = $pdo->prepare(
+        'INSERT INTO Usuario (nome, login, hash_senha, matricula, tipo_perfil, bloqueado, preferencias_notific)
+         VALUES (:nome, :login, :hash_senha, NULL, :perfil, 0, NULL)'
+    );
+    $criar->execute([
+        'nome' => $nome,
+        'login' => $login,
+        'hash_senha' => $hashPlaceholder,
+        'perfil' => $perfil,
+    ]);
+
+    return [
+        'id_user' => (int) $pdo->lastInsertId(),
+        'nome' => $nome,
+        'login' => $login,
+        'tipo_perfil' => $perfil,
+        'bloqueado' => 0,
+    ];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $accessType = (string) ($_POST['tipo_acesso'] ?? 'sigaa');
     $loginInput = trim((string) ($_POST['cpf'] ?? ''));
     $senhaInput = (string) ($_POST['senha'] ?? '');
+    $cpf = preg_replace('/\D/', '', $loginInput);
+
+    if (!in_array($accessType, ['sigaa', 'ldap', 'teste'], true)) {
+        $accessType = 'sigaa';
+    }
 
     if ($loginInput === '' || $senhaInput === '') {
-        $error = 'Preencha login/CPF e senha.';
+        $error = 'Informe seu CPF e sua senha.';
+    } elseif (!is_string($cpf) || strlen($cpf) !== 11) {
+        $error = 'Informe um CPF com 11 dígitos.';
     } else {
         try {
-            // Remover caracteres não numéricos e formatar CPF
-            $cpf_limpo = preg_replace('/\D/', '', $loginInput);
-            if (mb_strlen($cpf_limpo) !== 11) {
-                $error = 'CPF inválido. Deve conter exatamente 11 dígitos.';
-            } else {
-                // Formatar CPF para busca no banco
-                $cpf_formatado = preg_replace('/^(\d{3})(\d{3})(\d{3})(\d{2})$/', '$1.$2.$3-$4', $cpf_limpo);
+            $login = normalizarLogin($cpf);
+            $pdo = db();
+            $user = buscarUsuario($pdo, $login);
 
-                $pdo = db();
-
-                $stmt = $pdo->prepare('SELECT id_user, nome, login, hash_senha, tipo_perfil, bloqueado FROM Usuario WHERE login = :login LIMIT 1');
-                $stmt->execute(['login' => $cpf_formatado]);
-                $user = $stmt->fetch();
-
-                if (!$user || (int) $user['bloqueado'] === 1) {
-                    $error = 'Usuário não encontrado ou bloqueado.';
-                } elseif (!password_verify($senhaInput, (string) $user['hash_senha'])) {
-                    $error = 'Senha inválida.';
+            if ($user && (int) $user['bloqueado'] === 1) {
+                $error = 'Este usuário está bloqueado.';
+            } elseif ($accessType === 'teste') {
+                if (!$user || !password_verify($senhaInput, (string) $user['hash_senha'])) {
+                    $error = 'CPF ou senha inválidos no ambiente de teste.';
                 } else {
-                    $_SESSION['auth_user'] = [
-                        'id' => (int) $user['id_user'],
-                        'nome' => (string) $user['nome'],
-                        'login' => (string) $user['login'],
-                        'perfil' => (string) $user['tipo_perfil'],
-                        'origem' => 'local_dev',
-                    ];
-
-                    // Redirecionar com base no tipo de perfil
-                    $perfil = (string) $user['tipo_perfil'];
-                    if ($perfil === 'laboratorista') {
-                        header('Location: pages_laboratorista/index.php');
-                    } elseif ($perfil === 'admin') {
-                        header('Location: pages_admin/index.php');
-                    } else {
-                        // Estudante
-                        header('Location: index.php');
-                    }
-                    exit;
+                    iniciarSessaoUsuario($user, 'teste_local');
+                }
+            } elseif ($accessType === 'sigaa') {
+                $dadosSigaa = authSigaa($cpf, $senhaInput);
+                if ($dadosSigaa === null) {
+                    $error = 'CPF ou senha SIGAA inválidos.';
+                } else {
+                    $nome = $dadosSigaa['nome'] ?? ($user['nome'] ?? 'Estudante SIGAA');
+                    $user = sincronizarUsuario($pdo, $user, $login, $nome, 'estudante');
+                    iniciarSessaoUsuario($user, 'sigaa');
+                }
+            } else {
+                if (!authLdap($loginInput, $senhaInput)) {
+                    $error = 'CPF ou senha LDAP inválidos, ou servidor LDAP indisponível.';
+                } else {
+                    $perfil = ($user['tipo_perfil'] ?? '') === 'admin' ? 'admin' : 'laboratorista';
+                    $nome = $user['nome'] ?? 'Laboratorista LDAP';
+                    $user = sincronizarUsuario($pdo, $user, $login, $nome, $perfil);
+                    iniciarSessaoUsuario($user, 'ldap');
                 }
             }
-        } catch (Throwable $e) {
-            $error = 'Erro ao conectar no banco. Fique calmo, já estamos resolvendo!';
+        } catch (Throwable) {
+            if ($error === '') {
+                $error = 'Não foi possível concluir o acesso. Tente novamente.';
+            }
         }
     }
 }
@@ -66,372 +154,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — C.I.R.C.U.I.T.O.</title>
+    <title>C.I.R.C.U.I.T.O. — Login</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background-color: #141414;
-            color: #ffffff;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            min-height: 100vh;
-            display: flex;
-        }
-
-        /* ── Layout principal ─────────────────────────────── */
-        .login-wrapper {
-            display: flex;
-            width: 100%;
-            min-height: 100vh;
-        }
-
-        /* ── Lado esquerdo — formulário ───────────────────── */
-        .login-left {
-            flex: 0 0 48%;
-            display: flex;
-            align-items: center;
-            padding: 60px 80px;
-        }
-
-        .login-form-container {
-            width: 100%;
-            max-width: 420px;
-        }
-
-        .login-title {
-            font-size: 3rem;
-            font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 48px;
-            color: #ffffff;
-        }
-
-        .field-label {
-            display: block;
-            font-size: 1rem;
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: #ffffff;
-        }
-
-        .field-wrapper {
-            position: relative;
-            margin-bottom: 28px;
-        }
-
-        .field-wrapper input {
-            width: 100%;
-            padding: 16px 20px;
-            background-color: #2a2a2a;
-            border: 1.5px solid #3a3a3a;
-            border-radius: 50px;
-            color: #888;
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .field-wrapper input:focus {
-            border-color: #666;
-            color: #ffffff;
-        }
-
-        .field-wrapper input::placeholder {
-            color: #666;
-        }
-
-        .toggle-password {
-            position: absolute;
-            right: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: #888;
-            font-size: 1.1rem;
-            user-select: none;
-        }
-
-        .btn-login {
-            display: block;
-            width: 100%;
-            padding: 18px;
-            margin-top: 16px;
-            background-color: #ffffff;
-            color: #111111;
-            font-size: 1rem;
-            font-weight: 700;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
-            letter-spacing: 0.02em;
-        }
-
-        .btn-login:hover {
-            background-color: #e8e8e8;
-        }
-
-        .btn-login:active {
-            transform: scale(0.98);
-        }
-
-        .forgot-text {
-            margin-top: 28px;
-            font-size: 0.85rem;
-            color: #777;
-        }
-
-        .forgot-text a {
-            display: block;
-            color: #ffffff;
-            font-weight: 600;
-            text-decoration: none;
-            margin-top: 2px;
-        }
-
-        .forgot-text a:hover {
-            text-decoration: underline;
-        }
-
-        /* Mensagem de erro */
-        .error-msg {
-            background-color: #3a1a1a;
-            border: 1px solid #7a3a3a;
-            color: #ff8888;
-            padding: 12px 18px;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            margin-bottom: 24px;
-        }
-
-        /* ── Lado direito — painel informativo ────────────── */
-        .login-right {
-            flex: 0 0 52%;
-            background-color: #1c1c1c;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 24px;
-            padding: 60px 56px;
-        }
-
-        /* Padrão de fundo — ícones de circuito repetidos */
-        .login-right::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect x='18' y='26' width='24' height='8' rx='2' fill='none' stroke='%23333' stroke-width='1.5'/%3E%3Cline x1='0' y1='30' x2='18' y2='30' stroke='%23333' stroke-width='1.5'/%3E%3Cline x1='42' y1='30' x2='60' y2='30' stroke='%23333' stroke-width='1.5'/%3E%3C/svg%3E");
-            background-size: 60px 60px;
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
-        /* Cards do lado direito */
-        .info-card {
-            position: relative;
-            z-index: 1;
-            background-color: rgba(30, 30, 30, 0.85);
-            border: 1px solid #2e2e2e;
-            border-radius: 16px;
-            padding: 32px 36px;
-        }
-
-        /* Card do nome do sistema */
-        .card-brand .card-eyebrow {
-            font-size: 0.9rem;
-            color: #aaaaaa;
-            margin-bottom: 10px;
-        }
-
-        .brand-name {
-            font-size: 2.6rem;
-            font-weight: 900;
-            letter-spacing: 0.04em;
-            color: #ffffff;
-            font-family: 'Courier New', monospace;
-            background-color: #ffffff;
-            color: #111111;
-            display: inline-block;
-            padding: 4px 20px 4px 10px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        .card-brand p {
-            font-size: 0.875rem;
-            color: #aaaaaa;
-            line-height: 1.65;
-            margin-bottom: 16px;
-        }
-
-        .card-brand ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .card-brand ul li {
-            font-size: 0.875rem;
-            color: #aaaaaa;
-            line-height: 1.8;
-        }
-
-        .card-brand ul li::before {
-            content: '· ';
-            color: #666;
-        }
-
-        /* Card do CTA */
-        .card-cta .cta-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            line-height: 1.25;
-            margin-bottom: 12px;
-            color: #ffffff;
-        }
-
-        .card-cta p {
-            font-size: 0.9rem;
-            color: #aaaaaa;
-            line-height: 1.6;
-        }
-
-        /* ── Responsivo ───────────────────────────────────── */
-        @media (max-width: 900px) {
-            .login-wrapper {
-                flex-direction: column;
-            }
-
-            .login-left,
-            .login-right {
-                flex: none;
-                width: 100%;
-                padding: 48px 32px;
-            }
-
-            .login-right {
-                padding-top: 48px;
-            }
-
-            .login-title {
-                font-size: 2.2rem;
-            }
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+        body { min-height: 100vh; background: #f7f7f7; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .container { width: min(900px, 100%); min-height: 560px; background: #fff; display: flex; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, .08); }
+        .login-area { width: 52%; padding: 64px 60px; display: flex; flex-direction: column; justify-content: center; }
+        .login-area h1 { font-size: 38px; line-height: 1.05; color: #202020; margin-bottom: 12px; letter-spacing: -1.5px; }
+        .subtitle { font-size: 14px; color: #777; margin-bottom: 30px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #303030; margin-bottom: 8px; }
+        .input-wrapper { position: relative; }
+        .input-wrapper input, .input-wrapper select { width: 100%; height: 42px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fafafa; padding: 0 13px; font-size: 12px; color: #333; outline: none; transition: .2s; }
+        .input-wrapper input:focus, .input-wrapper select:focus { border-color: #222; background: #fff; }
+        .password-wrapper input { padding-right: 42px; }
+        .toggle-password { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); cursor: pointer; border: 0; background: transparent; color: #555; font-size: 16px; line-height: 1; }
+        .login-button { width: 100%; height: 42px; border: 0; border-radius: 8px; background: #191919; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: .2s; }
+        .login-button:hover { background: #333; transform: translateY(-1px); }
+        .help { margin-top: 18px; font-size: 10px; line-height: 1.5; color: #999; }
+        .help strong { color: #666; }
+        .error-msg { background: #fff1f1; border: 1px solid #efb4b4; color: #9f2525; border-radius: 8px; padding: 11px 13px; margin-bottom: 18px; font-size: 12px; line-height: 1.35; }
+        .info-area { width: 48%; margin: 14px 14px 14px 0; border-radius: 22px; background: linear-gradient(rgba(20,20,20,.90), rgba(20,20,20,.90)), repeating-linear-gradient(45deg, #252525 0, #252525 2px, #1b1b1b 2px, #1b1b1b 5px); color: #fff; padding: 38px 30px; display: flex; flex-direction: column; justify-content: space-between; }
+        .brand { margin-top: 5px; }
+        .brand-small { font-size: 10px; color: #cfcfcf; margin-bottom: 3px; }
+        .brand-name { font-size: 25px; font-weight: 300; letter-spacing: 2px; }
+        .brand-name span { font-weight: 700; }
+        .description { margin-top: 20px; font-size: 10px; line-height: 1.5; color: #bdbdbd; max-width: 260px; }
+        .features { margin-top: 18px; list-style: none; }
+        .features li { font-size: 10px; color: #d2d2d2; margin-bottom: 6px; }
+        .features li::before { content: '•'; margin-right: 7px; color: #fff; }
+        .bottom-text { margin-bottom: 8px; }
+        .bottom-text h2 { font-size: 22px; line-height: 1.05; margin-bottom: 13px; }
+        .bottom-text p { font-size: 10px; color: #bdbdbd; line-height: 1.5; max-width: 230px; }
+        @media (max-width: 800px) { body { padding: 16px; } .container { max-width: 500px; min-height: auto; flex-direction: column; } .login-area { width: 100%; padding: 48px 35px; } .info-area { width: calc(100% - 28px); min-height: 320px; margin: 0 14px 14px; } }
+        @media (max-width: 450px) { .login-area { padding: 40px 25px; } .login-area h1 { font-size: 32px; } .info-area { padding: 30px 25px; } }
     </style>
 </head>
 <body>
+    <main class="container">
+        <section class="login-area">
+            <h1>Bem vindo<br>de volta!</h1>
+            <p class="subtitle">Entre para acessar o C.I.R.C.U.I.T.O.</p>
 
-<div class="login-wrapper">
-
-    <!-- ── Lado esquerdo: formulário ── -->
-    <div class="login-left">
-        <div class="login-form-container">
-
-            <h1 class="login-title">Bem vindo<br>de volta!</h1>
-
-            <?php if (!empty($error)): ?>
-                <div class="error-msg"><?= htmlspecialchars($error) ?></div>
+            <?php if ($error !== ''): ?>
+                <div class="error-msg" role="alert"><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
 
-            <form method="POST" action="login.php" autocomplete="off">
-
-                <label class="field-label" for="cpf">CPF:</label>
-                <div class="field-wrapper">
-                    <input
-                        type="text"
-                        id="cpf"
-                        name="cpf"
-                        placeholder="Ex: 111.111.111-11"
-                        maxlength="14"
-                        required
-                    >
+            <form method="POST" action="login.php" autocomplete="on">
+                <div class="form-group">
+                    <label for="cpf">CPF:</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="cpf" name="cpf" placeholder="Ex.: 111.111.111-11" maxlength="14" autocomplete="username" required>
+                    </div>
                 </div>
 
-                <label class="field-label" for="senha">Senha:</label>
-                <div class="field-wrapper">
-                    <input
-                        type="password"
-                        id="senha"
-                        name="senha"
-                        placeholder="Ex: ••••••••••••"
-                        required
-                    >
-                    <span class="toggle-password" onclick="togglePassword()" title="Mostrar/ocultar senha">
-                        🔒
-                    </span>
+                <div class="form-group">
+                    <label for="senha">Senha:</label>
+                    <div class="input-wrapper password-wrapper">
+                        <input type="password" id="senha" name="senha" placeholder="Ex.: ••••••••••••" autocomplete="current-password" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword()" aria-label="Mostrar ou ocultar senha" id="eye">◉</button>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn-login">Log-in</button>
+                <div class="form-group">
+                    <label for="tipo_acesso">Tipo de acesso:</label>
+                    <div class="input-wrapper">
+                        <select name="tipo_acesso" id="tipo_acesso" required>
+                            <option value="sigaa" <?= $accessType === 'sigaa' ? 'selected' : '' ?>>SIGAA</option>
+                            <option value="ldap" <?= $accessType === 'ldap' ? 'selected' : '' ?>>LDAP institucional</option>
+                            <option value="teste" <?= $accessType === 'teste' ? 'selected' : '' ?>>Teste (banco local)</option>
+                        </select>
+                    </div>
+                </div>
 
+                <button type="submit" class="login-button">Entrar</button>
             </form>
 
-            <div class="forgot-text">
-                Esqueceu suas informações de login?<br>
-                <a href="#">Converse com um responsável na CTI</a>
+            <p class="help" id="accessHelp"><strong>SIGAA:</strong> contas autenticadas por este método entram sempre como estudantes.</p>
+        </section>
+
+        <section class="info-area">
+            <div>
+                <div class="brand">
+                    <div class="brand-small">Conheça o</div>
+                    <div class="brand-name">C.I.R.C.U.I.<span>T.O.</span></div>
+                </div>
+                <p class="description">O sistema eficiente de Laboratório de Informática do Instituto Federal Farroupilha foi desenvolvido para organizar, facilitar e otimizar o gerenciamento de componentes tecnológicos.</p>
+                <ul class="features">
+                    <li>Controle de solicitações</li>
+                    <li>Catálogo de materiais</li>
+                    <li>Reserva rápida</li>
+                    <li>Gerenciamento eficiente</li>
+                </ul>
             </div>
+            <div class="bottom-text">
+                <h2>Reserve seus<br>componentes de forma<br>rápida e segura</h2>
+                <p>Encontre o item que procura, veja a disponibilidade em tempo real e faça seu pedido de forma simples.</p>
+            </div>
+        </section>
+    </main>
 
-        </div>
-    </div>
+    <script>
+        const cpf = document.getElementById('cpf');
+        const tipoAcesso = document.getElementById('tipo_acesso');
+        const accessHelp = document.getElementById('accessHelp');
 
-    <!-- ── Lado direito: painel informativo ── -->
-    <div class="login-right">
-
-        <div class="info-card card-brand">
-            <p class="card-eyebrow">Conheça o</p>
-            <div class="brand-name">C.I.R.C.U.I.T.O.</div>
-            <p>
-                O sistema oficial do Laboratório de Hardware do Instituto Federal
-                Farroupilha / Campus Frederico Westphalen para gerenciamento de
-                componentes. Aqui você encontra um catálogo organizado, realiza
-                reservas com datas definidas e acompanha todo o processo de
-                empréstimo de forma simples, segura e transparente.
-            </p>
-            <p>O projeto foi realizado pelos estudantes:</p>
-            <ul>
-                <li>Davi Cadoná Marion;</li>
-                <li>Emanuel Ziegler Martins;</li>
-                <li>Luiz Fernando Schwanz;</li>
-                <li>Pedro Henrique Toazza;</li>
-                <li>Victor Borba de Moura e Silva.</li>
-            </ul>
-        </div>
-
-        <div class="info-card card-cta">
-            <h2 class="cta-title">Reserve seus componentes de forma rápida e segura</h2>
-            <p>Encontre o item que procura, veja a disponibilidade em tempo real e faça seu pedido de forma simples.</p>
-        </div>
-
-    </div>
-
-</div>
-
-<script>
-    function togglePassword() {
-        const input = document.getElementById('senha');
-        const icon  = document.querySelector('.toggle-password');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.textContent = '🔓';
-        } else {
-            input.type = 'password';
-            icon.textContent = '🔒';
+        function togglePassword() {
+            const senha = document.getElementById('senha');
+            const eye = document.getElementById('eye');
+            const oculto = senha.type === 'password';
+            senha.type = oculto ? 'text' : 'password';
+            eye.textContent = oculto ? '◉' : '○';
         }
-    }
 
-    // Máscara de CPF
-    document.getElementById('cpf').addEventListener('input', function () {
-        let v = this.value.replace(/\D/g, '').slice(0, 11);
-        if (v.length > 9) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/, '$1.$2.$3-$4');
-        else if (v.length > 6) v = v.replace(/^(\d{3})(\d{3})(\d{1,3})$/, '$1.$2.$3');
-        else if (v.length > 3) v = v.replace(/^(\d{3})(\d{1,3})$/, '$1.$2');
-        this.value = v;
-    });
-</script>
+        function atualizarAjudaAcesso() {
+            const tipo = tipoAcesso.value;
+            accessHelp.innerHTML = tipo === 'sigaa'
+                ? '<strong>SIGAA:</strong> contas autenticadas por este método entram sempre como estudantes.'
+                : tipo === 'ldap'
+                    ? '<strong>LDAP:</strong> administradores permanecem admin; os demais acessam como laboratoristas.'
+                    : '<strong>Teste:</strong> valida o CPF e a senha salvos no banco local.';
+        }
 
+        cpf.addEventListener('input', function () {
+            let valor = this.value.replace(/\D/g, '').slice(0, 11);
+            if (valor.length > 9) valor = valor.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/, '$1.$2.$3-$4');
+            else if (valor.length > 6) valor = valor.replace(/^(\d{3})(\d{3})(\d{1,3})$/, '$1.$2.$3');
+            else if (valor.length > 3) valor = valor.replace(/^(\d{3})(\d{1,3})$/, '$1.$2');
+            this.value = valor;
+        });
+
+        tipoAcesso.addEventListener('change', atualizarAjudaAcesso);
+        atualizarAjudaAcesso();
+    </script>
 </body>
 </html>
