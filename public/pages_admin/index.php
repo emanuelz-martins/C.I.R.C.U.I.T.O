@@ -99,15 +99,15 @@ try {
         flex-shrink: 0;
     }
 
-    .card-emprestimos::before {
-        content: '';
+    .card-emprestimos-pattern {
         position: absolute;
         inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='none'/%3E%3Ccircle cx='10' cy='10' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='70' cy='10' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='10' cy='70' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='70' cy='70' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='40' cy='40' r='4' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Cline x1='13' y1='10' x2='67' y2='10' stroke='%23333' stroke-width='1'/%3E%3Cline x1='10' y1='13' x2='10' y2='67' stroke='%23333' stroke-width='1'/%3E%3Cline x1='70' y1='13' x2='70' y2='67' stroke='%23333' stroke-width='1'/%3E%3Cline x1='13' y1='70' x2='67' y2='70' stroke='%23333' stroke-width='1'/%3E%3Cline x1='40' y1='13' x2='40' y2='36' stroke='%23333' stroke-width='1'/%3E%3Cline x1='40' y1='44' x2='40' y2='67' stroke='%23333' stroke-width='1'/%3E%3Cline x1='13' y1='40' x2='36' y2='40' stroke='%23333' stroke-width='1'/%3E%3Cline x1='44' y1='40' x2='67' y2='40' stroke='%23333' stroke-width='1'/%3E%3Crect x='25' y='25' width='30' height='30' rx='2' fill='none' stroke='%23333' stroke-width='1'/%3E%3C/svg%3E");
-        background-size: 80px 80px;
-        opacity: 0.8;
+        filter: invert(1);
+        opacity: 0.1;
         pointer-events: none;
     }
+
+    .card-emprestimos-pattern img { position: absolute; height: auto; }
 
     .card-emprestimos-num {
         font-size: 3.2rem;
@@ -384,6 +384,14 @@ try {
 
         <!-- Usuários ativos -->
         <div class="card-emprestimos">
+            <div class="card-emprestimos-pattern" aria-hidden="true">
+                <?php for ($linha = -1; $linha <= 2; $linha++): ?>
+                    <?php for ($coluna = -1; $coluna <= 5; $coluna++): ?>
+                        <img src="../assets/img/sempre/circuito-padrao.svg" alt=""
+                             style="left:calc(<?= $coluna * 20 ?>% + <?= random_int(-9, 9) ?>px);top:<?= $linha * 48 + 12 + random_int(-6, 6) ?>px;width:<?= random_int(34, 46) ?>px;transform:rotate(<?= random_int(-50, 50) ?>deg)">
+                    <?php endfor; ?>
+                <?php endfor; ?>
+            </div>
             <span class="card-emprestimos-num"><?= (int) $usuarios_ativos ?></span>
             <span class="card-emprestimos-label">usuários<br>ativos</span>
         </div>
@@ -456,8 +464,8 @@ try {
             <span class="func-label">Controle de<br>Categorias</span>
         </button>
 
-        <!-- 4. Controle de Login / LDAP (painel antigo) -->
-        <a href="../ldaptest.php" class="func-card">
+        <!-- 4. Definição de perfis de acesso -->
+        <a href="./perfis.php" class="func-card">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -465,11 +473,11 @@ try {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
             </div>
-            <span class="func-label">Controle de<br>Login/acesso LDAP</span>
+            <span class="func-label">Gerenciar<br>perfis de acesso</span>
         </a>
 
-        <!-- 5. Controlar Laboratoristas / Alunos -->
-        <button class="func-card" onclick="openChoiceModal()">
+        <!-- 5. Gerenciar avisos -->
+        <a class="func-card" href="./controlar_aluno.php">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -479,8 +487,8 @@ try {
                     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
             </div>
-            <span class="func-label">Controlar <br>Laboratorista/Alu</br></span>
-        </button>
+            <span class="func-label">Gerenciar<br>Avisos</span>
+        </a>
 
     </div>
 
@@ -557,46 +565,12 @@ try {
     </div>
 </div>
 
-<!-- ══════ MODAL: Escolher tipo de usuário ══════ -->
-<div class="choice-overlay" id="choiceModal" onclick="closeChoiceOnBackdrop(event)">
-    <div class="choice-modal" role="dialog" aria-modal="true">
-        <h2 class="choice-title">Controlar usuários</h2>
-        <p class="choice-subtitle">Escolha qual grupo deseja gerenciar:</p>
-
-        <div class="choice-btns">
-            <a href="./controlar_aluno.php" class="choice-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                </svg>
-                Aluno
-            </a>
-            <a href="./controlar_laboratorista.php" class="choice-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
-                Laboratorista
-            </a>
-        </div>
-
-        <button class="choice-cancel" onclick="closeChoiceModal()">Cancelar</button>
-    </div>
-</div>
-
 <script>
     function openDadosModal()  { document.getElementById('dadosModal').classList.add('open'); }
     function closeDadosModal() { document.getElementById('dadosModal').classList.remove('open'); }
     function openCatModal()    { document.getElementById('catModal').classList.add('open'); }
     function closeCatModal()   { document.getElementById('catModal').classList.remove('open'); }
-    function openChoiceModal() { document.getElementById('choiceModal').classList.add('open'); }
-    function closeChoiceModal(){ document.getElementById('choiceModal').classList.remove('open'); }
-    function closeChoiceOnBackdrop(e) { if (e.target === document.getElementById('choiceModal')) closeChoiceModal(); }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDadosModal(); closeCatModal(); closeChoiceModal(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDadosModal(); closeCatModal(); } });
 </script>
 
 </body>

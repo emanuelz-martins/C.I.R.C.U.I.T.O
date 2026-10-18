@@ -11,3 +11,4 @@ public/uploads/foto_perfil
 !.env.example
 config.php
 conexao.php
+.local/

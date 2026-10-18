@@ -1,0 +1,230 @@
+/* Estilos de lista, badges e painel reaproveitados de pages_admin/dados_pedido.php. */
+
+    .main {
+        padding: 48px 48px 80px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 28px;
+        font-size: 0.85rem;
+        color: #888;
+    }
+    .breadcrumb a { color: #888; text-decoration: none; transition: color .15s; }
+    .breadcrumb a:hover { color: #fff; }
+    .breadcrumb span { color: #555; }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 32px;
+    }
+
+    .search-bar { position: relative; margin-bottom: 20px; }
+    .search-bar input {
+        width: 100%;
+        padding: 12px 44px 12px 18px;
+        background: #1e1e1e;
+        border: 1.5px solid #2e2e2e;
+        border-radius: 10px;
+        color: #fff;
+        font-size: 0.95rem;
+        outline: none;
+        transition: border-color .2s;
+    }
+    .search-bar input::placeholder { color: #555; }
+    .search-bar input:focus { border-color: #444; }
+    .search-bar svg {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #555;
+        width: 18px; height: 18px;
+        pointer-events: none;
+    }
+
+    .table-card {
+        background: #1a1a1a;
+        border: 1.5px solid #2a2a2a;
+        border-radius: 16px;
+        overflow: visible;
+    }
+
+    .table-header {
+        display: grid;
+        grid-template-columns: 1fr 160px 60px;
+        padding: 12px 20px;
+        background: #141414;
+        border-bottom: 1px solid #2a2a2a;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .user-row {
+        display: grid;
+        grid-template-columns: 1fr 160px 60px;
+        align-items: center;
+        padding: 14px 20px;
+        border-bottom: 1px solid #222;
+        transition: background .15s;
+    }
+    .user-row:last-child { border-bottom: none; }
+    .user-row:hover { background: #222; }
+
+    .user-name { font-size: 0.95rem; font-weight: 600; color: #fff; }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-estudante     { background: #1d3557; color: #90cdf4; }
+    .badge-laboratorista { background: #1a2e22; color: #68d391; }
+    .badge-bloqueado     { background: #3b1111; color: #fc8181; }
+
+    .dot-menu-wrap { position: relative; display: flex; justify-content: flex-end; z-index: 120; }
+    .dot-btn {
+        background: none;
+        border: none;
+        color: #666;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        transition: background .15s, color .15s;
+    }
+    .dot-btn:hover { background: #2a2a2a; color: #fff; }
+    .dot-btn svg { width: 18px; height: 18px; }
+
+    .dot-dropdown {
+        display: none;
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        background: #1e1e1e;
+        border: 1px solid #2e2e2e;
+        border-radius: 10px;
+        min-width: 200px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.6);
+        z-index: 999;
+        overflow: hidden;
+    }
+    .dot-dropdown.open { display: block; }
+    .dot-dropdown button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 12px 16px;
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 0.9rem;
+        cursor: pointer;
+        text-align: left;
+        transition: background .15s;
+        border-bottom: 1px solid #2a2a2a;
+    }
+    .dot-dropdown button:last-child { border-bottom: none; }
+    .dot-dropdown button:hover { background: #2a2a2a; }
+    .dot-dropdown button svg { width: 16px; height: 16px; color: #aaa; flex-shrink: 0; }
+    .dot-dropdown button.danger { color: #fc8181; }
+    .dot-dropdown button.danger svg { color: #fc8181; }
+
+    .panel-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .panel-back-btn {
+        background: none;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.88rem;
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: background .15s, color .15s;
+    }
+    .panel-back-btn:hover { background: #1e1e1e; color: #fff; }
+    .panel-back-btn svg { width: 16px; height: 16px; }
+
+    .panel-title { font-size: 1.3rem; font-weight: 700; color: #fff; }
+
+    .empty-state {
+        text-align:center;
+        padding:60px 20px;
+        color:#555;
+        font-size:.95rem;
+    }
+    .empty-state svg { width:48px; height:48px; margin-bottom:16px; color:#333; display:block; margin-left:auto; margin-right:auto; }
+
+    .modal-btns { display:flex; gap:12px; justify-content:flex-end; }
+    .btn-cancel {
+        padding:10px 22px;
+        background:none;
+        border:1.5px solid #2e2e2e;
+        border-radius:10px;
+        color:#aaa;
+        font-size:.9rem;
+        cursor:pointer;
+        transition:border-color .15s,color .15s;
+    }
+    .btn-cancel:hover { border-color:#444; color:#fff; }
+    .btn-primary {
+        padding:10px 22px;
+        background:#3b82f6;
+        border:none;
+        border-radius:10px;
+        color:#fff;
+        font-size:.9rem;
+        font-weight:600;
+        cursor:pointer;
+        transition:background .15s;
+    }
+    .btn-primary:hover { background:#2563eb; }
+    .btn-primary:disabled { background:#1d3d7a; cursor:not-allowed; opacity:.6; }
+    /* A mesma composição de dados_pedido.php, com os dados de usuário. */
+    .badge-admin, .badge-desconhecido { background: #222; color: #aaa; }
+    .user-row { cursor: pointer; }
+    .user-row[hidden], #perfilPanel[hidden], .empty-state[hidden] { display: none; }
+    .user-row:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #888; outline-offset: 2px; }
+    .table-card { overflow: hidden; }
+    .dot-menu-wrap { z-index: auto; }
+    #perfilPanel { margin-top: 32px; }
+    .perfil-table { overflow-x: auto; }
+    .perfil-header, .perfil-row { display: grid; grid-template-columns: 60px minmax(150px, 1.3fr) minmax(100px, .8fr) minmax(170px, 1.3fr) 130px 150px; min-width: 850px; }
+    .perfil-header { padding: 12px 20px; background: #141414; border-bottom: 1px solid #2a2a2a; font-size: .78rem; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: .05em; }
+    .perfil-row { align-items: center; padding: 14px 20px; gap: 0; font-size: .85rem; color: #888; }
+    .perfil-row > span { padding-right: 14px; overflow-wrap: anywhere; }
+    .perfil-id { font-size: .88rem; font-weight: 700; color: #aaa; }
+    .perfil-edit { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; padding: 18px 20px; border-top: 1px solid #222; }
+    .perfil-edit label, .perfil-note { font-size: .88rem; color: #888; }
+    .perfil-edit select { padding: 10px 16px; background: #141414; border: 1.5px solid #2e2e2e; border-radius: 10px; color: #fff; font: inherit; font-size: .9rem; }
+    .perfil-edit select:disabled { opacity: .6; cursor: not-allowed; }
+    .perfil-note { margin-right: auto; }
+    .feedback { margin-bottom: 20px; padding: 16px 20px; border: 1px solid #2a2a2a; border-radius: 12px; font-size: .9rem; }
+    .feedback:empty { display: none; }
+    .feedback.error { background: #3b1111; border-color: #7f1d1d; color: #fc8181; }
+    .feedback.success { background: #1a2e22; color: #4ade80; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    @media(max-width:900px) { .main { padding: 32px 20px 60px; } }
+    @media(max-width:600px) { .table-header, .user-row { grid-template-columns: minmax(0, 1fr) 130px 32px; padding-left: 14px; padding-right: 14px; } .perfil-edit { justify-content: flex-start; } .perfil-note { width: 100%; } }
+    .user-open { background: none; border: none; padding: 0; text-align: left; font-family: inherit; cursor: pointer; }
