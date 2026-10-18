@@ -3,10 +3,18 @@ require_once '../includes/auth_check.php';
 checkAccess(['admin']);
 require_once '../../src/config/database.php';
 require_once '../includes/pre_bloqueio_aluno.php';
+require_once '../../src/services/avisos_fixados.php';
+$_SESSION['csrf_avisos'] ??= bin2hex(random_bytes(32));
 
 /* ── Ações AJAX ─────────────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
+
+    if (!hash_equals($_SESSION['csrf_avisos'], (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_avisos'] ?? ''))) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'Recarregue a página e tente novamente.']);
+        exit;
+    }
 
     try {
         $pdo     = db();
@@ -16,19 +24,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $atorPerfil = (string) ($authUser['perfil'] ?? $authUser['tipo_perfil'] ?? 'admin');
         $atorLabel = $atorPerfil === 'admin' ? 'Administrador' : 'Laboratorista';
 
-        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_manual TINYINT(1) NOT NULL DEFAULT 0');
-        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueio_motivo TEXT NULL');
-        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_nome VARCHAR(150) NULL');
-        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_tipo VARCHAR(30) NULL');
-        $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_em DATETIME NULL');
+        if ($_POST['action'] === 'set_pin') {
+            if ($id_user <= 0 || !in_array($_POST['fixado'] ?? null, ['0', '1'], true)) {
+                http_response_code(422);
+                echo json_encode(['ok' => false, 'error' => 'Dados de fixação inválidos.']);
+                exit;
+            }
+            try {
+                $fixados = definirUsuarioFixadoAvisos($pdo, (int) ($authUser['id'] ?? 0), $id_user, $_POST['fixado'] === '1');
+                echo json_encode(['ok' => true, 'fixados' => $fixados]);
+            } catch (LengthException | InvalidArgumentException $e) {
+                http_response_code(422);
+                echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+            } catch (DomainException $e) {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+            }
+            exit;
+        }
 
         if (!$id_user) {
             echo json_encode(['ok' => false, 'error' => 'ID de usuário inválido']);
             exit;
         }
 
-        /* ── Bloquear / Desbloquear ── */
+        /* ── Banir / Remover banimento ── */
         if ($_POST['action'] === 'toggle_block') {
+            if ($id_user === (int) ($authUser['id'] ?? 0)) {
+                http_response_code(422);
+                echo json_encode(['ok' => false, 'error' => 'Você não pode banir a própria conta.']);
+                exit;
+            }
             $stmtUser = $pdo->prepare('SELECT nome, bloqueado, pre_bloqueado_manual, pre_bloqueado_por_nome, pre_bloqueado_por_tipo FROM Usuario WHERE id_user = :id LIMIT 1');
             $stmtUser->execute(['id' => $id_user]);
             $userRow = $stmtUser->fetch();
@@ -45,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $preManualTipo = $preManualTipoRaw === 'admin' ? 'Adm.' : 'Lab.';
             $preManualNome = trim((string) ($userRow['pre_bloqueado_por_nome'] ?? ''));
             if ($preManualNome === '') $preManualNome = 'Usuário';
-            $preManualLabel = 'Pré-bloqueado, por ' . $preManualTipo . ': ' . $preManualNome;
+            $preManualLabel = 'Bloqueado, por ' . $preManualTipo . ': ' . $preManualNome;
 
             if ($bloqueadoAtual === 1) {
                 $pedidoColsStmt = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
@@ -62,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $temPacotePendente = (bool) $stmtPendente->fetchColumn();
 
                     if ($temPacotePendente) {
-                        echo json_encode(['ok' => false, 'error' => 'Não foi possivel desbloquear, motivo: Usuario ainda não devolveu o pacote']);
+                        echo json_encode(['ok' => false, 'error' => 'Não foi possível remover o banimento: o usuário ainda não devolveu o pacote.']);
                         exit;
                     }
                 }
@@ -71,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     ->execute(['id' => $id_user]);
 
                 $mensagemNotif = sprintf(
-                    'Prezado, %s. Seu bloqueio foi removido pelo %s: %s.',
+                    'Prezado, %s. Seu banimento foi removido pelo %s: %s.',
                     $nomeAluno,
                     $atorLabel,
                     $atorNome
@@ -83,10 +109,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                 if (in_array('humor', $cols, true)) {
                     $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo, humor) VALUES (:u, :t, :m, :tp, :h)')
-                        ->execute(['u' => $id_user, 't' => 'Desbloqueio realizado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
+                        ->execute(['u' => $id_user, 't' => 'Banimento removido', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
                 } else {
                     $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
-                        ->execute(['u' => $id_user, 't' => 'Desbloqueio realizado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
+                        ->execute(['u' => $id_user, 't' => 'Banimento removido', 'm' => $mensagemNotif, 'tp' => 'aviso']);
                 }
 
                 $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
@@ -98,6 +124,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     'pre_manual_ativo' => $preManualAtivo,
                     'pre_manual_label' => $preManualLabel,
                 ]);
+                exit;
+            }
+
+            $statusAnterior = aluno_pre_bloqueio_status($pdo, $id_user);
+            if (!$preManualAtivo && ($statusAnterior['pre_bloqueado'] ?? false) !== true) {
+                http_response_code(422);
+                echo json_encode(['ok' => false, 'error' => 'Bloqueie o usuário antes de banir.']);
                 exit;
             }
 
@@ -132,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $nomeAluno = (string) ($row['nome'] ?? 'Usuário');
 
             if (!$jaPreBloqueado && $motivo === '') {
-                echo json_encode(['ok' => false, 'error' => 'Informe o motivo do pré-bloqueio.']);
+                echo json_encode(['ok' => false, 'error' => 'Informe o motivo do bloqueio.']);
                 exit;
             }
 
@@ -162,13 +195,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ]);
 
             $mensagemNotif = sprintf(
-                'Prezado, %s. Você foi pré-bloqueado pelo %s: %s.',
+                'Prezado, %s. Você foi bloqueado pelo %s: %s.',
                 $nomeAluno,
                 $atorLabel,
                 $atorNome
             );
             $atorTipoLabel = $atorPerfil === 'admin' ? 'Adm.' : 'Lab.';
-            $preManualLabel = 'Pré-bloqueado, por ' . $atorTipoLabel . ': ' . $atorNome;
+            $preManualLabel = 'Bloqueado, por ' . $atorTipoLabel . ': ' . $atorNome;
 
             $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
             $notCols->execute(['t' => 'Notificacao']);
@@ -176,10 +209,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             if (in_array('humor', $cols, true)) {
                 $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo, humor) VALUES (:u, :t, :m, :tp, :h)')
-                    ->execute(['u' => $id_user, 't' => 'Pré-bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
+                    ->execute(['u' => $id_user, 't' => 'Bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
             } else {
                 $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
-                    ->execute(['u' => $id_user, 't' => 'Pré-bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
+                    ->execute(['u' => $id_user, 't' => 'Bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
             }
 
             $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
@@ -344,11 +377,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-/* ── Carrega alunos ──────────────────────────────────────────── */
+/* ── Carrega usuários de todos os perfis ──────────────────────── */
 $usuarios = [];
+$usuariosFixados = [];
 $db_ok    = false;
 $search   = trim($_GET['q'] ?? '');
 $preBloqueioAutoMap = [];
+$rotulosPerfisFiltro = ['estudante' => 'Aluno', 'laboratorista' => 'Laboratorista', 'admin' => 'Administrador'];
+$rotulosSituacoesFiltro = ['bloqueados' => 'Bloqueados', 'banidos' => 'Banidos'];
+$perfisFiltro = array_values(array_unique(array_intersect(
+    array_filter((array) ($_GET['perfis'] ?? []), 'is_string'), array_keys($rotulosPerfisFiltro)
+)));
+$situacoesFiltro = array_values(array_unique(array_intersect(
+    array_filter((array) ($_GET['situacoes'] ?? []), 'is_string'), array_keys($rotulosSituacoesFiltro)
+)));
+$quantidadeFiltros = count($perfisFiltro) + count($situacoesFiltro);
 
 try {
     $pdo = db();
@@ -358,25 +401,44 @@ try {
     $colStmt->execute(['t' => 'Usuario']);
     $userCols = $colStmt->fetchAll(PDO::FETCH_COLUMN);
 
-    $selectCols = ['id_user', 'nome', 'login', 'bloqueado', 'foto_perfil'];
+    $selectCols = ['id_user', 'nome', 'login', 'tipo_perfil', 'bloqueado', 'foto_perfil'];
     foreach (['matricula', 'email', 'turma', 'descricao', 'pre_bloqueado_manual', 'pre_bloqueio_motivo', 'pre_bloqueado_por_nome', 'pre_bloqueado_por_tipo'] as $col) {
         if (in_array($col, $userCols, true)) $selectCols[] = $col;
     }
 
-    $sql    = 'SELECT ' . implode(', ', $selectCols) . " FROM Usuario WHERE tipo_perfil = 'estudante'";
+    $sql    = 'SELECT ' . implode(', ', $selectCols) . " FROM Usuario WHERE tipo_perfil IN ('estudante', 'laboratorista', 'admin')";
     $params = [];
 
+    if ($perfisFiltro) {
+        $marcadores = [];
+        foreach ($perfisFiltro as $indice => $perfilFiltro) {
+            $marcadores[] = ':perfil_' . $indice;
+            $params['perfil_' . $indice] = $perfilFiltro;
+        }
+        $sql .= ' AND tipo_perfil IN (' . implode(', ', $marcadores) . ')';
+    }
+
     if ($search !== '') {
-        $sql .= ' AND (nome LIKE :q OR login LIKE :q';
-        if (in_array('matricula', $userCols, true)) $sql .= ' OR matricula LIKE :q';
+        $sql .= ' AND (nome LIKE :q_nome OR login LIKE :q_login';
+        $params['q_nome'] = '%' . $search . '%';
+        $params['q_login'] = '%' . $search . '%';
+        if (in_array('matricula', $userCols, true)) {
+            $sql .= ' OR matricula LIKE :q_matricula';
+            $params['q_matricula'] = '%' . $search . '%';
+        }
         $sql .= ')';
-        $params['q'] = '%' . $search . '%';
     }
 
     $sql .= ' ORDER BY nome ASC';
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $usuarios = $stmt->fetchAll();
+    $usuariosFixados = usuariosFixadosAvisos($pdo, (int) ($_SESSION['auth_user']['id'] ?? 0));
+    foreach ($usuarios as $indice => &$usuario) $usuario['ordem_nome'] = $indice;
+    unset($usuario);
+    $posicoesFixadas = array_flip($usuariosFixados);
+    usort($usuarios, static fn (array $a, array $b): int =>
+        ($posicoesFixadas[(int) $a['id_user']] ?? 3) <=> ($posicoesFixadas[(int) $b['id_user']] ?? 3));
 
     foreach ($usuarios as $usr) {
         $uid = (int) ($usr['id_user'] ?? 0);
@@ -396,10 +458,22 @@ try {
         }
     }
 
+    if ($situacoesFiltro) {
+        $usuarios = array_values(array_filter($usuarios, static function (array $usuario) use ($situacoesFiltro, $preBloqueioAutoMap): bool {
+            $banido = (int) $usuario['bloqueado'] === 1;
+            $bloqueado = !$banido && (
+                (int) ($usuario['pre_bloqueado_manual'] ?? 0) === 1
+                || ($preBloqueioAutoMap[(int) $usuario['id_user']]['pre_bloqueado'] ?? false) === true
+            );
+            return (in_array('banidos', $situacoesFiltro, true) && $banido)
+                || (in_array('bloqueados', $situacoesFiltro, true) && $bloqueado);
+        }));
+    }
+
     $db_ok    = true;
 } catch (Throwable) { /* BD indisponível */ }
 
-$page_title = 'Gerenciar Alunos';
+$page_title = 'Gerenciar Avisos';
 require_once '../includes/header.php';
 ?>
 
@@ -526,7 +600,6 @@ require_once '../includes/header.php';
     }
 
     .user-card.bloqueado  { border-color: #7f1d1d; }
-    .user-card.incompleto { border-color: #7f1d1d; }
     .user-card.prebloqueado {
         border-color: #7f1d1d;
         background: linear-gradient(180deg, rgba(127, 29, 29, 0.18) 0%, rgba(30, 30, 30, 1) 70%);
@@ -567,17 +640,11 @@ require_once '../includes/header.php';
 
     .user-sub { font-size: 0.85rem; color: #888; }
 
-    .user-warning {
-        font-size: 0.78rem;
-        color: #ef4444;
-        margin-top: 3px;
-    }
-
     .badge-bloqueado {
         font-size: 0.75rem;
         font-weight: 700;
-        background-color: #7f1d1d;
-        color: #fca5a5;
+        background-color: #3b1a57;
+        color: #c084fc;
         padding: 3px 10px;
         border-radius: 20px;
         white-space: nowrap;
@@ -614,6 +681,10 @@ require_once '../includes/header.php';
 
     .btn-menu:hover { background-color: #333; }
     .btn-menu svg   { width: 20px; height: 20px; }
+    .btn-pin[aria-pressed="true"] { background-color: #444; border-color: #888; }
+    .btn-pin[aria-pressed="false"] svg { transform: rotate(35deg); }
+    .btn-pin:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-pin:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
     /* ── Dropdown de ações ──────────────────────────── */
     .menu-wrap { position: relative; }
@@ -664,6 +735,7 @@ require_once '../includes/header.php';
     .action-dropdown button.danger  svg { color: #ef4444; }
     .action-dropdown button.unblock     { color: #4ade80; }
     .action-dropdown button.unblock svg { color: #4ade80; }
+    .action-dropdown button.ban, .action-dropdown button.ban svg { color: #c084fc; }
 
     /* ── Estado vazio ───────────────────────────────── */
     .empty-state {
@@ -760,6 +832,12 @@ require_once '../includes/header.php';
     .modal textarea:focus { border-color: #555; }
 
     .modal textarea { min-height: 120px; }
+    .filter-group { border: none; padding: 0; margin: 0; }
+    .filter-group legend { color: #aaa; font-size: .85rem; font-weight: 600; margin-bottom: 12px; }
+    .modal .filter-option { display: flex; align-items: center; gap: 10px; font-weight: 400; cursor: pointer; }
+    .modal .filter-option input { width: 18px; height: 18px; padding: 0; accent-color: #fff; }
+    .filter-actions { flex-wrap: wrap; }
+    .user-card[hidden], .empty-state[hidden] { display: none; }
 
     .modal-actions {
         display: flex;
@@ -952,9 +1030,10 @@ require_once '../includes/header.php';
 
 <!-- ══════════════════ CONTEÚDO ══════════════════ -->
 <main class="main">
+    <input type="hidden" id="avisosCsrf" name="csrf_avisos" value="<?= htmlspecialchars($_SESSION['csrf_avisos'], ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="page-header">
-        <h1 class="page-title">Gerenciar Alunos</h1>
+        <h1 class="page-title">Gerenciar Avisos</h1>
         <a href="./index.php" class="btn-back" aria-label="Voltar">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -965,12 +1044,15 @@ require_once '../includes/header.php';
 
     <!-- Barra de busca -->
     <form class="toolbar" method="GET" action="">
+        <?php foreach ($perfisFiltro as $perfilFiltro): ?><input type="hidden" name="perfis[]" value="<?= htmlspecialchars($perfilFiltro) ?>"><?php endforeach; ?>
+        <?php foreach ($situacoesFiltro as $situacaoFiltro): ?><input type="hidden" name="situacoes[]" value="<?= htmlspecialchars($situacaoFiltro) ?>"><?php endforeach; ?>
         <div class="search-wrap">
             <input
                 class="search-input"
                 type="text"
                 name="q"
-                placeholder="Pesquisar por aluno"
+                id="avisosSearchInput"
+                placeholder="Pesquisar por usuário"
                 value="<?= htmlspecialchars($search) ?>"
             >
             <button type="submit" class="search-btn" aria-label="Buscar">
@@ -982,36 +1064,32 @@ require_once '../includes/header.php';
             </button>
         </div>
 
-        <button type="button" class="btn-filter">
+        <button type="button" class="btn-filter" id="openFilter" onclick="abrirFiltroAvisos()" aria-haspopup="dialog" aria-controls="filterModal" aria-expanded="false">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
             </svg>
-            Filtrar
+            Filtrar<?= $quantidadeFiltros > 0 ? ' (' . $quantidadeFiltros . ')' : '' ?>
         </button>
     </form>
 
     <?php if (!$db_ok): ?>
     <div style="background-color:#1c1c1c;border:1px solid #3a1a1a;border-radius:16px;padding:40px;text-align:center;color:#aaa;">
         <h2 style="color:#ef4444;margin-bottom:8px;">Banco de dados indisponível</h2>
-        <p>Não foi possível carregar os alunos. Verifique a conexão com o MySQL.</p>
+        <p>Não foi possível carregar os usuários. Verifique a conexão com o MySQL.</p>
     </div>
     <?php elseif (empty($usuarios)): ?>
-        <p class="empty-state">Nenhum aluno encontrado<?= $search !== '' ? ' para "' . htmlspecialchars($search) . '"' : '' ?>.</p>
+        <p class="empty-state">Nenhum usuário encontrado<?= $search !== '' ? ' para "' . htmlspecialchars($search) . '"' : '' ?>.</p>
     <?php else: ?>
 
+    <p class="empty-state" id="filterEmpty" hidden>Nenhum usuário encontrado com os filtros selecionados.</p>
     <div class="user-list">
         <?php foreach ($usuarios as $u): ?>
         <?php
             $emailVal     = $u['email']     ?? '';
-            $turmaVal     = $u['turma']     ?? '';
             $descricaoVal = $u['descricao'] ?? '';
-            $incompleto   = ($emailVal === '' || $emailVal === null)
-                         && ($turmaVal === '' || $turmaVal === null)
-                         && ($descricaoVal === '' || $descricaoVal === null);
             $cardClass = '';
             if ($u['bloqueado']) $cardClass .= ' bloqueado';
-            if ($incompleto)     $cardClass .= ' incompleto';
             $preBloqueadoManual = (int) ($u['pre_bloqueado_manual'] ?? 0) === 1;
             $preAutoStatus = $preBloqueioAutoMap[(int) $u['id_user']] ?? ['pre_bloqueado' => false, 'motivo' => ''];
             $preBloqueadoAuto = (($preAutoStatus['pre_bloqueado'] ?? false) === true);
@@ -1023,14 +1101,14 @@ require_once '../includes/header.php';
             $preNome = trim((string) ($u['pre_bloqueado_por_nome'] ?? ''));
             if ($preNome === '') $preNome = 'Usuário';
             $preBadgeText = $preBloqueadoManual
-                ? ('Pré-bloqueado, por ' . $preTipo . ': ' . $preNome)
-                : ($preBloqueadoAuto ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado');
+                ? ('Bloqueado, por ' . $preTipo . ': ' . $preNome)
+                : ($preBloqueadoAuto ? 'Bloqueado, automaticamente.' : 'Bloqueado');
             $preBadgeTitle = $preBloqueadoManual
                 ? (string) ($u['pre_bloqueio_motivo'] ?? '')
                 : ($motivoAuto !== '' ? $motivoAuto : ((int) ($u['bloqueado'] ?? 0) === 1 ? 'Usuário bloqueado' : ''));
             $mostrarOpcaoPreblock = $preBloqueadoManual || !$preBloqueadoAuto;
         ?>
-        <div class="user-card <?= trim($cardClass) ?>" id="card-<?= $u['id_user'] ?>">
+        <div class="user-card <?= trim($cardClass) ?>" id="card-<?= $u['id_user'] ?>" data-user-id="<?= (int) $u['id_user'] ?>" data-ordem-nome="<?= (int) $u['ordem_nome'] ?>">
 
             <div class="user-avatar" id="avatar-<?= $u['id_user'] ?>">
                 <?php if (!empty($u['foto_perfil'])): ?>
@@ -1044,11 +1122,8 @@ require_once '../includes/header.php';
 
             <div class="user-info">
                 <p class="user-nome" id="nome-<?= $u['id_user'] ?>"><?= htmlspecialchars($u['nome']) ?></p>
-                <?php if ($incompleto): ?>
-                <p class="user-warning">Esse usuário tem informações incompletas</p>
-                <?php endif; ?>
                 <p class="user-sub" id="sub-<?= $u['id_user'] ?>">
-                    Login: <?= htmlspecialchars($u['login']) ?>
+                    <?= htmlspecialchars(['estudante' => 'Aluno', 'laboratorista' => 'Laboratorista', 'admin' => 'Administrador'][$u['tipo_perfil']] ?? 'Usuário') ?>
                 </p>
             </div>
 
@@ -1056,7 +1131,7 @@ require_once '../includes/header.php';
                 class="badge-bloqueado"
                 id="badge-<?= $u['id_user'] ?>"
                 <?= $u['bloqueado'] ? '' : 'style="display:none"' ?>
-            >Bloqueado</span>
+            >Banido</span>
 
             <span
                 class="badge-prebloqueado"
@@ -1065,6 +1140,16 @@ require_once '../includes/header.php';
                 title="<?= htmlspecialchars($preBadgeTitle) ?>"
             ><?= htmlspecialchars($preBadgeText) ?></span>
 
+            <?php $fixado = in_array((int) $u['id_user'], $usuariosFixados, true); ?>
+            <button type="button" class="btn-menu btn-pin" onclick="alternarFixacao(<?= (int) $u['id_user'] ?>)"
+                    aria-pressed="<?= $fixado ? 'true' : 'false' ?>"
+                    aria-label="<?= $fixado ? 'Desafixar' : 'Fixar' ?> <?= htmlspecialchars($u['nome'], ENT_QUOTES, 'UTF-8') ?>"
+                    title="<?= $fixado ? 'Desafixar usuário' : (count($usuariosFixados) >= 3 ? 'Limite de 3 usuários fixados. Desafixe um para fixar outro.' : 'Fixar usuário') ?>"
+                    <?= !$fixado && count($usuariosFixados) >= 3 ? 'disabled' : '' ?>>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 9V3H8v6l-3 4v2h14v-2l-3-4Z"/><path d="M12 15v6"/>
+                </svg>
+            </button>
             <div class="menu-wrap" id="menu-<?= $u['id_user'] ?>">
                 <button
                     class="btn-menu"
@@ -1085,8 +1170,9 @@ require_once '../includes/header.php';
                 <div class="action-dropdown" role="menu">
 
                     <button
-                        class="<?= $u['bloqueado'] ? 'unblock' : 'danger' ?>"
+                        class="ban"
                         id="btn-block-<?= $u['id_user'] ?>"
+                        style="<?= $mostrarPreBadge ? '' : 'display:none' ?>"
                         onclick="toggleBlock(<?= $u['id_user'] ?>)"
                     >
                         <?php if ($u['bloqueado']): ?>
@@ -1095,14 +1181,14 @@ require_once '../includes/header.php';
                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                             <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
                         </svg>
-                        Desbloquear
+                        Remover banimento
                         <?php else: ?>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        Bloquear
+                        Banir
                         <?php endif; ?>
                     </button>
 
@@ -1127,7 +1213,7 @@ require_once '../includes/header.php';
                             <line x1="12" y1="8" x2="12" y2="12"/>
                             <line x1="12" y1="16" x2="12.01" y2="16"/>
                         </svg>
-                        <?= $preBloqueadoManual ? 'Remover pré-bloqueio' : 'Pré-bloquear' ?>
+                        <?= $preBloqueadoManual ? 'Remover bloqueio' : 'Bloquear' ?>
                     </button>
 
                     <button onclick="openEditModal(
@@ -1156,6 +1242,31 @@ require_once '../includes/header.php';
     <?php endif; ?>
 
 </main>
+
+<!-- ══════════════════ MODAL FILTRAR ══════════════════ -->
+<div class="modal-overlay" id="filterModal" onclick="if (event.target === this) fecharFiltroAvisos()">
+    <form class="modal" id="avisosFilterForm" method="get" role="dialog" aria-modal="true" aria-labelledby="filterModalTitle">
+        <h2 class="modal-title" id="filterModalTitle">Filtrar usuários</h2>
+        <input type="hidden" name="q" id="filterSearch" value="<?= htmlspecialchars($search) ?>">
+        <fieldset class="filter-group">
+            <legend>Tipo de usuário</legend>
+            <?php foreach ($rotulosPerfisFiltro as $valor => $rotulo): ?>
+            <label class="filter-option"><input type="checkbox" name="perfis[]" value="<?= $valor ?>" <?= in_array($valor, $perfisFiltro, true) ? 'checked' : '' ?>><?= $rotulo ?></label>
+            <?php endforeach; ?>
+        </fieldset>
+        <fieldset class="filter-group">
+            <legend>Situação</legend>
+            <?php foreach ($rotulosSituacoesFiltro as $valor => $rotulo): ?>
+            <label class="filter-option"><input type="checkbox" name="situacoes[]" value="<?= $valor ?>" <?= in_array($valor, $situacoesFiltro, true) ? 'checked' : '' ?>><?= $rotulo ?></label>
+            <?php endforeach; ?>
+        </fieldset>
+        <div class="modal-actions filter-actions">
+            <button type="button" class="btn-cancel" onclick="limparFiltroAvisos()">Limpar filtros</button>
+            <button type="button" class="btn-cancel" onclick="fecharFiltroAvisos()">Cancelar</button>
+            <button type="submit" class="btn-send">Aplicar</button>
+        </div>
+    </form>
+</div>
 
 <!-- ══════════════════ MODAL AVISO ══════════════════ -->
 <div class="modal-overlay" id="noticeModal" onclick="closeNoticeModalOnBackdrop(event)">
@@ -1292,6 +1403,41 @@ require_once '../includes/header.php';
 
 <script>
 /* ── Menus de ação ───────────────────────────────── */
+const situacoesFiltroAtivas = <?= json_encode($situacoesFiltro, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+function abrirFiltroAvisos() {
+    closeAllMenus();
+    const formulario = document.getElementById('avisosFilterForm');
+    formulario.reset();
+    document.getElementById('filterSearch').value = document.getElementById('avisosSearchInput').value;
+    document.getElementById('filterModal').classList.add('open');
+    document.getElementById('openFilter').setAttribute('aria-expanded', 'true');
+    formulario.querySelector('input[type="checkbox"]').focus();
+}
+
+function fecharFiltroAvisos() {
+    document.getElementById('filterModal').classList.remove('open');
+    document.getElementById('openFilter').setAttribute('aria-expanded', 'false');
+    document.getElementById('openFilter').focus();
+}
+
+function limparFiltroAvisos() {
+    const formulario = document.getElementById('avisosFilterForm');
+    formulario.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
+    formulario.requestSubmit();
+}
+
+function atualizarFiltroSituacao(card, dados) {
+    if (!situacoesFiltroAtivas.length) return;
+    const banido = card.classList.contains('bloqueado');
+    const bloqueado = !banido && (Boolean(dados.pre_manual_ativo)
+        || Boolean(dados.pre_bloqueado_auto) || Number(dados.pre_bloqueado) === 1);
+    card.hidden = !(situacoesFiltroAtivas.includes('banidos') && banido)
+        && !(situacoesFiltroAtivas.includes('bloqueados') && bloqueado);
+    const vazio = document.getElementById('filterEmpty');
+    if (vazio) vazio.hidden = Array.from(document.querySelectorAll('.user-list .user-card')).some(item => !item.hidden);
+}
+
 function toggleMenu(id, e) {
     e.stopPropagation();
     const wrap   = document.getElementById('menu-' + id);
@@ -1306,13 +1452,63 @@ function closeAllMenus() {
 
 document.addEventListener('click', closeAllMenus);
 
-/* ── Bloquear / Desbloquear ──────────────────────── */
+/* ── Banir / Remover banimento ──────────────────── */
+const csrfAvisos = document.getElementById('avisosCsrf').value;
+let usuariosFixados = <?= json_encode($usuariosFixados) ?>;
+let salvandoFixacao = false;
+
+function atualizarFixacoes() {
+    const cards = Array.from(document.querySelectorAll('.user-list .user-card'));
+    cards.forEach(card => {
+        const fixado = usuariosFixados.includes(Number(card.dataset.userId));
+        const botao = card.querySelector('.btn-pin');
+        const nome = card.querySelector('.user-nome').textContent.trim();
+        botao.setAttribute('aria-pressed', String(fixado));
+        botao.setAttribute('aria-label', (fixado ? 'Desafixar ' : 'Fixar ') + nome);
+        botao.title = fixado ? 'Desafixar usuário' : (usuariosFixados.length >= 3
+            ? 'Limite de 3 usuários fixados. Desafixe um para fixar outro.' : 'Fixar usuário');
+        botao.disabled = salvandoFixacao || (!fixado && usuariosFixados.length >= 3);
+    });
+    const posicao = card => {
+        const indice = usuariosFixados.indexOf(Number(card.dataset.userId));
+        return indice < 0 ? 3 : indice;
+    };
+    cards.sort((a, b) => posicao(a) - posicao(b) || Number(a.dataset.ordemNome) - Number(b.dataset.ordemNome));
+    cards.forEach(card => card.parentElement.appendChild(card));
+}
+
+async function alternarFixacao(id) {
+    if (salvandoFixacao) return;
+    const fixar = !usuariosFixados.includes(id);
+    salvandoFixacao = true;
+    document.querySelectorAll('.btn-pin').forEach(botao => { botao.disabled = true; });
+    closeAllMenus();
+    try {
+        const resposta = await fetch('', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfAvisos, 'Accept': 'application/json' },
+            body: new URLSearchParams({ action: 'set_pin', id_user: String(id), fixado: fixar ? '1' : '0' })
+        });
+        const dados = await resposta.json();
+        if (!dados.ok) { showToast(dados.error || 'Não foi possível salvar a fixação.', 'error'); return; }
+        usuariosFixados = dados.fixados.map(Number);
+        showToast(fixar ? 'Usuário fixado.' : 'Usuário desafixado.', 'success');
+    } catch (_) {
+        showToast('Falha de comunicação.', 'error');
+    } finally {
+        salvandoFixacao = false;
+        atualizarFixacoes();
+        const botao = document.querySelector('#card-' + id + ' .btn-pin');
+        if (botao && !botao.disabled) botao.focus();
+    }
+}
+
 function toggleBlock(id) {
     closeAllMenus();
 
     fetch('', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfAvisos, 'Accept': 'application/json' },
         body: 'action=toggle_block&id_user=' + id
     })
     .then(r => r.json())
@@ -1336,20 +1532,21 @@ function toggleBlock(id) {
             badge.style.display = '';
             if (preBadge) {
                 preBadge.style.display = '';
-                preBadge.textContent = preManualAtivo ? (preManualLabel || 'Pré-bloqueado') : (preAutoAtivo ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado');
+                preBadge.textContent = preManualAtivo ? (preManualLabel || 'Bloqueado') : (preAutoAtivo ? 'Bloqueado, automaticamente.' : 'Bloqueado');
                 if (!preManualAtivo) preBadge.title = motivoAuto || 'Usuário bloqueado';
             }
             if (btnPre && !preManualAtivo && preAutoAtivo) btnPre.style.display = 'none';
-            btn.className = 'unblock';
-            btn.innerHTML = svgLockOpen() + ' Desbloquear';
-            showToast('Usuário bloqueado.', 'error');
+            btn.className = 'ban';
+            btn.style.display = '';
+            btn.innerHTML = svgLockOpen() + ' Remover banimento';
+            showToast('Usuário banido.', 'error');
         } else {
             card.classList.remove('bloqueado');
             if (!preManualAtivo && !preAutoAtivo) {
                 card.classList.remove('prebloqueado');
                 if (preBadge) {
                     preBadge.style.display = 'none';
-                    preBadge.textContent = 'Pré-bloqueado';
+                    preBadge.textContent = 'Bloqueado';
                     preBadge.title = '';
                 }
                 if (btnPre) btnPre.style.display = '';
@@ -1357,19 +1554,21 @@ function toggleBlock(id) {
                 card.classList.add('prebloqueado');
                 if (preBadge) {
                     preBadge.style.display = '';
-                    preBadge.textContent = 'Pré-bloqueado, automaticamente.';
-                    preBadge.title = motivoAuto || 'Pré-bloqueado automático';
+                    preBadge.textContent = 'Bloqueado, automaticamente.';
+                    preBadge.title = motivoAuto || 'Bloqueado automático';
                 }
                 if (btnPre) btnPre.style.display = 'none';
             } else if (preManualAtivo) {
                 if (btnPre) btnPre.style.display = '';
-                if (preBadge) preBadge.textContent = preManualLabel || 'Pré-bloqueado';
+                if (preBadge) preBadge.textContent = preManualLabel || 'Bloqueado';
             }
             badge.style.display = 'none';
-            btn.className = 'danger';
-            btn.innerHTML = svgLockClosed() + ' Bloquear';
-            showToast('Usuário desbloqueado.', 'success');
+            btn.className = 'ban';
+            btn.style.display = preManualAtivo || preAutoAtivo ? '' : 'none';
+            btn.innerHTML = svgLockClosed() + ' Banir';
+            showToast('Banimento removido.', 'success');
         }
+        atualizarFiltroSituacao(card, data);
     })
     .catch(() => showToast('Falha de comunicação.', 'error'));
 }
@@ -1382,16 +1581,16 @@ function togglePreBlock(id, nome) {
 
     let motivo = '';
     if (!removendo) {
-        motivo = (window.prompt('Informe o motivo do pré-bloqueio para ' + nome + ':') || '').trim();
+        motivo = (window.prompt('Informe o motivo do bloqueio para ' + nome + ':') || '').trim();
         if (!motivo) {
-            showToast('Motivo obrigatório para pré-bloquear.', 'error');
+            showToast('Motivo obrigatório para bloquear.', 'error');
             return;
         }
     }
 
     fetch('', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfAvisos, 'Accept': 'application/json' },
         body: new URLSearchParams({
             action: 'toggle_preblock',
             id_user: id,
@@ -1416,15 +1615,15 @@ function togglePreBlock(id, nome) {
             card.classList.add('prebloqueado');
             if (badge) {
                 badge.style.display = '';
-                badge.textContent = preManualLabel || 'Pré-bloqueado';
+                badge.textContent = preManualLabel || 'Bloqueado';
                 badge.title = data.motivo || '';
             }
             if (botao) {
                 botao.style.display = '';
                 botao.className = 'unblock';
-                botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Remover pré-bloqueio`;
+                botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Remover bloqueio`;
             }
-            showToast('Usuário pré-bloqueado e notificado.', 'error');
+            showToast('Usuário bloqueado e notificado.', 'error');
         } else {
             const badgeBloqueado = document.getElementById('badge-' + id);
             const aindaBloqueado = badgeBloqueado && badgeBloqueado.style.display !== 'none';
@@ -1432,15 +1631,15 @@ function togglePreBlock(id, nome) {
                 card.classList.add('prebloqueado');
                 if (badge) {
                     badge.style.display = '';
-                    badge.textContent = preAutoAtivo ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado';
-                    badge.title = motivoAuto || (aindaBloqueado ? 'Usuário bloqueado' : 'Pré-bloqueado automático');
+                    badge.textContent = preAutoAtivo ? 'Bloqueado, automaticamente.' : 'Bloqueado';
+                    badge.title = motivoAuto || (aindaBloqueado ? 'Usuário bloqueado' : 'Bloqueado automático');
                 }
                 if (botao && preAutoAtivo) botao.style.display = 'none';
             } else {
                 card.classList.remove('prebloqueado');
                 if (badge) {
                     badge.style.display = 'none';
-                    badge.textContent = 'Pré-bloqueado';
+                    badge.textContent = 'Bloqueado';
                     badge.title = '';
                 }
                 if (botao) botao.style.display = '';
@@ -1448,11 +1647,16 @@ function togglePreBlock(id, nome) {
             if (botao) {
                 if (!(preAutoAtivo && !aindaBloqueado)) {
                     botao.className = 'danger';
-                    botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pré-bloquear`;
+                    botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Bloquear`;
                 }
             }
-            showToast('Pré-bloqueio removido.', 'success');
+            showToast('Bloqueio removido.', 'success');
         }
+        const banir = document.getElementById('btn-block-' + id);
+        if (banir) {
+            banir.style.display = (data.pre_bloqueado ?? 0) === 1 || preAutoAtivo || card.classList.contains('bloqueado') ? '' : 'none';
+        }
+        atualizarFiltroSituacao(card, data);
     })
     .catch(() => showToast('Falha de comunicação.', 'error'));
 }
@@ -1526,7 +1730,7 @@ function sendNotice() {
 
     fetch('', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfAvisos, 'Accept': 'application/json' },
         body: new URLSearchParams({
             action:   'send_notice',
             id_user:  currentUserId,
@@ -1646,16 +1850,13 @@ function saveEdit() {
     fd.append('descricao', descricao);
     if (fotoFile) fd.append('foto', fotoFile);
 
-    fetch('', { method: 'POST', body: fd })
+    fetch('', { method: 'POST', headers: { 'X-CSRF-Token': csrfAvisos, 'Accept': 'application/json' }, body: fd })
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
-            /* atualiza nome e login visíveis no card */
+            /* Atualiza o nome; o subtítulo mantém o perfil da conta. */
             const nomeEl = document.getElementById('nome-' + editUserId);
             if (nomeEl) nomeEl.textContent = nome;
-
-            const subEl = document.getElementById('sub-' + editUserId);
-            if (subEl) subEl.textContent = 'Login: ' + login;
 
             /* atualiza avatar se nova foto retornada */
             if (data.foto) {
@@ -1681,9 +1882,19 @@ function saveEdit() {
 /* ── Fechar modais com Escape ────────────────────── */
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+        if (document.getElementById('filterModal').classList.contains('open')) fecharFiltroAvisos();
         if (document.getElementById('noticeModal').classList.contains('open')) closeNoticeModal();
         if (document.getElementById('editModal').classList.contains('open'))   closeEditModal();
     }
+});
+
+document.getElementById('filterModal').addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const controles = Array.from(document.getElementById('avisosFilterForm').querySelectorAll('input[type="checkbox"], button'));
+    const primeiro = controles[0];
+    const ultimo = controles[controles.length - 1];
+    if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+    else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
 });
 
 /* ── Toast ───────────────────────────────────────── */

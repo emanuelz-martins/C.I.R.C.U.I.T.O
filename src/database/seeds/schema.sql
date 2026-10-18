@@ -36,9 +36,15 @@ CREATE TABLE IF NOT EXISTS Usuario (
     nome                  VARCHAR(150)   NOT NULL,
     login                 VARCHAR(100)   NOT NULL UNIQUE,
     hash_senha            VARCHAR(255)   NOT NULL,
+    forma_login           VARCHAR(20)        NULL,
     matricula             VARCHAR(50)        NULL,
-    tipo_perfil           VARCHAR(30)    NOT NULL,
+    tipo_perfil           VARCHAR(30)    NOT NULL DEFAULT 'estudante',
     bloqueado             TINYINT(1)     NOT NULL DEFAULT 0,
+    pre_bloqueado_manual   TINYINT(1)     NOT NULL DEFAULT 0,
+    pre_bloqueio_motivo    TEXT               NULL,
+    pre_bloqueado_por_nome VARCHAR(150)       NULL,
+    pre_bloqueado_por_tipo VARCHAR(30)        NULL,
+    pre_bloqueado_em       DATETIME           NULL,
     preferencias_notific  VARCHAR(255)       NULL,
     PRIMARY KEY (id_user)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -264,4 +270,16 @@ CREATE TABLE IF NOT EXISTS Pedido_Atraso_Mensagem (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id_msg),
     KEY idx_pam_nota_data (id_nota, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Até três usuários fixados por administrador em Gerenciar Avisos.
+CREATE TABLE IF NOT EXISTS Aviso_Usuario_Fixado (
+    id_admin INT NOT NULL,
+    posicao TINYINT UNSIGNED NOT NULL,
+    id_user INT NOT NULL,
+    PRIMARY KEY (id_admin, posicao),
+    UNIQUE KEY uq_aviso_fixado_usuario (id_admin, id_user),
+    CONSTRAINT chk_aviso_fixado_posicao CHECK (posicao BETWEEN 1 AND 3),
+    CONSTRAINT fk_aviso_fixado_admin FOREIGN KEY (id_admin) REFERENCES Usuario (id_user) ON DELETE CASCADE,
+    CONSTRAINT fk_aviso_fixado_usuario FOREIGN KEY (id_user) REFERENCES Usuario (id_user) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
