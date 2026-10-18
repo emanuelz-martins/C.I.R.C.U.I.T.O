@@ -16,6 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $atorPerfil = (string) ($authUser['perfil'] ?? $authUser['tipo_perfil'] ?? 'laboratorista');
         $atorLabel = $atorPerfil === 'admin' ? 'Administrador' : 'Laboratorista';
 
+        // A lista mostra alunos; o mesmo limite vale para IDs enviados manualmente.
+        if ($atorPerfil !== 'admin') {
+            $alvo = $pdo->prepare('SELECT tipo_perfil FROM Usuario WHERE id_user = :id');
+            $alvo->execute(['id' => $id_user]);
+            if ($alvo->fetchColumn() !== 'estudante') {
+                negarAcesso(403, 'Laboratoristas só podem gerenciar alunos.');
+            }
+        }
+
         $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_manual TINYINT(1) NOT NULL DEFAULT 0');
         $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueio_motivo TEXT NULL');
         $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_nome VARCHAR(150) NULL');

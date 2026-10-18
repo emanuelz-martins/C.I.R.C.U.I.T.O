@@ -3,10 +3,19 @@ require_once '../includes/auth_check.php';
 checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
+require_once '../includes/pre_bloqueio_aluno.php';
 
 /* ── Finalizar pedido (POST) ─────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'finalizar-pedido') {
     $id_usuario = (int) ($_SESSION['auth_user']['id'] ?? 0);
+    try {
+        $preBloqueio = aluno_pre_bloqueio_status(db(), $id_usuario);
+    } catch (Throwable) {
+        negarAcesso(503, 'Não foi possível verificar sua permissão para enviar o pedido. Tente novamente.');
+    }
+    if (($preBloqueio['pre_bloqueado'] ?? false) === true) {
+        negarAcesso(403, 'Você está pré-bloqueado e não pode enviar novos pedidos.');
+    }
     $payloadRaw = (string) ($_POST['cart_payload'] ?? '');
     $payloadArr = json_decode($payloadRaw, true);
     $prazoOpcao = trim((string) ($_POST['prazo_devolucao_opcao'] ?? ''));

@@ -5,7 +5,7 @@ session_start();
 
 require_once __DIR__ . '/../src/config/database.php';
 require_once __DIR__ . '/../src/config/sigaa.php';
-require_once __DIR__ . '/../src/config/ldap.php';
+require_once __DIR__ . '/../src/services/usuarios.php';
 
 $error = '';
 $accessType = 'sigaa';
@@ -22,7 +22,10 @@ function normalizarLogin(string $login): string
 
 function iniciarSessaoUsuario(array $user, string $origem): never
 {
+    $formaLogin = $origem === 'teste_local' ? 'teste' : $origem;
+    registrarFormaLogin(db(), (int) $user['id_user'], $formaLogin);
     session_regenerate_id(true);
+    unset($_SESSION['csrf_perfis']);
     $_SESSION['auth_user'] = [
         'id' => (int) $user['id_user'],
         'nome' => (string) $user['nome'],
@@ -54,57 +57,21 @@ function buscarUsuario(PDO $pdo, string $login): ?array
     return is_array($usuario) ? $usuario : null;
 }
 
-function sincronizarUsuario(PDO $pdo, ?array $usuario, string $login, string $nome, string $perfil): array
-{
-    if ($usuario) {
-        $atualizar = $pdo->prepare(
-            'UPDATE Usuario
-             SET nome = :nome, tipo_perfil = :perfil
-             WHERE id_user = :id'
-        );
-        $atualizar->execute([
-            'nome' => $nome,
-            'perfil' => $perfil,
-            'id' => $usuario['id_user'],
-        ]);
-
-        $usuario['nome'] = $nome;
-        $usuario['tipo_perfil'] = $perfil;
-        return $usuario;
-    }
-
-    $hashPlaceholder = password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT);
-    $criar = $pdo->prepare(
-        'INSERT INTO Usuario (nome, login, hash_senha, matricula, tipo_perfil, bloqueado, preferencias_notific)
-         VALUES (:nome, :login, :hash_senha, NULL, :perfil, 0, NULL)'
-    );
-    $criar->execute([
-        'nome' => $nome,
-        'login' => $login,
-        'hash_senha' => $hashPlaceholder,
-        'perfil' => $perfil,
-    ]);
-
-    return [
-        'id_user' => (int) $pdo->lastInsertId(),
-        'nome' => $nome,
-        'login' => $login,
-        'tipo_perfil' => $perfil,
-        'bloqueado' => 0,
-    ];
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accessType = (string) ($_POST['tipo_acesso'] ?? 'sigaa');
     $loginInput = trim((string) ($_POST['cpf'] ?? ''));
     $senhaInput = (string) ($_POST['senha'] ?? '');
     $cpf = preg_replace('/\D/', '', $loginInput);
 
-    if (!in_array($accessType, ['sigaa', 'ldap', 'teste'], true)) {
+    $tipoValido = in_array($accessType, ['sigaa', 'teste'], true);
+    if (!$tipoValido) {
         $accessType = 'sigaa';
     }
 
-    if ($loginInput === '' || $senhaInput === '') {
+    if (!$tipoValido) {
+        http_response_code(400);
+        $error = 'Tipo de acesso indisponível.';
+    } elseif ($loginInput === '' || $senhaInput === '') {
         $error = 'Informe seu CPF e sua senha.';
     } elseif (!is_string($cpf) || strlen($cpf) !== 11) {
         $error = 'Informe um CPF com 11 dígitos.';
@@ -128,17 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'CPF ou senha SIGAA inválidos.';
                 } else {
                     $nome = $dadosSigaa['nome'] ?? ($user['nome'] ?? 'Estudante SIGAA');
-                    $user = sincronizarUsuario($pdo, $user, $login, $nome, 'estudante');
+                    $user = sincronizarUsuario($pdo, $user, $login, $nome);
                     iniciarSessaoUsuario($user, 'sigaa');
-                }
-            } else {
-                if (!authLdap($loginInput, $senhaInput)) {
-                    $error = 'CPF ou senha LDAP inválidos, ou servidor LDAP indisponível.';
-                } else {
-                    $perfil = ($user['tipo_perfil'] ?? '') === 'admin' ? 'admin' : 'laboratorista';
-                    $nome = $user['nome'] ?? 'Laboratorista LDAP';
-                    $user = sincronizarUsuario($pdo, $user, $login, $nome, $perfil);
-                    iniciarSessaoUsuario($user, 'ldap');
                 }
             }
         } catch (Throwable) {
@@ -154,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" sizes="any" href="assets/img/sempre/circuito.svg?v=2">
     <title>C.I.R.C.U.I.T.O. — Login</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
@@ -221,7 +180,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="input-wrapper">
                         <select name="tipo_acesso" id="tipo_acesso" required>
                             <option value="sigaa" <?= $accessType === 'sigaa' ? 'selected' : '' ?>>SIGAA</option>
-                            <option value="ldap" <?= $accessType === 'ldap' ? 'selected' : '' ?>>LDAP institucional</option>
                             <option value="teste" <?= $accessType === 'teste' ? 'selected' : '' ?>>Teste (banco local)</option>
                         </select>
                     </div>
@@ -230,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="submit" class="login-button">Entrar</button>
             </form>
 
-            <p class="help" id="accessHelp"><strong>SIGAA:</strong> contas autenticadas por este método entram sempre como estudantes.</p>
+            <p class="help" id="accessHelp"><strong>SIGAA:</strong> novos usuários entram como alunos. O administrador define o perfil de acesso.</p>
         </section>
 
         <section class="info-area">
@@ -270,10 +228,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function atualizarAjudaAcesso() {
             const tipo = tipoAcesso.value;
             accessHelp.innerHTML = tipo === 'sigaa'
-                ? '<strong>SIGAA:</strong> contas autenticadas por este método entram sempre como estudantes.'
-                : tipo === 'ldap'
-                    ? '<strong>LDAP:</strong> administradores permanecem admin; os demais acessam como laboratoristas.'
-                    : '<strong>Teste:</strong> valida o CPF e a senha salvos no banco local.';
+                ? '<strong>SIGAA:</strong> novos usuários entram como alunos. O administrador define o perfil de acesso.'
+                : '<strong>Teste:</strong> valida o CPF e a senha salvos no banco local.';
         }
 
         cpf.addEventListener('input', function () {

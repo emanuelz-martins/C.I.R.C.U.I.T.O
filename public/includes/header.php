@@ -1,4 +1,8 @@
 <?php
+require_once __DIR__ . '/../../src/config/database.php';
+loadEnv(dirname(__DIR__, 2) . '/.env');
+$faviconUrl = rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/') . '/assets/img/sempre/circuito.svg?v=2';
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -14,6 +18,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" sizes="any" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
     <title><?= isset($page_title) ? htmlspecialchars($page_title) . ' – C.I.R.C.U.I.T.O.' : 'C.I.R.C.U.I.T.O.' ?></title>
     <style>
         * {

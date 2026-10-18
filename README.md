@@ -6,6 +6,15 @@ Sistema web para gerenciamento de empréstimos de componentes do Laboratório de
 
 ---
 
+## Perfis e permissões
+
+O administrador pode atribuir os perfis Aluno, Laboratorista e Administrador na
+tela **Gerenciar perfis de acesso**. Novas contas começam como alunos e o login
+preserva o perfil definido. Consulte [o guia de perfis](docs/PERFIS_ACESSO.md)
+para uso, migração do banco existente e validação no XAMPP.
+
+---
+
 ## Regras de Atendimento de Pedidos (Laboratorista)
 
 Para consultar somente as regras de posse/liberação de pedidos (fluxo Sim/Não, bloqueio entre laboratoristas e modo aberto após liberar), veja:
@@ -35,10 +44,10 @@ C.I.R.C.U.I.T.O/
 │   ├── config/
 │   │   ├── app.php                     # Configurações gerais da aplicação
 │   │   ├── database.php                # Configurações do banco de dados
-│   │   └── ldap.php                    # Configurações da autenticação LDAP
+│   │   └── sigaa.php                   # Autenticação pelo serviço institucional
 │   │
 │   ├── controllers/
-│   │   ├── AuthController.php          # Login, logout, autenticação LDAP
+│   │   ├── AuthController.php          # Login, logout e autenticação
 │   │   ├── CatalogoController.php      # Catálogo público, busca, detalhe do item
 │   │   ├── CarrinhoController.php      # Adicionar, remover e enviar pedido
 │   │   ├── PedidoController.php        # Listagem, detalhe, renovação e cancelamento
@@ -113,8 +122,7 @@ C.I.R.C.U.I.T.O/
 │   │
 │   └── helpers/
 │       ├── Session.php                 # Gerenciamento de sessão
-│       ├── Email.php                   # Envio de notificações por e-mail
-│       └── Ldap.php                    # Integração com servidor LDAP
+│       └── Email.php                   # Envio de notificações por e-mail
 │
 ├── database/
 │   ├── migrations/
@@ -143,15 +151,14 @@ C.I.R.C.U.I.T.O/
 
 ## Autenticação
 
-O login oferece três métodos. As senhas institucionais são enviadas apenas aos serviços do IFFar para validação e não são salvas no banco local.
+O login oferece SIGAA e modo de teste local. A senha institucional é enviada apenas ao serviço do IFFar para validação e não é salva no banco local.
 
 | Método | Validação | Perfil aplicado |
 |---|---|---|
-| **SIGAA** | Serviço institucional, com `tipo=S` | Sempre `estudante` |
-| **LDAP** | Servidor LDAP institucional | Mantém `admin` quando já for administrador; nos demais casos usa `laboratorista` |
+| **SIGAA** | Serviço institucional, com `tipo=S` | Novos usuários começam como `estudante`; mantém o perfil atribuído pelo administrador |
 | **Teste** | CPF e senha com hash no banco local | Mantém o perfil salvo no banco |
 
-Nos acessos SIGAA e LDAP, se o CPF ainda não existir no banco, o sistema cria o perfil local automaticamente. O SIGAA cria estudantes; o LDAP cria laboratoristas.
+No acesso SIGAA, se o CPF ainda não existir no banco, o sistema cria a conta local como estudante. Apenas o administrador altera o perfil de acesso.
 
 Configure a URL do serviço no `.env` (o valor padrão já aponta para o serviço do IFFar):
 
@@ -165,7 +172,7 @@ IFFAR_AUTH_URL=https://www3.fw.iffarroupilha.edu.br/auth/index.php
 
 - **Backend:** PHP (MVC)
 - **Banco de dados:** MySQL
-- **Autenticação:** SIGAA, LDAP e modo de teste local
+- **Autenticação:** SIGAA e modo de teste local
 - **Frontend:** HTML, CSS, JavaScript
 
 ---
@@ -238,6 +245,10 @@ Se aparecer erro de conexão, revise primeiro os campos `DB_HOST`, `DB_DATABASE`
 ---
 
 ## Banco de Dados
+
+**Atualização de um site existente:** antes de publicar este código, importe no
+phpMyAdmin o arquivo único [`20261018_atualizacao_completa.sql`](src/database/migrations/20261018_atualizacao_completa.sql).
+Veja o [passo a passo](docs/ATUALIZACAO_PHPMYADMIN.md). O deploy não executa as migrações.
 
 O modelo físico completo está em [`src/database/seeds/schema.sql`](src/database/seeds/schema.sql).
 

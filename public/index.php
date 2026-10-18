@@ -1,17 +1,14 @@
 <?php
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once __DIR__ . '/includes/auth_check.php';
+checkAccess(['estudante', 'laboratorista', 'admin']);
 
-if (empty($_SESSION['auth_user']) || !is_array($_SESSION['auth_user'])) {
-    header('Location: login.php');
-    exit;
-}
-
-// Proteger painel de aluno: apenas estudantes e admins podem acessar
 $user_perfil = (string) ($_SESSION['auth_user']['perfil'] ?? 'desconhecido');
 if ($user_perfil === 'laboratorista') {
     header('Location: pages_laboratorista/index.php');
+    exit;
+}
+if ($user_perfil === 'admin') {
+    header('Location: pages_admin/index.php');
     exit;
 }
 
@@ -84,7 +81,6 @@ try {
 
 $page_title = 'C.I.R.C.U.I.T.O';
 require_once 'includes/header.php';
-//http://localhost/C.I.R.C.U.I.T.O/src/views/ldap_control/ldaptest.php (pagina adm para criar acesso)
 ?>
 
 <style>
