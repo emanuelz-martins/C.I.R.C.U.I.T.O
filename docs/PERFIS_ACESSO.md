@@ -84,15 +84,12 @@ evita que o único administrador remova seu próprio acesso.
 
 ## Banco existente e XAMPP
 
-Para atualizar um site existente pelo phpMyAdmin, importe primeiro o arquivo único
-[`20261018_atualizacao_completa.sql`](../src/database/migrations/20261018_atualizacao_completa.sql)
-e depois publique o código. Siga as [instruções de importação](ATUALIZACAO_PHPMYADMIN.md).
-Esse arquivo reúne as migrações abaixo; não é necessário executar ambas as opções.
-
-Para o login Google, execute também
-[`20261018_google_login.sql`](../src/database/migrations/20261018_google_login.sql)
-antes de publicar essa versão. Ele adiciona a identidade Google e amplia o campo
-da foto, sem substituir logins existentes. No SIGAA, o CPF formatado continua no
+O [`schema.sql`](../src/database/seeds/schema.sql) reúne a estrutura atual e os
+comandos para acrescentar as colunas faltantes em instalações anteriores,
+incluindo Google. Execute seu conteúdo pelo phpMyAdmin antes de publicar o
+código, conforme o [guia de atualização](ATUALIZACAO_PHPMYADMIN.md).
+Não é necessário executar também as migrações separadas.
+No SIGAA, o CPF formatado continua no
 campo `login`; não existe uma coluna separada `cpf`.
 
 Não é necessário recriar o banco ou recadastrar usuários. A migração mantém os
@@ -103,10 +100,12 @@ SOURCE src/database/migrations/20261018_perfil_padrao.sql;
 SOURCE src/database/migrations/20261018_forma_login.sql;
 SOURCE src/database/migrations/20261018_pre_bloqueio.sql;
 SOURCE src/database/migrations/20261018_avisos_fixados.sql;
+SOURCE src/database/migrations/20261018_google_login.sql;
 ```
 
-Use o cliente MySQL na pasta do projeto ou execute o conteúdo do arquivo pelo
-phpMyAdmin. Instalações novas usam `src/database/seeds/schema.sql`.
+Os comandos separados acima são uma alternativa para atualização pontual.
+Use o cliente MySQL na pasta do projeto ou execute o conteúdo dos arquivos pelo
+phpMyAdmin. Instalações novas também usam `src/database/seeds/schema.sql`.
 
 No `.env`, use a porta configurada no MySQL do XAMPP. Neste ambiente ela é
 `DB_PORT=3307`, e a URL é `http://localhost/C.I.R.C.U.I.T.O/public`.

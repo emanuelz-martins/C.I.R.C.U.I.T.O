@@ -1,6 +1,9 @@
 -- ============================================================
 --  C.I.R.C.U.I.T.O. – Modelo Físico MySQL
 --  Gerado com base na Modelagem Lógica (Figura 5)
+--  Estrutura consolidada: perfis, avisos, fixações e login Google.
+--  Cria um banco vazio e atualiza as colunas desta versão em bancos existentes.
+--  Não cadastra contas, não apaga dados e não altera perfis já atribuídos.
 -- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -40,6 +43,10 @@ CREATE TABLE IF NOT EXISTS Usuario (
     google_sub            VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL,
     matricula             VARCHAR(50)        NULL,
     tipo_perfil           VARCHAR(30)    NOT NULL DEFAULT 'estudante',
+    foto_perfil           TEXT               NULL,
+    email                 VARCHAR(150)       NULL,
+    turma                 VARCHAR(100)       NULL,
+    descricao             TEXT               NULL,
     bloqueado             TINYINT(1)     NOT NULL DEFAULT 0,
     pre_bloqueado_manual   TINYINT(1)     NOT NULL DEFAULT 0,
     pre_bloqueio_motivo    TEXT               NULL,
@@ -119,6 +126,12 @@ CREATE TABLE IF NOT EXISTS Notificacao (
     id_user   INT            NOT NULL,
     titulo    VARCHAR(150)   NOT NULL,
     mensagem  TEXT           NOT NULL,
+    tipo      VARCHAR(20)    NOT NULL DEFAULT 'automatica',
+    humor     VARCHAR(10)        NULL DEFAULT NULL,
+    id_pedido INT                NULL,
+    id_nota_atraso INT           NULL,
+    requer_resposta TINYINT(1) NOT NULL DEFAULT 0,
+    resposta_pendente TINYINT(1) NOT NULL DEFAULT 0,
     lida      TINYINT(1)     NOT NULL DEFAULT 0,
     data      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id_not),
@@ -131,6 +144,9 @@ CREATE TABLE IF NOT EXISTS Notificacao (
 CREATE TABLE IF NOT EXISTS Pedido (
     id_pedido              INT            NOT NULL AUTO_INCREMENT,
     id_user                INT            NOT NULL,
+    id_laboratorista_responsavel INT           NULL,
+    nome_laboratorista_responsavel VARCHAR(150) NULL,
+    fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0,
     codigo_rastreio        VARCHAR(50)        NULL,
     status                 VARCHAR(30)    NOT NULL DEFAULT 'enviado',
     obs_laboratorista      TEXT               NULL,
@@ -187,39 +203,6 @@ CREATE TABLE IF NOT EXISTS Renovacao (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ------------------------------------------------------------
--- Migração: adiciona coluna tipo em Notificacao
--- 'automatica' = gerada pelo sistema (pedidos, status, etc.)
--- 'aviso'      = mensagem direta enviada pelo laboratorista
--- ------------------------------------------------------------
-ALTER TABLE Notificacao
-    ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'automatica' AFTER mensagem;
-
--- ------------------------------------------------------------
--- Migração: adiciona coluna foto_perfil em Usuario
--- ------------------------------------------------------------
-ALTER TABLE Usuario
-    ADD COLUMN IF NOT EXISTS foto_perfil VARCHAR(255) NULL AFTER tipo_perfil;
-
--- ------------------------------------------------------------
--- Migração: adiciona coluna humor em Notificacao
--- 'feliz'  = pedido aceito / boas notícias
--- 'triste' = pedido negado / atraso
--- 'neutro' = aviso de prazo / mensagem neutra
--- NULL     = sem rosto (usa padrão)
--- ------------------------------------------------------------
-ALTER TABLE Notificacao
-    ADD COLUMN IF NOT EXISTS humor VARCHAR(10) NULL DEFAULT NULL AFTER tipo;
-
--- ------------------------------------------------------------
--- Migração: perfil expandido do usuário
--- email, turma, descricao
--- ------------------------------------------------------------
-ALTER TABLE Usuario MODIFY COLUMN foto_perfil TEXT NULL;
-ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS email    VARCHAR(150) NULL AFTER foto_perfil;
-ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS turma    VARCHAR(100) NULL AFTER email;
-ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS descricao TEXT         NULL AFTER turma;
-
--- ------------------------------------------------------------
 -- Turma: categorias de turmas criadas pelo administrador
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS Turma (
@@ -228,28 +211,6 @@ CREATE TABLE IF NOT EXISTS Turma (
     descricao VARCHAR(300) NULL,
     PRIMARY KEY (id_turma)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ------------------------------------------------------------
--- Migração: controle de posse de pedido por laboratorista
--- id_laboratorista_responsavel / nome_laboratorista_responsavel
--- fluxo_livre_laboratoristas = 1 libera acesso para todos sem etapa inicial
--- ------------------------------------------------------------
-ALTER TABLE Pedido
-    ADD COLUMN IF NOT EXISTS id_laboratorista_responsavel INT NULL AFTER id_user;
-
-ALTER TABLE Pedido
-    ADD COLUMN IF NOT EXISTS nome_laboratorista_responsavel VARCHAR(150) NULL AFTER id_laboratorista_responsavel;
-
-ALTER TABLE Pedido
-    ADD COLUMN IF NOT EXISTS fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0 AFTER nome_laboratorista_responsavel;
-
--- ------------------------------------------------------------
--- Migração: suporte a notas obrigatórias de atraso
--- ------------------------------------------------------------
-ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_pedido INT NULL;
-ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_nota_atraso INT NULL;
-ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS requer_resposta TINYINT(1) NOT NULL DEFAULT 0;
-ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS resposta_pendente TINYINT(1) NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS Pedido_Atraso_Nota (
     id_nota INT NOT NULL AUTO_INCREMENT,
@@ -286,3 +247,203 @@ CREATE TABLE IF NOT EXISTS Aviso_Usuario_Fixado (
     CONSTRAINT fk_aviso_fixado_admin FOREIGN KEY (id_admin) REFERENCES Usuario (id_user) ON DELETE CASCADE,
     CONSTRAINT fk_aviso_fixado_usuario FOREIGN KEY (id_user) REFERENCES Usuario (id_user) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Atualização de instalações anteriores (reexecutável)
+-- CREATE TABLE IF NOT EXISTS não acrescenta colunas a tabelas existentes.
+-- As verificações abaixo funcionam em MySQL e MariaDB.
+-- SIGAA mantém o CPF formatado em login. Não cria coluna cpf.
+-- Google usa google_sub e um login técnico próprio.
+-- ------------------------------------------------------------
+ALTER TABLE Usuario ALTER COLUMN tipo_perfil SET DEFAULT 'estudante';
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'forma_login'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN forma_login VARCHAR(20) NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'google_sub'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN google_sub VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'foto_perfil'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN foto_perfil TEXT NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'email'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN email VARCHAR(150) NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'turma'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN turma VARCHAR(100) NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'descricao'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN descricao TEXT NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'pre_bloqueado_manual'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN pre_bloqueado_manual TINYINT(1) NOT NULL DEFAULT 0'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'pre_bloqueio_motivo'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN pre_bloqueio_motivo TEXT NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'pre_bloqueado_por_nome'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN pre_bloqueado_por_nome VARCHAR(150) NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'pre_bloqueado_por_tipo'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN pre_bloqueado_por_tipo VARCHAR(30) NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND COLUMN_NAME = 'pre_bloqueado_em'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD COLUMN pre_bloqueado_em DATETIME NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notificacao' AND COLUMN_NAME = 'tipo'),
+    'SELECT 1',
+    'ALTER TABLE Notificacao ADD COLUMN tipo VARCHAR(20) NOT NULL DEFAULT ''automatica'''
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notificacao' AND COLUMN_NAME = 'humor'),
+    'SELECT 1',
+    'ALTER TABLE Notificacao ADD COLUMN humor VARCHAR(10) NULL DEFAULT NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notificacao' AND COLUMN_NAME = 'id_pedido'),
+    'SELECT 1',
+    'ALTER TABLE Notificacao ADD COLUMN id_pedido INT NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notificacao' AND COLUMN_NAME = 'id_nota_atraso'),
+    'SELECT 1',
+    'ALTER TABLE Notificacao ADD COLUMN id_nota_atraso INT NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notificacao' AND COLUMN_NAME = 'requer_resposta'),
+    'SELECT 1',
+    'ALTER TABLE Notificacao ADD COLUMN requer_resposta TINYINT(1) NOT NULL DEFAULT 0'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Notificacao' AND COLUMN_NAME = 'resposta_pendente'),
+    'SELECT 1',
+    'ALTER TABLE Notificacao ADD COLUMN resposta_pendente TINYINT(1) NOT NULL DEFAULT 0'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Pedido' AND COLUMN_NAME = 'id_laboratorista_responsavel'),
+    'SELECT 1',
+    'ALTER TABLE Pedido ADD COLUMN id_laboratorista_responsavel INT NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Pedido' AND COLUMN_NAME = 'nome_laboratorista_responsavel'),
+    'SELECT 1',
+    'ALTER TABLE Pedido ADD COLUMN nome_laboratorista_responsavel VARCHAR(150) NULL'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Pedido' AND COLUMN_NAME = 'fluxo_livre_laboratoristas'),
+    'SELECT 1',
+    'ALTER TABLE Pedido ADD COLUMN fluxo_livre_laboratoristas TINYINT(1) NOT NULL DEFAULT 0'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;
+-- Amplia URLs de foto sem truncar ou substituir valores existentes.
+ALTER TABLE Usuario MODIFY COLUMN foto_perfil TEXT NULL;
+
+SET @circuito_ddl = IF(
+    EXISTS(SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Usuario' AND INDEX_NAME = 'uq_usuario_google_sub'),
+    'SELECT 1',
+    'ALTER TABLE Usuario ADD UNIQUE KEY uq_usuario_google_sub (google_sub)'
+);
+PREPARE circuito_stmt FROM @circuito_ddl;
+EXECUTE circuito_stmt;
+DEALLOCATE PREPARE circuito_stmt;

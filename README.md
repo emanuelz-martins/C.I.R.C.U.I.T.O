@@ -216,6 +216,11 @@ cd C.I.R.C.U.I.T.O
 4. Selecione o arquivo `src/database/seeds/schema.sql`
 5. Execute a importação
 
+O `schema.sql` já reúne as alterações de perfis, bloqueios, fixações e Google.
+Também pode ser executado em uma instalação anterior: acrescenta as colunas
+faltantes sem recadastrar usuários ou substituir logins. Faça uma cópia do banco
+antes de atualizar o servidor e execute o SQL antes de publicar o código.
+
 ### 6) Configurar variáveis locais
 
 No projeto, crie o arquivo local `.env` a partir do modelo `.env.example`:
@@ -236,11 +241,16 @@ APP_URL=http://localhost/C.I.R.C.U.I.T.O/public
 DB_CONNECTION=mysql
 DB_PROFILE=xampp
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=3307
 DB_DATABASE=circuito
 DB_USERNAME=root
 DB_PASSWORD=
 ```
+
+Neste XAMPP a porta é `3307`; ajuste para a porta usada por cada desenvolvedor.
+O `.env.example` inclui o ID público Google deste projeto e orientações para o
+Alwaysdata. Senhas reais ficam somente no `.env` de cada ambiente, que não é
+versionado. Copiar o exemplo não substitui a configuração do `.env` do servidor.
 
 ### 7) Acessar no navegador
 

@@ -38,6 +38,8 @@ recebida ou armazenada pelo C.I.R.C.U.I.T.O.
 Este fluxo usa Google Identity Services com janela de seleção e callback
 JavaScript. Não usa Client Secret nem URI de redirecionamento OAuth. Não coloque
 segredos em arquivos públicos. O ID do cliente é público e aparece no navegador.
+O `.env.example` já inclui o ID público deste projeto. Copie-o para o `.env`
+do ambiente; se criar outro cliente Google, substitua pelo ID correspondente.
 
 Enquanto o ID não estiver configurado, o botão fica desabilitado com a mensagem
 “Acesso Google em configuração”. Depois de configurar, recarregue a tela.
@@ -46,12 +48,14 @@ conta externa, que deve ser recusada pelo servidor.
 
 ## Banco de dados e contas
 
-Antes de publicar o código, execute no banco selecionado pelo phpMyAdmin o SQL de
+Antes de publicar o código, execute no banco selecionado pelo phpMyAdmin o
+[`schema.sql` consolidado](../src/database/seeds/schema.sql). Para atualizar
+somente a parte Google, também está disponível a migração
 [`20261018_google_login.sql`](../src/database/migrations/20261018_google_login.sql).
 Ele adiciona `google_sub`, seu índice único e amplia `foto_perfil` para URLs.
 Não remove usuários, pedidos, IDs ou logins existentes. A migração pode ser
-executada novamente. Se o banco ainda não recebeu as alterações anteriores de
-perfis/avisos, aplique primeiro a migração completa anterior.
+executada novamente. O schema consolidado já inclui também as alterações de
+perfis e avisos; não é necessário executar as duas opções.
 
 - **SIGAA:** recebe o CPF e continua salvando no campo `login`, formatado como
   `000.000.000-00`. Não cria coluna separada `cpf`. A senha SIGAA não é salva.
