@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS Usuario (
     login                 VARCHAR(100)   NOT NULL UNIQUE,
     hash_senha            VARCHAR(255)   NOT NULL,
     forma_login           VARCHAR(20)        NULL,
+    google_sub            VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL,
     matricula             VARCHAR(50)        NULL,
     tipo_perfil           VARCHAR(30)    NOT NULL DEFAULT 'estudante',
     bloqueado             TINYINT(1)     NOT NULL DEFAULT 0,
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS Usuario (
     pre_bloqueado_por_tipo VARCHAR(30)        NULL,
     pre_bloqueado_em       DATETIME           NULL,
     preferencias_notific  VARCHAR(255)       NULL,
-    PRIMARY KEY (id_user)
+    PRIMARY KEY (id_user),
+    UNIQUE KEY uq_usuario_google_sub (google_sub)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -212,6 +214,7 @@ ALTER TABLE Notificacao
 -- Migração: perfil expandido do usuário
 -- email, turma, descricao
 -- ------------------------------------------------------------
+ALTER TABLE Usuario MODIFY COLUMN foto_perfil TEXT NULL;
 ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS email    VARCHAR(150) NULL AFTER foto_perfil;
 ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS turma    VARCHAR(100) NULL AFTER email;
 ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS descricao TEXT         NULL AFTER turma;

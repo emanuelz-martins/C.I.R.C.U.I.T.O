@@ -274,6 +274,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 echo json_encode(['ok' => false, 'error' => 'Nome e login são obrigatórios.']);
                 exit;
             }
+            if (mb_strlen($login) > 100) {
+                http_response_code(422);
+                echo json_encode(['ok' => false, 'error' => 'O login deve ter até 100 caracteres.']);
+                exit;
+            }
+            $identidadeStmt = $pdo->prepare('SELECT google_sub, email FROM Usuario WHERE id_user = ?');
+            $identidadeStmt->execute([$id_user]);
+            $identidadeAtual = $identidadeStmt->fetch();
+            if (!$identidadeAtual) {
+                http_response_code(404);
+                echo json_encode(['ok' => false, 'error' => 'Usuário não encontrado.']);
+                exit;
+            }
+            if ($identidadeAtual['google_sub'] !== null) $email = (string) $identidadeAtual['email'];
 
             /* verifica quais colunas existem em Usuario */
             $colStmt = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
@@ -1377,8 +1391,8 @@ require_once '../includes/header.php';
         </div>
 
         <div>
-            <label for="editLogin">Login / CPF</label>
-            <input type="text" id="editLogin" placeholder="000.000.000-00" maxlength="20" oninput="maskCpf(this)">
+            <label for="editLogin">Login</label>
+            <input type="text" id="editLogin" placeholder="Login da conta" maxlength="100">
         </div>
 
         <div>
@@ -1809,18 +1823,6 @@ function onFotoChange(input) {
         previewSvg.style.display = 'none';
     };
     reader.readAsDataURL(file);
-}
-
-function maskCpf(input) {
-    let v = input.value.replace(/\D/g, '').substring(0, 11);
-    if (v.length > 9) {
-        v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/, '$1.$2.$3-$4');
-    } else if (v.length > 6) {
-        v = v.replace(/^(\d{3})(\d{3})(\d{1,3})$/, '$1.$2.$3');
-    } else if (v.length > 3) {
-        v = v.replace(/^(\d{3})(\d{1,3})$/, '$1.$2');
-    }
-    input.value = v;
 }
 
 function saveEdit() {

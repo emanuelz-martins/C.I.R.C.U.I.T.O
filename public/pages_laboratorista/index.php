@@ -460,6 +460,8 @@ try {
     </div>
 
 </main>
+<?php require __DIR__ . '/../includes/sobre_projeto.php'; ?>
+
 
 </body>
 </html>

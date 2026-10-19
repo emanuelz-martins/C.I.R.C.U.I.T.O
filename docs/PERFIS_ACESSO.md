@@ -1,13 +1,14 @@
 # Perfis de acesso
 
 Entre como administrador e abra **Gerenciar perfis de acesso** no painel inicial.
-Busque o usuário por nome ou CPF e clique na linha ou no nome. Um painel abre
+Busque o usuário por nome, login ou e-mail e clique na linha ou no nome. Um painel abre
 abaixo da lista, na mesma página, com ID, nome, matrícula, e-mail, forma de login
 e perfil em destaque. Campos não preenchidos aparecem como `—`.
 
 **Forma de Login** exibe o último método de autenticação bem-sucedido:
-Google, Teste ou SIGAA. Os logins atuais gravam Teste ou SIGAA automaticamente;
-a integração Google ainda não está implementada. Contas sem registro de login
+Google, Teste ou SIGAA. O método é registrado automaticamente ao entrar.
+O Google exige a configuração descrita no [guia de login Google](LOGIN_GOOGLE.md).
+Contas sem registro de login
 mostram `—` até entrar novamente. Alterar o perfil não muda esse campo.
 No painel, selecione Aluno, Laboratorista ou Administrador e clique em
 **Salvar perfil**. O perfil destacado e o tipo na lista são atualizados sem
@@ -37,15 +38,41 @@ a restrição existente para devoluções pendentes é mantida.
 O servidor também verifica o bloqueio antes de banir, exige CSRF nas ações
 administrativas e impede o administrador de banir a própria conta.
 
+Na tela de usuários do laboratorista, o menu oferece **Mandar aviso** e
+**Bloquear** / **Remover bloqueio**. Esse bloqueio restringe pedidos, mantendo
+o acesso do aluno à conta. Banir e remover banimento ficam exclusivamente no
+painel administrativo; a rota do laboratorista também recusa essas ações por
+requisição direta. Os cartões exibem matrícula quando preenchida ou **Aluno**,
+sem revelar login, CPF ou método de autenticação. A busca usa nome ou matrícula.
+
 | Perfil | Acesso |
 |---|---|
 | Aluno (`estudante`) | Catálogo, carrinho, seus pedidos, perfil e notificações |
 | Laboratorista (`laboratorista`) | Painel do laboratório e gestão de alunos; não acessa painéis de aluno ou administrador |
 | Administrador (`admin`) | Gestão de usuários e perfis, além dos recursos de gestão existentes |
 
-Novas contas começam como alunos quando a autenticação usa SIGAA.
-Entrar novamente preserva o perfil atribuído pelo administrador. Esta
-etapa não implementa Google nem altera o serviço institucional de autenticação.
+## Visualização de outras telas pelo administrador
+
+No fim do painel administrativo, junto ao texto do projeto e aos créditos, há
+**Entrar como Estudante** e **Entrar como Laboratorista**. Essas opções mantêm
+o perfil real `admin`; não criam contas nem alteram o perfil no banco. Uma faixa
+identifica a visualização e oferece **Voltar ao administrador**.
+
+Como estudante, o administrador consulta o catálogo e adiciona itens ao carrinho,
+mas não envia pedidos. Como laboratorista, consulta pedidos, usuários e telas de
+relatórios, mas as ações de seus menus mostram: “Você não tem permissão para fazer
+isso. Consulte diretamente um laboratorista.” A mesma mensagem aparece ao tentar
+enviar um pedido. O catálogo e suas categorias continuam permitindo edição.
+
+O servidor recusa as ações restritas também por requisição direta. A consulta de
+notas de atraso é recusada para o administrador porque o fluxo existente pode
+criar uma nota ao consultar. Para operar pedidos, use uma conta de laboratorista.
+O painel próprio do administrador continua com suas funções administrativas.
+O retorno ao painel encerra a visualização; um novo login também limpa esse modo.
+
+Novas contas começam como alunos quando a autenticação usa SIGAA ou Google.
+Entrar novamente preserva o perfil atribuído pelo administrador. O serviço
+institucional de autenticação SIGAA permanece com o mesmo funcionamento.
 
 O perfil e o bloqueio são consultados no banco em cada requisição protegida.
 Assim, promoções e rebaixamentos valem no próximo acesso, sem exigir logout.
@@ -61,6 +88,12 @@ Para atualizar um site existente pelo phpMyAdmin, importe primeiro o arquivo ún
 [`20261018_atualizacao_completa.sql`](../src/database/migrations/20261018_atualizacao_completa.sql)
 e depois publique o código. Siga as [instruções de importação](ATUALIZACAO_PHPMYADMIN.md).
 Esse arquivo reúne as migrações abaixo; não é necessário executar ambas as opções.
+
+Para o login Google, execute também
+[`20261018_google_login.sql`](../src/database/migrations/20261018_google_login.sql)
+antes de publicar essa versão. Ele adiciona a identidade Google e amplia o campo
+da foto, sem substituir logins existentes. No SIGAA, o CPF formatado continua no
+campo `login`; não existe uma coluna separada `cpf`.
 
 Não é necessário recriar o banco ou recadastrar usuários. A migração mantém os
 perfis existentes e define o valor padrão para novos registros:

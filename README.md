@@ -151,14 +151,20 @@ C.I.R.C.U.I.T.O/
 
 ## Autenticação
 
-O login oferece SIGAA e modo de teste local. A senha institucional é enviada apenas ao serviço do IFFar para validação e não é salva no banco local.
+O login oferece Google institucional, SIGAA e modo de teste local. A senha institucional é enviada apenas ao serviço do IFFar para validação e não é salva no banco local.
 
 | Método | Validação | Perfil aplicado |
 |---|---|---|
+| **Google** | Identidade assinada pelo Google; domínio e formato do e-mail institucional verificados no servidor | Novos usuários começam como `estudante`; mantém o perfil atribuído pelo administrador |
 | **SIGAA** | Serviço institucional, com `tipo=S` | Novos usuários começam como `estudante`; mantém o perfil atribuído pelo administrador |
-| **Teste** | CPF e senha com hash no banco local | Mantém o perfil salvo no banco |
+| **Teste** | Login e senha com hash no banco local | Mantém o perfil salvo no banco |
 
 No acesso SIGAA, se o CPF ainda não existir no banco, o sistema cria a conta local como estudante. Apenas o administrador altera o perfil de acesso.
+
+O CPF usado pelo SIGAA permanece no campo `login`, no formato `000.000.000-00`.
+Não há uma coluna `cpf`. Esse nome de campo não anonimiza o identificador.
+Contas Google não pedem CPF: usam a identidade estável da conta Google e salvam
+nome, e-mail e URL da foto. Consulte [a configuração e migração Google](docs/LOGIN_GOOGLE.md).
 
 Configure a URL do serviço no `.env` (o valor padrão já aponta para o serviço do IFFar):
 
@@ -172,7 +178,7 @@ IFFAR_AUTH_URL=https://www3.fw.iffarroupilha.edu.br/auth/index.php
 
 - **Backend:** PHP (MVC)
 - **Banco de dados:** MySQL
-- **Autenticação:** SIGAA e modo de teste local
+- **Autenticação:** Google institucional, SIGAA e modo de teste local
 - **Frontend:** HTML, CSS, JavaScript
 
 ---

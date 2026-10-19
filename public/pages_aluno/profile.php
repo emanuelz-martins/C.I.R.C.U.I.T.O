@@ -19,6 +19,7 @@ $db_ok = false;
 $foto_perfil      = null;
 $perfil_email     = '';
 $perfil_descricao = '';
+$perfil_google = false;
 
 try {
     $pdo = db();
@@ -28,12 +29,13 @@ try {
         $statusPreBloqueio = aluno_pre_bloqueio_status($pdo, (int) $id_usuario);
         $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
 
-        $stmt = $pdo->prepare('SELECT foto_perfil, email, descricao FROM Usuario WHERE id_user = :id');
+        $stmt = $pdo->prepare('SELECT foto_perfil, email, descricao, google_sub FROM Usuario WHERE id_user = :id');
         $stmt->execute(['id' => $id_usuario]);
         $row_up           = $stmt->fetch();
         $foto_perfil      = $row_up ? ($row_up['foto_perfil'] ?: null) : null;
         $perfil_email     = $row_up ? (string)($row_up['email']     ?? '') : '';
         $perfil_descricao = $row_up ? (string)($row_up['descricao'] ?? '') : '';
+        $perfil_google = $row_up && $row_up['google_sub'] !== null;
 
         /* Sincroniza sessão */
         $_SESSION['auth_user']['foto_perfil'] = $foto_perfil;
@@ -662,7 +664,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
 
         <div>
             <label for="perfilEmail">E-mail</label>
-            <input type="email" id="perfilEmail" value="<?= htmlspecialchars($perfil_email) ?>" placeholder="seu@email.com">
+            <input type="email" id="perfilEmail" value="<?= htmlspecialchars($perfil_email) ?>" placeholder="seu@email.com" <?= $perfil_google ? 'readonly aria-label="E-mail verificado da conta Google"' : '' ?>>
         </div>
 
         <div>

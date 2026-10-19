@@ -7,7 +7,7 @@ if ($user_perfil === 'laboratorista') {
     header('Location: pages_laboratorista/index.php');
     exit;
 }
-if ($user_perfil === 'admin') {
+if ($user_perfil === 'admin' && ($_SESSION['admin_visualizacao'] ?? '') !== 'estudante') {
     header('Location: pages_admin/index.php');
     exit;
 }

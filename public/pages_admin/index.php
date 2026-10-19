@@ -1,6 +1,8 @@
 <?php
 require_once '../includes/auth_check.php';
 checkAccess(['admin']);
+unset($_SESSION['admin_visualizacao']);
+$_SESSION['csrf_visualizacao_admin'] ??= bin2hex(random_bytes(32));
 
 require_once '../../src/config/database.php';
 
@@ -493,6 +495,8 @@ try {
     </div>
 
 </main>
+<?php require __DIR__ . '/../includes/sobre_projeto.php'; ?>
+
 
 <!-- ══════ MODAL: Controlar Dados ══════ -->
 <div class="choice-overlay" id="dadosModal" onclick="if(event.target===this)closeDadosModal()">

@@ -2,10 +2,10 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../src/config/database.php';
+require_once __DIR__ . '/../../src/services/sessao.php';
+require_once __DIR__ . '/../../src/services/visualizacao_admin.php';
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+iniciarSessaoSegura();
 
 function negarAcesso(int $status, string $mensagem): never
 {
@@ -55,6 +55,15 @@ function checkAccess(string|array $allowed_roles): void
     $_SESSION['auth_user']['nome'] = (string) $usuario['nome'];
     $_SESSION['auth_user']['login'] = (string) $usuario['login'];
     $_SESSION['auth_user']['perfil'] = (string) $usuario['tipo_perfil'];
+
+    if ($usuario['tipo_perfil'] !== 'admin') unset($_SESSION['admin_visualizacao']);
+    if ($usuario['tipo_perfil'] === 'admin') {
+        $script = rawurldecode(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')));
+        if (adminAcaoRestrita($script, (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), $_POST, $_GET, isset($_SESSION['admin_visualizacao']))) {
+            header('X-Circuito-Permissao: visualizacao-admin');
+            negarAcesso(403, AVISO_PERMISSAO_ADMIN);
+        }
+    }
 
     if (!in_array($usuario['tipo_perfil'], (array) $allowed_roles, true)) {
         negarAcesso(403, 'Acesso negado. Você não tem permissão para acessar esta página.');

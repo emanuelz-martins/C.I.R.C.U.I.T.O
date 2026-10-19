@@ -93,6 +93,7 @@
             const usuario = usuarios.get(id);
             const corresponde = normalizar(usuario.nome).includes(termo)
                 || normalizar(usuario.login).includes(termo)
+                || normalizar(usuario.email).includes(termo)
                 || (digitos.length === 11 && usuario.login.replace(/\D/g, '') === digitos);
             linha.hidden = !corresponde;
             if (corresponde) quantidade++;

@@ -20,6 +20,17 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" sizes="any" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
     <title><?= isset($page_title) ? htmlspecialchars($page_title) . ' – C.I.R.C.U.I.T.O.' : 'C.I.R.C.U.I.T.O.' ?></title>
+    <?php if (($authUser['perfil'] ?? '') === 'admin'):
+        $previewScript = rawurldecode(str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '')));
+        $previewArquivo = basename($previewScript);
+        $previewLab = str_contains($previewScript, '/pages_laboratorista/');
+        $previewRestrito = $previewLab && !in_array($previewArquivo, ['index.php', 'catalogo.php', 'cadastrar_catalogo.php', 'cadastrar_categoria.php', 'ajuda.php'], true);
+        $previewAluno = str_contains($previewScript, '/pages_aluno/') || (($_SESSION['admin_visualizacao'] ?? '') === 'estudante' && !$previewLab && !str_contains($previewScript, '/pages_admin/'));
+        $previewAtivo = $previewLab || $previewAluno;
+    ?>
+    <script id="adminPreviewConfig" type="application/json"><?= json_encode(['labRestrito' => $previewRestrito, 'aluno' => $previewAluno, 'ativo' => $previewAtivo, 'modo' => $previewLab ? 'Laboratorista' : 'Estudante', 'mensagem' => AVISO_PERMISSAO_ADMIN, 'voltar' => rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/') . '/pages_admin/index.php'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+    <script src="<?= htmlspecialchars(rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/') . '/assets/js/visualizacao-admin.js', ENT_QUOTES, 'UTF-8') ?>" defer></script>
+    <?php endif; ?>
     <style>
         * {
             margin: 0;

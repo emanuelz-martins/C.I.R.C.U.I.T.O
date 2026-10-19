@@ -33,8 +33,11 @@ try {
 
     $sets   = [];
     $params = ['id' => $id_usuario];
+    $googleStmt = $pdo->prepare('SELECT google_sub FROM Usuario WHERE id_user = ?');
+    $googleStmt->execute([$id_usuario]);
+    $contaGoogle = $googleStmt->fetchColumn() !== null;
 
-    if (in_array('email', $cols, true)) {
+    if (!$contaGoogle && in_array('email', $cols, true)) {
         $sets[] = 'email = :email';
         $params['email'] = trim($_POST['email'] ?? '') ?: null;
     }

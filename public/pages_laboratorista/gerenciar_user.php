@@ -3,10 +3,22 @@ require_once '../includes/auth_check.php';
 checkAccess(['laboratorista', 'admin']);
 require_once '../../src/config/database.php';
 require_once '../includes/pre_bloqueio_aluno.php';
+$_SESSION['csrf_gerenciar_user'] ??= bin2hex(random_bytes(32));
 
 /* ── Ações AJAX ─────────────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
+
+    if (!hash_equals($_SESSION['csrf_gerenciar_user'], (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_gerenciar_user'] ?? ''))) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'Solicitação inválida. Recarregue a página.']);
+        exit;
+    }
+    if ($_POST['action'] === 'toggle_block') {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'Banimentos são gerenciados somente pelo administrador no painel administrativo.']);
+        exit;
+    }
 
     try {
         $pdo     = db();
@@ -36,95 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
 
-        /* ── Bloquear / Desbloquear ── */
-        if ($_POST['action'] === 'toggle_block') {
-            $stmtUser = $pdo->prepare('SELECT nome, bloqueado, pre_bloqueado_manual, pre_bloqueado_por_nome, pre_bloqueado_por_tipo FROM Usuario WHERE id_user = :id LIMIT 1');
-            $stmtUser->execute(['id' => $id_user]);
-            $userRow = $stmtUser->fetch();
-
-            if (!$userRow) {
-                echo json_encode(['ok' => false, 'error' => 'Usuário não encontrado']);
-                exit;
-            }
-
-            $nomeAluno = (string) ($userRow['nome'] ?? 'Usuário');
-            $bloqueadoAtual = (int) ($userRow['bloqueado'] ?? 0);
-            $preManualAtivo = (int) ($userRow['pre_bloqueado_manual'] ?? 0) === 1;
-            $preManualTipoRaw = mb_strtolower(trim((string) ($userRow['pre_bloqueado_por_tipo'] ?? '')));
-            $preManualTipo = $preManualTipoRaw === 'admin' ? 'Adm.' : 'Lab.';
-            $preManualNome = trim((string) ($userRow['pre_bloqueado_por_nome'] ?? ''));
-            if ($preManualNome === '') $preManualNome = 'Usuário';
-            $preManualLabel = 'Pré-bloqueado, por ' . $preManualTipo . ': ' . $preManualNome;
-
-            if ($bloqueadoAtual === 1) {
-                $pedidoColsStmt = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
-                $pedidoColsStmt->execute(['t' => 'Pedido']);
-                $pedidoCols = $pedidoColsStmt->fetchAll(PDO::FETCH_COLUMN);
-
-                $statusCol = in_array('status_pedido', $pedidoCols, true)
-                    ? 'status_pedido'
-                    : (in_array('status', $pedidoCols, true) ? 'status' : null);
-
-                if ($statusCol !== null) {
-                    $stmtPendente = $pdo->prepare('SELECT 1 FROM Pedido WHERE id_user = :id_user AND ' . $statusCol . ' IN ("em-andamento", "em-atraso") LIMIT 1');
-                    $stmtPendente->execute(['id_user' => $id_user]);
-                    $temPacotePendente = (bool) $stmtPendente->fetchColumn();
-
-                    if ($temPacotePendente) {
-                        echo json_encode(['ok' => false, 'error' => 'Não foi possivel desbloquear, motivo: Usuario ainda não devolveu o pacote']);
-                        exit;
-                    }
-                }
-
-                $pdo->prepare('UPDATE Usuario SET bloqueado = 0 WHERE id_user = :id')
-                    ->execute(['id' => $id_user]);
-
-                $mensagemNotif = sprintf(
-                    'Prezado, %s. Seu bloqueio foi removido pelo %s: %s.',
-                    $nomeAluno,
-                    $atorLabel,
-                    $atorNome
-                );
-
-                $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
-                $notCols->execute(['t' => 'Notificacao']);
-                $cols = $notCols->fetchAll(PDO::FETCH_COLUMN);
-
-                if (in_array('humor', $cols, true)) {
-                    $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo, humor) VALUES (:u, :t, :m, :tp, :h)')
-                        ->execute(['u' => $id_user, 't' => 'Desbloqueio realizado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
-                } else {
-                    $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
-                        ->execute(['u' => $id_user, 't' => 'Desbloqueio realizado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
-                }
-
-                $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
-                echo json_encode([
-                    'ok' => true,
-                    'bloqueado' => 0,
-                    'pre_bloqueado_auto' => (($statusAuto['pre_bloqueado'] ?? false) === true),
-                    'motivo_auto' => (string) ($statusAuto['motivo'] ?? ''),
-                    'pre_manual_ativo' => $preManualAtivo,
-                    'pre_manual_label' => $preManualLabel,
-                ]);
-                exit;
-            }
-
-            $pdo->prepare('UPDATE Usuario SET bloqueado = 1 WHERE id_user = :id')
-                ->execute(['id' => $id_user]);
-
-            $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
-            echo json_encode([
-                'ok' => true,
-                'bloqueado' => 1,
-                'pre_bloqueado_auto' => (($statusAuto['pre_bloqueado'] ?? false) === true),
-                'motivo_auto' => (string) ($statusAuto['motivo'] ?? ''),
-                'pre_manual_ativo' => $preManualAtivo,
-                'pre_manual_label' => $preManualLabel,
-            ]);
-            exit;
-        }
-
         if ($_POST['action'] === 'toggle_preblock') {
             $motivo = trim((string) ($_POST['motivo'] ?? ''));
 
@@ -141,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $nomeAluno = (string) ($row['nome'] ?? 'Usuário');
 
             if (!$jaPreBloqueado && $motivo === '') {
-                echo json_encode(['ok' => false, 'error' => 'Informe o motivo do pré-bloqueio.']);
+                echo json_encode(['ok' => false, 'error' => 'Informe o motivo do bloqueio.']);
                 exit;
             }
 
@@ -171,13 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ]);
 
             $mensagemNotif = sprintf(
-                'Prezado, %s. Você foi pré-bloqueado pelo %s: %s.',
+                'Prezado, %s. Você foi bloqueado pelo %s: %s.',
                 $nomeAluno,
                 $atorLabel,
                 $atorNome
             );
             $atorTipoLabel = $atorPerfil === 'admin' ? 'Adm.' : 'Lab.';
-            $preManualLabel = 'Pré-bloqueado, por ' . $atorTipoLabel . ': ' . $atorNome;
+            $preManualLabel = 'Bloqueado, por ' . $atorTipoLabel . ': ' . $atorNome;
 
             $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
             $notCols->execute(['t' => 'Notificacao']);
@@ -185,10 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             if (in_array('humor', $cols, true)) {
                 $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo, humor) VALUES (:u, :t, :m, :tp, :h)')
-                    ->execute(['u' => $id_user, 't' => 'Pré-bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
+                    ->execute(['u' => $id_user, 't' => 'Bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso', 'h' => 'neutro']);
             } else {
                 $pdo->prepare('INSERT INTO Notificacao (id_user, titulo, mensagem, tipo) VALUES (:u, :t, :m, :tp)')
-                    ->execute(['u' => $id_user, 't' => 'Pré-bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
+                    ->execute(['u' => $id_user, 't' => 'Bloqueio aplicado', 'm' => $mensagemNotif, 'tp' => 'aviso']);
             }
 
             $statusAuto = aluno_pre_bloqueio_status($pdo, $id_user);
@@ -255,14 +178,15 @@ try {
     $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_nome VARCHAR(150) NULL');
     $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_tipo VARCHAR(30) NULL');
 
-    $sql    = "SELECT id_user, nome, login, matricula, bloqueado, foto_perfil, pre_bloqueado_manual, pre_bloqueio_motivo, pre_bloqueado_por_nome, pre_bloqueado_por_tipo
+    $sql    = "SELECT id_user, nome, matricula, bloqueado, foto_perfil, pre_bloqueado_manual, pre_bloqueio_motivo, pre_bloqueado_por_nome, pre_bloqueado_por_tipo
                FROM   Usuario
                WHERE  tipo_perfil = 'estudante'";
     $params = [];
 
     if ($search !== '') {
-        $sql .= ' AND (nome LIKE :q OR matricula LIKE :q OR login LIKE :q)';
-        $params['q'] = '%' . $search . '%';
+        $sql .= ' AND (nome LIKE :q_nome OR matricula LIKE :q_matricula)';
+        $params['q_nome'] = '%' . $search . '%';
+        $params['q_matricula'] = '%' . $search . '%';
     }
 
     $sql .= ' ORDER BY nome ASC';
@@ -772,6 +696,7 @@ require_once '../includes/header.php';
 
 <!-- ══════════════════ CONTEÚDO ══════════════════ -->
 <main class="main">
+    <input type="hidden" id="gerenciarUserCsrf" name="csrf_gerenciar_user" value="<?= htmlspecialchars($_SESSION['csrf_gerenciar_user'], ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="page-header">
         <h1 class="page-title">Usuários</h1>
@@ -827,17 +752,17 @@ require_once '../includes/header.php';
             $preAutoStatus = $preBloqueioAutoMap[(int) $u['id_user']] ?? ['pre_bloqueado' => false, 'motivo' => ''];
             $preBloqueadoAuto = (($preAutoStatus['pre_bloqueado'] ?? false) === true);
             $motivoAuto = trim((string) ($preAutoStatus['motivo'] ?? ''));
-            $mostrarPreBadge = $preBloqueadoManual || $preBloqueadoAuto || (int) ($u['bloqueado'] ?? 0) === 1;
+            $mostrarPreBadge = $preBloqueadoManual || $preBloqueadoAuto;
             $preTipoRaw = mb_strtolower(trim((string) ($u['pre_bloqueado_por_tipo'] ?? '')));
             $preTipo = $preTipoRaw === 'admin' ? 'Adm.' : 'Lab.';
             $preNome = trim((string) ($u['pre_bloqueado_por_nome'] ?? ''));
             if ($preNome === '') $preNome = 'Usuário';
             $preBadgeText = $preBloqueadoManual
-                ? ('Pré-bloqueado, por ' . $preTipo . ': ' . $preNome)
-                : ($preBloqueadoAuto ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado');
+                ? ('Bloqueado, por ' . $preTipo . ': ' . $preNome)
+                : ($preBloqueadoAuto ? 'Bloqueado, automaticamente.' : 'Bloqueado');
             $preBadgeTitle = $preBloqueadoManual
                 ? (string) ($u['pre_bloqueio_motivo'] ?? '')
-                : ($motivoAuto !== '' ? $motivoAuto : ((int) ($u['bloqueado'] ?? 0) === 1 ? 'Usuário bloqueado' : ''));
+                : $motivoAuto;
             $mostrarOpcaoPreblock = $preBloqueadoManual || !$preBloqueadoAuto;
         ?>
         <div class="user-card <?= $u['bloqueado'] ? 'bloqueado' : '' ?> <?= $mostrarPreBadge ? 'prebloqueado' : '' ?>" id="card-<?= $u['id_user'] ?>">
@@ -857,7 +782,7 @@ require_once '../includes/header.php';
                 <p class="user-sub">
                     <?= $u['matricula'] !== null && $u['matricula'] !== ''
                         ? 'Matrícula: ' . htmlspecialchars($u['matricula'])
-                        : 'Login: '     . htmlspecialchars($u['login']) ?>
+                        : 'Aluno' ?>
                 </p>
             </div>
 
@@ -865,7 +790,7 @@ require_once '../includes/header.php';
                 class="badge-bloqueado"
                 id="badge-<?= $u['id_user'] ?>"
                 <?= $u['bloqueado'] ? '' : 'style="display:none"' ?>
-            >Bloqueado</span>
+            >Banido</span>
 
             <span
                 class="badge-prebloqueado"
@@ -893,28 +818,6 @@ require_once '../includes/header.php';
 
                 <div class="action-dropdown" role="menu">
 
-                    <button
-                        class="<?= $u['bloqueado'] ? 'unblock' : 'danger' ?>"
-                        id="btn-block-<?= $u['id_user'] ?>"
-                        onclick="toggleBlock(<?= $u['id_user'] ?>)"
-                    >
-                        <?php if ($u['bloqueado']): ?>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-                        </svg>
-                        Desbloquear
-                        <?php else: ?>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                        </svg>
-                        Bloquear
-                        <?php endif; ?>
-                    </button>
-
                     <button onclick="openNoticeModal(<?= $u['id_user'] ?>, '<?= htmlspecialchars(addslashes($u['nome'])) ?>')">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -936,7 +839,7 @@ require_once '../includes/header.php';
                             <line x1="12" y1="8" x2="12" y2="12"/>
                             <line x1="12" y1="16" x2="12.01" y2="16"/>
                         </svg>
-                        <?= $preBloqueadoManual ? 'Remover pré-bloqueio' : 'Pré-bloquear' ?>
+                        <?= $preBloqueadoManual ? 'Remover bloqueio' : 'Bloquear' ?>
                     </button>
 
                 </div>
@@ -1043,74 +946,7 @@ function closeAllMenus() {
 
 document.addEventListener('click', closeAllMenus);
 
-/* ── Bloquear / Desbloquear ──────────────────────── */
-function toggleBlock(id) {
-    closeAllMenus();
-
-    fetch('', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'action=toggle_block&id_user=' + id
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (!data.ok) { showToast('Erro: ' + data.error, 'error'); return; }
-
-        const card  = document.getElementById('card-'      + id);
-        const badge = document.getElementById('badge-'     + id);
-        const btn   = document.getElementById('btn-block-' + id);
-
-        const preBadge = document.getElementById('prebadge-' + id);
-        const btnPre = document.getElementById('btn-preblock-' + id);
-        const preManualAtivo = (data.pre_manual_ativo ?? false) === true || (data.pre_manual_ativo ?? 0) === 1 || (btnPre && btnPre.textContent.toLowerCase().includes('remover'));
-        const preManualLabel = (data.pre_manual_label || '').trim();
-        const preAutoAtivo = (data.pre_bloqueado_auto ?? false) === true || (data.pre_bloqueado_auto ?? 0) === 1;
-        const motivoAuto = (data.motivo_auto || '').trim();
-
-        if (data.bloqueado) {
-            card.classList.add('bloqueado');
-            card.classList.add('prebloqueado');
-            badge.style.display = '';
-            if (preBadge) {
-                preBadge.style.display = '';
-                preBadge.textContent = preManualAtivo ? (preManualLabel || 'Pré-bloqueado') : (preAutoAtivo ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado');
-                if (!preManualAtivo) preBadge.title = motivoAuto || 'Usuário bloqueado';
-            }
-            if (btnPre && !preManualAtivo && preAutoAtivo) btnPre.style.display = 'none';
-            btn.className = 'unblock';
-            btn.innerHTML = svgLockOpen() + ' Desbloquear';
-            showToast('Usuário bloqueado.', 'error');
-        } else {
-            card.classList.remove('bloqueado');
-            if (!preManualAtivo && !preAutoAtivo) {
-                card.classList.remove('prebloqueado');
-                if (preBadge) {
-                    preBadge.style.display = 'none';
-                    preBadge.textContent = 'Pré-bloqueado';
-                    preBadge.title = '';
-                }
-                if (btnPre) btnPre.style.display = '';
-            } else if (!preManualAtivo && preAutoAtivo) {
-                card.classList.add('prebloqueado');
-                if (preBadge) {
-                    preBadge.style.display = '';
-                    preBadge.textContent = 'Pré-bloqueado, automaticamente.';
-                    preBadge.title = motivoAuto || 'Pré-bloqueado automático';
-                }
-                if (btnPre) btnPre.style.display = 'none';
-            } else if (preManualAtivo) {
-                if (btnPre) btnPre.style.display = '';
-                if (preBadge) preBadge.textContent = preManualLabel || 'Pré-bloqueado';
-            }
-            badge.style.display = 'none';
-            btn.className = 'danger';
-            btn.innerHTML = svgLockClosed() + ' Bloquear';
-            showToast('Usuário desbloqueado.', 'success');
-        }
-    })
-    .catch(() => showToast('Falha de comunicação.', 'error'));
-}
-
+const csrfGerenciarUser = document.getElementById('gerenciarUserCsrf').value;
 function togglePreBlock(id, nome) {
     closeAllMenus();
 
@@ -1119,16 +955,16 @@ function togglePreBlock(id, nome) {
 
     let motivo = '';
     if (!removendo) {
-        motivo = (window.prompt('Informe o motivo do pré-bloqueio para ' + nome + ':') || '').trim();
+        motivo = (window.prompt('Informe o motivo do bloqueio para ' + nome + ':') || '').trim();
         if (!motivo) {
-            showToast('Motivo obrigatório para pré-bloquear.', 'error');
+            showToast('Motivo obrigatório para bloquear.', 'error');
             return;
         }
     }
 
     fetch('', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfGerenciarUser, 'Accept': 'application/json' },
         body: new URLSearchParams({
             action: 'toggle_preblock',
             id_user: id,
@@ -1153,61 +989,43 @@ function togglePreBlock(id, nome) {
             card.classList.add('prebloqueado');
             if (badge) {
                 badge.style.display = '';
-                badge.textContent = preManualLabel || 'Pré-bloqueado';
+                badge.textContent = preManualLabel || 'Bloqueado';
                 badge.title = data.motivo || '';
             }
             if (botao) {
                 botao.style.display = '';
                 botao.className = 'unblock';
-                botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Remover pré-bloqueio`;
+                botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Remover bloqueio`;
             }
-            showToast('Usuário pré-bloqueado e notificado.', 'error');
+            showToast('Usuário bloqueado e notificado.', 'error');
         } else {
-            const badgeBloqueado = document.getElementById('badge-' + id);
-            const aindaBloqueado = badgeBloqueado && badgeBloqueado.style.display !== 'none';
-            if (aindaBloqueado || preAutoAtivo) {
+            if (preAutoAtivo) {
                 card.classList.add('prebloqueado');
                 if (badge) {
                     badge.style.display = '';
-                    badge.textContent = preAutoAtivo ? 'Pré-bloqueado, automaticamente.' : 'Pré-bloqueado';
-                    badge.title = motivoAuto || (aindaBloqueado ? 'Usuário bloqueado' : 'Pré-bloqueado automático');
+                    badge.textContent = preAutoAtivo ? 'Bloqueado, automaticamente.' : 'Bloqueado';
+                    badge.title = motivoAuto || 'Bloqueado automático';
                 }
                 if (botao && preAutoAtivo) botao.style.display = 'none';
             } else {
                 card.classList.remove('prebloqueado');
                 if (badge) {
                     badge.style.display = 'none';
-                    badge.textContent = 'Pré-bloqueado';
+                    badge.textContent = 'Bloqueado';
                     badge.title = '';
                 }
                 if (botao) botao.style.display = '';
             }
             if (botao) {
-                if (!(preAutoAtivo && !aindaBloqueado)) {
+                if (!preAutoAtivo) {
                     botao.className = 'danger';
-                    botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Pré-bloquear`;
+                    botao.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Bloquear`;
                 }
             }
-            showToast('Pré-bloqueio removido.', 'success');
+            showToast('Bloqueio removido.', 'success');
         }
     })
     .catch(() => showToast('Falha de comunicação.', 'error'));
-}
-
-function svgLockOpen() {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-        <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-    </svg>`;
-}
-
-function svgLockClosed() {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-    </svg>`;
 }
 
 /* ── Modal de aviso ──────────────────────────────── */
@@ -1265,7 +1083,7 @@ function sendNotice() {
 
     fetch('', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfGerenciarUser, 'Accept': 'application/json' },
         body: new URLSearchParams({
             action:   'send_notice',
             id_user:  currentUserId,

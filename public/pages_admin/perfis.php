@@ -65,14 +65,13 @@ try {
     $params = [];
     if ($busca !== '') {
         $digitos = preg_replace('/\D/', '', $busca);
-        $buscaCpf = is_string($digitos) && strlen($digitos) === 11;
-        $where[] = '(nome LIKE :nome OR login LIKE :login'
-            . ($buscaCpf ? " OR REPLACE(REPLACE(login, '.', ''), '-', '') = :cpf" : '') . ')';
+        $loginNumerico = is_string($digitos) && strlen($digitos) === 11;
+        $where[] = '(nome LIKE :nome OR login LIKE :login OR email LIKE :email'
+            . ($loginNumerico ? " OR REPLACE(REPLACE(login, '.', ''), '-', '') = :login_numerico" : '') . ')';
         $params['nome'] = '%' . $busca . '%';
         $params['login'] = '%' . $busca . '%';
-        if ($buscaCpf) {
-            $params['cpf'] = $digitos;
-        }
+        $params['email'] = '%' . $busca . '%';
+        if ($loginNumerico) $params['login_numerico'] = $digitos;
     }
     if ($filtro !== '') {
         $where[] = 'tipo_perfil = :perfil';
@@ -145,7 +144,7 @@ $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8'
     <div id="pageFeedback" class="feedback <?= $erro !== '' ? 'error' : 'success' ?>" role="status"><?= $esc($erro !== '' ? $erro : $sucesso) ?></div>
 
     <div class="search-bar">
-        <input type="text" id="searchInput" aria-label="Buscar usuário pelo nome ou CPF" placeholder="Buscar usuário pelo nome…" value="<?= $esc($busca) ?>">
+        <input type="text" id="searchInput" aria-label="Buscar usuário pelo nome, e-mail ou identificador" placeholder="Buscar usuário pelo nome…" value="<?= $esc($busca) ?>">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>

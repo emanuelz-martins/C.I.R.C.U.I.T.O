@@ -23,6 +23,8 @@ if (env('APP_ENV') !== 'local' || env('DB_PROFILE') !== 'xampp'
 
 $pdo = db();
 $ids = [];
+$previewCategoria = null;
+$previewComponente = null;
 $clients = [];
 $checks = 0;
 $password = bin2hex(random_bytes(16));
@@ -194,8 +196,34 @@ try {
     $first = json_decode($events[0], true, 512, JSON_THROW_ON_ERROR);
     verificar($first['id_usuario'] === $users['estudante']['id'] && $first['perfil_anterior'] === 'estudante' && $first['perfil_novo'] === 'laboratorista', 'auditoria registra alvo e perfis anterior e novo');
 
-    $r = requisicao($lab, '/pages_laboratorista/gerenciar_user.php', ['action' => 'toggle_block', 'id_user' => $users['admin']['id']]);
+    $labPagina = '/pages_laboratorista/gerenciar_user.php';
+    $listaLab = requisicao($lab, $labPagina . '?q=' . rawurlencode($prefix));
+    preg_match('/name="csrf_gerenciar_user" value="([a-f0-9]+)"/', $listaLab['body'], $m);
+    $labToken = $m[1] ?? '';
+    verificar(strlen($labToken) === 64, 'gestão do laboratorista fornece CSRF');
+    verificar(!str_contains($listaLab['body'], 'Login:') && !str_contains($listaLab['body'], $users['estudante']['login']), 'lista do laboratorista não revela o login');
+    verificar(!str_contains($listaLab['body'], 'Pré-bloquear') && !str_contains($listaLab['body'], 'Remover pré-bloqueio') && !str_contains($listaLab['body'], 'onclick="toggleBlock('), 'menu do laboratorista elimina nomes antigos e ação de banimento');
+    verificar(str_contains($listaLab['body'], 'Matrícula: 20260001'), 'matrícula continua disponível ao laboratorista');
+    $labPost = ['csrf_gerenciar_user' => $labToken, 'action' => 'toggle_preblock', 'id_user' => $users['estudante']['id'], 'motivo' => 'Bloqueio temporário de teste'];
+    verificar(requisicao($lab, $labPagina, array_replace($labPost, ['csrf_gerenciar_user' => 'invalido']), true)['status'] === 403, 'bloqueio pelo laboratorista exige CSRF');
+    $r = requisicao($lab, $labPagina, array_replace($labPost, ['id_user' => $users['admin']['id']]), true);
     verificar($r['status'] === 403, 'laboratorista não administra conta de administrador');
+    verificar(requisicao($lab, $labPagina, array_replace($labPost, ['action' => 'toggle_block']), true)['status'] === 403, 'laboratorista não pode banir aluno com POST forjado');
+    $r = requisicao($lab, $labPagina, $labPost, true);
+    verificar($r['status'] === 200 && json_decode($r['body'], true, 512, JSON_THROW_ON_ERROR)['ok'], 'laboratorista bloqueia apenas pedidos do aluno');
+    $estadoLab = $pdo->query('SELECT bloqueado, pre_bloqueado_manual FROM Usuario WHERE id_user = ' . $users['estudante']['id'])->fetch();
+    verificar((int) $estadoLab['bloqueado'] === 0 && (int) $estadoLab['pre_bloqueado_manual'] === 1, 'bloqueio do laboratorista mantém acesso à conta');
+    verificar(requisicao($student, '/index.php')['status'] === 200, 'aluno bloqueado pelo laboratorista ainda consulta catálogo');
+    verificar(requisicao($student, '/api/carrinho_add.php', ['id_comp' => 1, 'quantidade' => 1], true, true)['status'] === 403, 'aluno bloqueado pelo laboratorista não adiciona itens');
+    $listaLabBloqueado = requisicao($lab, $labPagina . '?q=' . rawurlencode($prefix));
+    verificar(str_contains($listaLabBloqueado['body'], 'Remover bloqueio'), 'bloqueado oferece Remover bloqueio');
+    $r = requisicao($lab, $labPagina, $labPost, true);
+    verificar(json_decode($r['body'], true, 512, JSON_THROW_ON_ERROR)['ok'], 'laboratorista remove bloqueio de pedidos');
+    verificar((int) $pdo->query('SELECT pre_bloqueado_manual FROM Usuario WHERE id_user = ' . $users['estudante']['id'])->fetchColumn() === 0, 'remoção limpa o bloqueio manual');
+    $r = requisicao($lab, $labPagina, array_replace($labPost, ['action' => 'toggle_block', 'id_user' => $users['bloqueado']['id']]), true);
+    verificar($r['status'] === 403 && (int) $pdo->query('SELECT bloqueado FROM Usuario WHERE id_user = ' . $users['bloqueado']['id'])->fetchColumn() === 1, 'laboratorista também não remove banimento');
+    $r = requisicao($lab, $labPagina, array_replace($labPost, ['action' => 'send_notice', 'titulo' => $prefix . ' laboratório', 'mensagem' => 'Aviso temporário do laboratorista']), true);
+    verificar(json_decode($r['body'], true, 512, JSON_THROW_ON_ERROR)['ok'], 'envio de avisos do laboratorista continua funcionando');
 
     foreach (['/ldaptest.php', '/../src/views/ldap_control/ldaptest.php'] as $path) {
         verificar(requisicao($admin, $path)['status'] === 404, 'diagnóstico removido não permite acesso pela URL antiga');
@@ -326,6 +354,56 @@ try {
     requisicao($admin, '/pages_admin/controlar_aluno.php', $avisosPost);
     $pdo->prepare('DELETE FROM Pedido WHERE id_pedido = ?')->execute([$pedidoTemporario]);
 
+    $homeAdmin = requisicao($admin, '/pages_admin/index.php');
+    verificar(str_contains($homeAdmin['body'], 'Entrar como Estudante') && str_contains($homeAdmin['body'], 'Entrar como Laboratorista'), 'rodapé administrativo oferece as duas visualizações');
+    foreach (['Davi Cadoná Marion;', 'Emanuel Ziegler Martins;', 'Luiz Fernando Schwanz;', 'Pedro Henrique Toazza;', 'Victor Borba de Moura e Silva.'] as $autor) {
+        verificar(str_contains($homeAdmin['body'], $autor), 'rodapé preserva o crédito: ' . $autor);
+    }
+    $homeLab = requisicao($lab, '/pages_laboratorista/index.php');
+    verificar(str_contains($homeLab['body'], 'O sistema oficial do Laboratório de Hardware') && str_contains($homeLab['body'], 'Victor Borba de Moura e Silva.'), 'painel do laboratorista recebe o texto original');
+    preg_match('/name="csrf_visualizacao_admin" value="([a-f0-9]+)"/', $homeAdmin['body'], $m);
+    $previewPost = ['csrf_visualizacao_admin' => $m[1] ?? '', 'visualizacao' => 'estudante'];
+    verificar(requisicao($admin, '/pages_admin/visualizar.php')['status'] === 405, 'troca de visualização exige POST');
+    verificar(requisicao($admin, '/pages_admin/visualizar.php', array_replace($previewPost, ['csrf_visualizacao_admin' => 'errado']))['status'] === 403, 'troca de visualização exige CSRF');
+    verificar(requisicao($student, '/pages_admin/visualizar.php', $previewPost)['status'] === 403, 'aluno não pode ativar visualização administrativa');
+    verificar(requisicao($lab, '/pages_admin/visualizar.php', $previewPost)['status'] === 403, 'laboratorista não pode ativar visualização administrativa');
+    $r = requisicao($admin, '/pages_admin/visualizar.php', array_replace($previewPost, ['visualizacao' => 'admin']));
+    verificar($r['status'] === 422, 'visualização desconhecida é recusada');
+    $r = requisicao($admin, '/pages_admin/visualizar.php', $previewPost);
+    verificar($r['status'] === 303 && $r['headers']['location'] === '../index.php', 'administrador abre visualização de aluno');
+    $r = requisicao($admin, '/index.php');
+    verificar($r['status'] === 200 && str_contains($r['body'], 'adminPreviewConfig'), 'catálogo do aluno abre para administrador sem redirecionar ao painel');
+    verificar(perfil($pdo, $users['admin']['id']) === 'admin', 'visualização não altera o perfil no banco');
+    $pdo->prepare('INSERT INTO Categoria (nome) VALUES (?)')->execute([$prefix . ' catálogo temporário']);
+    $previewCategoria = (int) $pdo->lastInsertId();
+    $pdo->prepare('INSERT INTO Componente (id_cat, nome, qtd_disponivel) VALUES (?, ?, 3)')->execute([$previewCategoria, $prefix . ' componente temporário']);
+    $previewComponente = (int) $pdo->lastInsertId();
+    $r = requisicao($admin, '/api/carrinho_add.php', ['id_comp' => $previewComponente, 'quantidade' => 1], true, true);
+    verificar($r['status'] === 200 && json_decode($r['body'], true)['ok'], 'administrador pode adicionar item ao carrinho de demonstração');
+    $r = requisicao($admin, '/pages_aluno/carrinho.php');
+    verificar($r['status'] === 200 && str_contains($r['body'], $prefix . ' componente temporário'), 'carrinho mostra o item adicionado');
+    $totalPedidosAntes = (int) $pdo->query('SELECT COUNT(*) FROM Pedido')->fetchColumn();
+    $r = requisicao($admin, '/pages_aluno/carrinho.php', ['action' => 'finalizar-pedido', 'cart_payload' => json_encode([['id' => $previewComponente, 'quantidade' => 1]]), 'prazo_devolucao_opcao' => '1-3'], true);
+    verificar($r['status'] === 403 && str_contains(json_decode($r['body'], true)['mensagem'], 'Consulte diretamente um laboratorista'), 'envio de pedido do administrador é recusado no servidor');
+    verificar((int) $pdo->query('SELECT COUNT(*) FROM Pedido')->fetchColumn() === $totalPedidosAntes, 'visualização não cria pedidos');
+    verificar((int) $pdo->query('SELECT qtd_disponivel FROM Componente WHERE id_comp = ' . $previewComponente)->fetchColumn() === 3, 'tentativa de envio não altera estoque');
+    $r = requisicao($admin, '/pages_admin/visualizar.php', array_replace($previewPost, ['visualizacao' => 'laboratorista']));
+    verificar($r['status'] === 303 && $r['headers']['location'] === '../pages_laboratorista/index.php', 'administrador abre visualização de laboratorista');
+    foreach (['acessar.php', 'gerenciar_user.php', 'relatório_geral.php', 'catalogo.php', 'cadastrar_catalogo.php', 'cadastrar_categoria.php'] as $paginaPreview) {
+        verificar(requisicao($admin, '/pages_laboratorista/' . $paginaPreview)['status'] === 200, 'administrador consulta a tela: ' . $paginaPreview);
+    }
+    foreach (['/pages_laboratorista/acessar.php', '/pages_laboratorista/gerenciar_user.php', '/pages_laboratorista/relatório_geral.php', '/api/pedido_arquivar_lab.php', '/api/pedido_atraso_nota.php', '/api/pedido_arquivar.php', '/api/admin_apagar_pedido.php'] as $rotaRestrita) {
+        $r = requisicao($admin, $rotaRestrita, ['action' => 'toggle_preblock', 'id_user' => $users['estudante']['id']], true);
+        verificar($r['status'] === 403 && str_contains(json_decode($r['body'], true)['mensagem'], 'Consulte diretamente um laboratorista'), 'requisição forjada é recusada: ' . $rotaRestrita);
+    }
+    verificar(requisicao($admin, '/api/pedido_atraso_nota.php?acao=buscar&id_pedido=1', null, true)['status'] === 403, 'GET que cria nota de pedido também é recusado');
+    verificar(requisicao($admin, '/pages_laboratorista/relatório_geral.php?action=emitir', null, true)['status'] === 403, 'emissão por parâmetro GET não contorna a regra');
+    $r = requisicao($admin, '/pages_laboratorista/catalogo.php', ['action' => 'editar', 'id_comp' => $previewComponente, 'nome' => $prefix . ' catálogo editado', 'descricao' => 'Teste temporário', 'qtd_disponivel' => 5]);
+    verificar($r['status'] === 302 && $pdo->query('SELECT nome FROM Componente WHERE id_comp = ' . $previewComponente)->fetchColumn() === $prefix . ' catálogo editado', 'administrador mantém permissão de editar o catálogo');
+    requisicao($admin, '/pages_admin/index.php');
+    $r = requisicao($admin, '/index.php');
+    verificar($r['status'] === 302 && $r['headers']['location'] === 'pages_admin/index.php', 'voltar ao administrador encerra a visualização');
+
     $post['id_user'] = $users['outro_admin']['id'];
     $post['tipo_perfil'] = 'estudante';
     verificar(requisicao($admin, '/pages_admin/perfis.php', $post)['status'] === 303, 'administrador pode rebaixar outro administrador');
@@ -344,6 +422,8 @@ try {
     verificar(requisicao($student, '/index.php')['status'] === 403, 'conta removida perde acesso');
 } finally {
     if ($pdo->inTransaction()) { $pdo->rollBack(); }
+    if ($previewComponente !== null) $pdo->prepare('DELETE FROM Componente WHERE id_comp = ?')->execute([$previewComponente]);
+    if ($previewCategoria !== null) $pdo->prepare('DELETE FROM Categoria WHERE id_cat = ?')->execute([$previewCategoria]);
     if ($ids) {
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $pdo->prepare("DELETE FROM Notificacao WHERE id_user IN ({$placeholders})")->execute($ids);
