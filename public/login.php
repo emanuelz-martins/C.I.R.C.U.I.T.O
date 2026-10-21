@@ -103,7 +103,7 @@ $temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
         .account-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
         .account-option { position: relative; cursor: pointer; }
         .account-option input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-        .account-card { display: flex; flex-direction: column; justify-content: center; gap: 7px; height: 88px; padding: 13px; background: var(--bg-campo); border: 1px solid var(--borda-campo); border-radius: 12px; transition: background-color .15s, border-color .15s; }
+        .account-card { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-height: 54px; padding: 14px; background: var(--bg-campo); border: 1px solid var(--borda-campo); border-radius: 12px; transition: background-color .15s, border-color .15s; }
         .account-heading { display: flex; align-items: center; gap: 8px; color: var(--texto-secundario); font-size: 14px; font-weight: 600; }
         .account-heading svg { width: 19px; height: 19px; flex-shrink: 0; }
         .account-description { color: var(--texto-suave); font-size: 11px; line-height: 1.4; }
@@ -175,7 +175,6 @@ $temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-5 9 5-9 5-9-5Z"/><path d="M7 11.2V17c3 2 7 2 10 0v-5.8M21 9v7"/></svg>
                                     <span>SIGAA</span><span class="account-check" aria-hidden="true"></span>
                                 </span>
-                                <span class="account-description">Conta institucional</span>
                             </span>
                         </label>
                         <label class="account-option">
@@ -183,9 +182,8 @@ $temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
                             <span class="account-card">
                                 <span class="account-heading">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><circle cx="12" cy="9" r="2.5"/><path d="M8 17c0-4 8-4 8 0"/></svg>
-                                    <span>Teste</span><span class="account-check" aria-hidden="true"></span>
+                                    <span>Local</span><span class="account-check" aria-hidden="true"></span>
                                 </span>
-                                <span class="account-description">Conta de teste</span>
                             </span>
                         </label>
                     </div>
@@ -193,7 +191,7 @@ $temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
                 <div class="form-group">
                     <label for="usuario" id="labelUsuario"><?= $accessType === 'sigaa' ? 'CPF:' : 'Login:' ?></label>
                     <div class="input-wrapper">
-                        <input type="text" id="usuario" name="usuario" placeholder="<?= $accessType === 'sigaa' ? 'Ex.: 111.111.111-11' : 'Login da conta de teste' ?>" maxlength="<?= $accessType === 'sigaa' ? '14' : '100' ?>" autocomplete="username" required>
+                        <input type="text" id="usuario" name="usuario" placeholder="<?= $accessType === 'sigaa' ? 'Ex.: 111.111.111-11' : 'Login da conta local' ?>" maxlength="<?= $accessType === 'sigaa' ? '14' : '100' ?>" autocomplete="username" required>
                     </div>
                 </div>
 
@@ -208,7 +206,7 @@ $temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
                 <button type="submit" class="login-button">Entrar</button>
             </form>
 
-            <p class="help" id="accessHelp"><?= $accessType === 'sigaa' ? '<strong>SIGAA:</strong> use o CPF e a senha da sua conta institucional.' : '<strong>Teste:</strong> use o login e a senha da sua conta de teste.' ?></p>
+            <p class="help" id="accessHelp"><?= $accessType === 'sigaa' ? '<strong>SIGAA:</strong> use o CPF e a senha da sua conta institucional.' : '<strong>Local:</strong> use o login e a senha da sua conta local.' ?></p>
         </section>
 
         <section class="info-area">
@@ -245,12 +243,12 @@ $temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
         function atualizarTipoConta() {
             const sigaa = document.querySelector('input[name="tipo_acesso"]:checked').value === 'sigaa';
             document.getElementById('labelUsuario').textContent = sigaa ? 'CPF:' : 'Login:';
-            campoLogin.placeholder = sigaa ? 'Ex.: 111.111.111-11' : 'Login da conta de teste';
+            campoLogin.placeholder = sigaa ? 'Ex.: 111.111.111-11' : 'Login da conta local';
             campoLogin.maxLength = sigaa ? 14 : 100;
             campoLogin.inputMode = sigaa ? 'numeric' : 'text';
             document.getElementById('accessHelp').innerHTML = sigaa
                 ? '<strong>SIGAA:</strong> use o CPF e a senha da sua conta institucional.'
-                : '<strong>Teste:</strong> use o login e a senha da sua conta de teste.';
+                : '<strong>Local:</strong> use o login e a senha da sua conta local.';
         }
         campoLogin.addEventListener('input', function () {
             if (document.querySelector('input[name="tipo_acesso"]:checked').value !== 'sigaa') return;
