@@ -91,7 +91,7 @@ try {
     .section-label {
         font-size: 1.1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 18px;
     }
 
@@ -105,7 +105,7 @@ try {
     /* Card esquerdo — empréstimos em andamento */
     .card-emprestimos {
         position: relative;
-        background-color: #1c1c1c;
+        background-color: var(--bg-superficie);
         border-radius: 16px;
         padding: 28px 32px;
         min-width: 260px;
@@ -123,14 +123,14 @@ try {
         inset: 0;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='none'/%3E%3Ccircle cx='10' cy='10' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='70' cy='10' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='10' cy='70' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='70' cy='70' r='3' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Ccircle cx='40' cy='40' r='4' fill='none' stroke='%23333' stroke-width='1.2'/%3E%3Cline x1='13' y1='10' x2='67' y2='10' stroke='%23333' stroke-width='1'/%3E%3Cline x1='10' y1='13' x2='10' y2='67' stroke='%23333' stroke-width='1'/%3E%3Cline x1='70' y1='13' x2='70' y2='67' stroke='%23333' stroke-width='1'/%3E%3Cline x1='13' y1='70' x2='67' y2='70' stroke='%23333' stroke-width='1'/%3E%3Cline x1='40' y1='13' x2='40' y2='36' stroke='%23333' stroke-width='1'/%3E%3Cline x1='40' y1='44' x2='40' y2='67' stroke='%23333' stroke-width='1'/%3E%3Cline x1='13' y1='40' x2='36' y2='40' stroke='%23333' stroke-width='1'/%3E%3Cline x1='44' y1='40' x2='67' y2='40' stroke='%23333' stroke-width='1'/%3E%3Crect x='25' y='25' width='30' height='30' rx='2' fill='none' stroke='%23333' stroke-width='1'/%3E%3C/svg%3E");
         background-size: 80px 80px;
-        opacity: 0.8;
+        opacity: var(--opacidade-circuito-inline);
         pointer-events: none;
     }
 
     .card-emprestimos-num {
         font-size: 3.2rem;
         font-weight: 900;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1;
         position: relative;
         z-index: 1;
@@ -140,7 +140,7 @@ try {
     .card-emprestimos-label {
         font-size: 1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.35;
         position: relative;
         z-index: 1;
@@ -149,8 +149,8 @@ try {
     /* Card direito — stats */
     .card-stats {
         flex: 1;
-        background-color: #1c1c1c;
-        border: 1.5px solid #333;
+        background-color: var(--bg-superficie);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 16px;
         padding: 28px 40px;
         display: flex;
@@ -166,7 +166,7 @@ try {
     }
 
     .stat-item + .stat-item {
-        border-left: 1px solid #2e2e2e;
+        border-left: 1px solid var(--borda-padrao);
         padding-left: 40px;
     }
 
@@ -177,24 +177,24 @@ try {
         flex-shrink: 0;
     }
 
-    .stat-num.blue { color: #3b82f6; }
-    .stat-num.red  { color: #ef4444; }
+    .stat-num.blue { color: var(--cor-primaria); }
+    .stat-num.red  { color: var(--cor-erro); }
 
     .stat-label {
         font-size: 1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.35;
     }
 
-    .stat-label.blue { color: #3b82f6; }
-    .stat-label.red  { color: #ef4444; }
+    .stat-label.blue { color: var(--cor-primaria); }
+    .stat-label.red  { color: var(--cor-erro); }
 
     /* ── Seção: Acessar funcionalidades ───── */
     .section-title {
         font-size: 2.8rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 32px;
     }
 
@@ -205,11 +205,11 @@ try {
     }
 
     .func-card {
-        background-color: #1e1e1e;
+        background-color: var(--bg-modal);
         border-radius: 16px;
         padding: 28px 24px 36px;
         text-decoration: none;
-        color: #ffffff;
+        color: var(--texto-principal);
         display: flex;
         flex-direction: column;
         gap: 20px;
@@ -218,13 +218,13 @@ try {
     }
 
     .func-card:hover {
-        background-color: #262626;
+        background-color: var(--bg-controle-alt);
     }
 
     .func-icon {
         width: 48px;
         height: 48px;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         border-radius: 10px;
         display: flex;
         align-items: center;
@@ -235,13 +235,13 @@ try {
     .func-icon svg {
         width: 26px;
         height: 26px;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .func-label {
         font-size: 1.15rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.3;
     }
 
@@ -252,20 +252,20 @@ try {
         align-items: center;
         background: none;
         border: none;
-        color: #aaa;
+        color: var(--texto-suave);
         cursor: pointer;
         padding: 6px;
         border-radius: 8px;
         transition: color .15s, background .15s;
     }
-    .notif-btn:hover { color: #fff; background: #1e1e1e; }
+    .notif-btn:hover { color: var(--texto-principal); background: var(--bg-modal); }
     .notif-btn svg { width: 22px; height: 22px; }
     .notif-badge {
         position: absolute;
         top: 0;
         right: 0;
-        background: #ef4444;
-        color: #fff;
+        background: var(--cor-erro);
+        color: #ffffff;
         font-size: 0.68rem;
         font-weight: 700;
         min-width: 16px;
@@ -283,7 +283,7 @@ try {
         .main { padding: 40px 20px 60px; }
         .ocorrencia-row { flex-direction: column; }
         .card-stats { flex-direction: column; gap: 24px; align-items: flex-start; }
-        .stat-item + .stat-item { border-left: none; padding-left: 0; border-top: 1px solid #2e2e2e; padding-top: 24px; }
+        .stat-item + .stat-item { border-left: none; padding-left: 0; border-top: 1px solid var(--borda-padrao); padding-top: 24px; }
         .funcionalidades-grid { grid-template-columns: repeat(2, 1fr); }
         .section-title { font-size: 2rem; }
     }
@@ -337,7 +337,7 @@ try {
                     </svg>
                     Notificações
                     <?php if ($notif_nao_lidas > 0): ?>
-                    <span style="margin-left:auto;background:#ef4444;color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:10px;"><?= $notif_nao_lidas ?></span>
+                    <span style="margin-left:auto;background:var(--cor-erro);color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:10px;"><?= $notif_nao_lidas ?></span>
                     <?php endif; ?>
                 </a>
                 <a href="../logout.php" role="menuitem">

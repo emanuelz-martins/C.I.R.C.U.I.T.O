@@ -1,7 +1,7 @@
 /* ── Footer ── */
     .site-footer {
-        background: #111;
-        border-top: 1px solid #1e1e1e;
+        background: var(--bg-rodape);
+        border-top: 1px solid var(--borda-sutil);
         padding: 56px 48px;
         display: flex;
         align-items: flex-start;
@@ -15,7 +15,7 @@
 
     .footer-brand p {
         font-size: 0.9rem;
-        color: #555;
+        color: var(--texto-auxiliar);
         margin-bottom: 8px;
     }
 
@@ -24,13 +24,13 @@
         font-size: 1.6rem;
         font-weight: 900;
         letter-spacing: 0.06em;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .footer-text {
         flex: 1;
         font-size: 0.83rem;
-        color: #555;
+        color: var(--texto-auxiliar);
         line-height: 1.7;
     }
 

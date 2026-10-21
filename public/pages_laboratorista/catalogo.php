@@ -220,7 +220,7 @@ try {
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -228,9 +228,9 @@ try {
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -240,7 +240,7 @@ try {
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
     .btn-back svg   { width: 20px; height: 20px; }
 
     /* ── Toolbar: busca + botão cadastrar ─── */
@@ -260,17 +260,17 @@ try {
     .search-wrap input {
         width: 100%;
         padding: 12px 48px 12px 20px;
-        background-color: #1e1e1e;
-        border: 1.5px solid #333;
+        background-color: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 50px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         outline: none;
         transition: border-color 0.2s;
     }
 
-    .search-wrap input::placeholder { color: #666; }
-    .search-wrap input:focus        { border-color: #555; }
+    .search-wrap input::placeholder { color: var(--texto-auxiliar); }
+    .search-wrap input:focus        { border-color: var(--borda-foco); }
 
     .search-wrap button {
         position: absolute;
@@ -279,7 +279,7 @@ try {
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: #aaa;
+        color: var(--texto-suave);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -287,10 +287,10 @@ try {
 
     .btn-cadastrar {
         padding: 12px 28px;
-        background-color: #ffffff;
+        background-color: var(--bg-acao-primaria);
         border: none;
         border-radius: 50px;
-        color: #141414;
+        color: var(--texto-acao-primaria);
         font-size: 0.9rem;
         font-weight: 700;
         cursor: pointer;
@@ -302,14 +302,14 @@ try {
         transition: background-color 0.15s;
     }
 
-    .btn-cadastrar:hover { background-color: #e0e0e0; }
+    .btn-cadastrar:hover { background-color: var(--bg-acao-primaria-hover); }
 
     .btn-cadastrar-sec {
         padding: 12px 28px;
         background-color: transparent;
-        border: 1.5px solid #555;
+        border: 1.5px solid var(--borda-foco);
         border-radius: 50px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         font-weight: 700;
         cursor: pointer;
@@ -321,7 +321,7 @@ try {
         transition: border-color 0.15s, background-color 0.15s;
     }
 
-    .btn-cadastrar-sec:hover { border-color: #888; background-color: #1e1e1e; }
+    .btn-cadastrar-sec:hover { border-color: var(--borda-foco); background-color: var(--bg-modal); }
 
     /* ── Lista de itens ───────────────────── */
     .itens-list {
@@ -331,8 +331,8 @@ try {
     }
 
     .item-card {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 16px;
         padding: 16px 24px 16px 16px;
         display: flex;
@@ -341,14 +341,14 @@ try {
         transition: border-color 0.15s;
     }
 
-    .item-card:hover { border-color: #3a3a3a; }
+    .item-card:hover { border-color: var(--borda-controle); }
 
     /* Thumbnail */
     .item-thumb {
         width: 90px;
         height: 90px;
         border-radius: 10px;
-        background-color: #111;
+        background-color: var(--bg-campo-profundo);
         object-fit: cover;
         flex-shrink: 0;
         display: block;
@@ -358,12 +358,12 @@ try {
         width: 90px;
         height: 90px;
         border-radius: 10px;
-        background-color: #111;
+        background-color: var(--bg-campo-profundo);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        color: #333;
+        color: var(--icone-vazio);
     }
 
     /* Info */
@@ -374,7 +374,7 @@ try {
 
     .item-cat {
         font-size: 0.75rem;
-        color: #666;
+        color: var(--texto-auxiliar);
         margin-bottom: 3px;
         white-space: nowrap;
         overflow: hidden;
@@ -384,7 +384,7 @@ try {
     .item-nome {
         font-size: 1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 4px;
         white-space: nowrap;
         overflow: hidden;
@@ -393,7 +393,7 @@ try {
 
     .item-desc {
         font-size: 0.82rem;
-        color: #888;
+        color: var(--texto-secundario);
         line-height: 1.5;
         display: -webkit-box;
         -webkit-line-clamp: 2;
@@ -412,7 +412,7 @@ try {
     .item-estoque {
         font-size: 0.9rem;
         font-weight: 600;
-        color: #cccccc;
+        color: var(--texto-medio);
         white-space: nowrap;
     }
 
@@ -423,8 +423,8 @@ try {
         flex-shrink: 0;
     }
 
-    .item-status-dot.disponivel  { background-color: #4ade80; }
-    .item-status-dot.indisponivel { background-color: #f87171; }
+    .item-status-dot.disponivel  { background-color: var(--cor-sucesso); }
+    .item-status-dot.indisponivel { background-color: var(--cor-erro-claro); }
 
     /* Menu de 3 risquinhos */
     .menu-wrap {
@@ -435,9 +435,9 @@ try {
         width: 42px;
         height: 42px;
         border-radius: 10px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -446,7 +446,7 @@ try {
         transition: background-color 0.15s;
     }
 
-    .btn-menu:hover { background-color: #333; }
+    .btn-menu:hover { background-color: var(--bg-controle-hover); }
     .btn-menu svg   { width: 18px; height: 18px; pointer-events: none; }
 
     .menu-dropdown {
@@ -454,12 +454,12 @@ try {
         position: absolute;
         top: calc(100% + 8px);
         right: 0;
-        background-color: #1e1e1e;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 12px;
         min-width: 180px;
         overflow: hidden;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+        box-shadow: var(--sombra-modal);
         z-index: 50;
     }
 
@@ -473,8 +473,8 @@ try {
         padding: 13px 18px;
         background: none;
         border: none;
-        border-bottom: 1px solid #2a2a2a;
-        color: #ffffff;
+        border-bottom: 1px solid var(--borda-card);
+        color: var(--texto-principal);
         font-size: 0.88rem;
         cursor: pointer;
         text-align: left;
@@ -483,27 +483,27 @@ try {
     }
 
     .menu-item:last-child { border-bottom: none; }
-    .menu-item:hover      { background-color: #2a2a2a; }
-    .menu-item svg        { width: 15px; height: 15px; flex-shrink: 0; color: #aaa; }
+    .menu-item:hover      { background-color: var(--bg-controle); }
+    .menu-item svg        { width: 15px; height: 15px; flex-shrink: 0; color: var(--texto-suave); }
 
     /* ── Estados vazios / erro BD ─────────── */
     .empty-state {
         text-align: center;
         padding: 60px 0;
-        color: #555;
+        color: var(--texto-placeholder);
         font-size: 1rem;
     }
 
     .db-error {
-        background-color: #1c0a0a;
-        border: 1px solid #7f1d1d;
+        background-color: var(--bg-erro-sutil);
+        border: 1px solid var(--borda-erro);
         border-radius: 16px;
         padding: 40px;
         text-align: center;
-        color: #aaa;
+        color: var(--texto-suave);
     }
 
-    .db-error h2 { color: #ef4444; margin-bottom: 8px; }
+    .db-error h2 { color: var(--cor-erro); margin-bottom: 8px; }
 
     /* ══════════════════════════════════════════
        MODAL — EDITAR ITEM
@@ -512,7 +512,7 @@ try {
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0,0,0,0.75);
+        background-color: var(--overlay-modal);
         z-index: 200;
         align-items: center;
         justify-content: center;
@@ -522,8 +522,8 @@ try {
     .modal-overlay.open { display: flex; }
 
     .modal-box {
-        background-color: #1e1e1e;
-        border: 1px solid #333;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 20px;
         padding: 36px 40px;
         width: 100%;
@@ -533,7 +533,7 @@ try {
     .modal-title {
         font-size: 1.4rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 24px;
     }
 
@@ -545,7 +545,7 @@ try {
         display: block;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #cccccc;
+        color: var(--texto-medio);
         margin-bottom: 8px;
     }
 
@@ -553,10 +553,10 @@ try {
     .modal-textarea {
         width: 100%;
         padding: 11px 16px;
-        background-color: #141414;
-        border: 1.5px solid #333;
+        background-color: var(--bg-subpainel);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         font-family: inherit;
         outline: none;
@@ -569,14 +569,14 @@ try {
     }
 
     .modal-input:focus,
-    .modal-textarea:focus { border-color: #555; }
+    .modal-textarea:focus { border-color: var(--borda-foco); }
 
     .modal-image-preview {
         width: 100%;
         height: 140px;
         border-radius: 10px;
-        border: 1px solid #333;
-        background-color: #141414;
+        border: 1px solid var(--borda-padrao);
+        background-color: var(--bg-subpainel);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -592,13 +592,13 @@ try {
     }
 
     .modal-image-preview span {
-        color: #777;
+        color: var(--texto-auxiliar);
         font-size: 0.82rem;
     }
 
     .modal-hint-error {
         font-size: 0.78rem;
-        color: #f87171;
+        color: var(--cor-erro-claro);
         margin-top: 4px;
         display: none;
     }
@@ -613,23 +613,23 @@ try {
     .btn-cancelar-modal {
         padding: 11px 24px;
         background: none;
-        border: 1px solid #444;
+        border: 1px solid var(--borda-forte);
         border-radius: 10px;
-        color: #aaa;
+        color: var(--texto-suave);
         font-size: 0.88rem;
         cursor: pointer;
         font-family: inherit;
         transition: border-color 0.15s, color 0.15s;
     }
 
-    .btn-cancelar-modal:hover { border-color: #888; color: #fff; }
+    .btn-cancelar-modal:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
     .btn-salvar {
         padding: 11px 28px;
-        background-color: #ffffff;
+        background-color: var(--bg-acao-primaria);
         border: none;
         border-radius: 10px;
-        color: #141414;
+        color: var(--texto-acao-primaria);
         font-size: 0.88rem;
         font-weight: 700;
         cursor: pointer;
@@ -637,7 +637,7 @@ try {
         transition: background-color 0.15s;
     }
 
-    .btn-salvar:hover { background-color: #e0e0e0; }
+    .btn-salvar:hover { background-color: var(--bg-acao-primaria-hover); }
 
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 860px) {
@@ -759,8 +759,8 @@ try {
 <div class="modal-overlay" id="modalDeletar" role="dialog" aria-modal="true" aria-labelledby="modalDeletarTitulo">
     <div class="modal-box">
         <h2 class="modal-title" id="modalDeletarTitulo">Deletar item</h2>
-        <p style="color: #aaa; margin-bottom: 24px;">
-            Tem certeza que deseja remover <strong id="deletarNomeItem" style="color: #fff;"></strong>? Essa ação não pode ser desfeita.
+        <p style="color: var(--texto-suave); margin-bottom: 24px;">
+            Tem certeza que deseja remover <strong id="deletarNomeItem" style="color: var(--texto-principal);"></strong>? Essa ação não pode ser desfeita.
         </p>
 
         <form method="POST" action="./catalogo.php">
@@ -769,7 +769,7 @@ try {
 
             <div class="modal-actions">
                 <button type="button" class="btn-cancelar-modal" onclick="fecharModalDeletar()">Cancelar</button>
-                <button type="submit" class="btn-salvar" style="background-color: #f87171; color: #fff;">
+                <button type="submit" class="btn-salvar" style="background-color: var(--cor-erro-forte); color: #fff;">
                     Confirmar exclusão
                 </button>
             </div>
@@ -833,13 +833,13 @@ try {
 
     <!-- Flash: item cadastrado com sucesso -->
     <?php if ($cadastro === 'ok'): ?>
-    <div style="background-color:#0d2018;border:1px solid #166534;border-radius:12px;padding:14px 20px;margin-bottom:24px;color:#bbf7d0;font-size:0.9rem;">
+    <div style="background-color:var(--bg-sucesso-sutil);border:1px solid var(--borda-sucesso);border-radius:12px;padding:14px 20px;margin-bottom:24px;color:var(--texto-sucesso-claro);font-size:0.9rem;">
         Item cadastrado com sucesso e adicionado ao catálogo.
     </div>
     <?php endif; ?>
 
     <?php if ($feedback !== ''): ?>
-    <div style="background-color:<?= $feedbackType === 'sucesso' ? '#0d2018' : '#2a1010' ?>;border:1px solid <?= $feedbackType === 'sucesso' ? '#166534' : '#991b1b' ?>;border-radius:12px;padding:14px 20px;margin-bottom:24px;color:<?= $feedbackType === 'sucesso' ? '#bbf7d0' : '#fecaca' ?>;font-size:0.9rem;">
+    <div style="background-color:<?= $feedbackType === 'sucesso' ? 'var(--bg-sucesso-sutil)' : 'var(--bg-erro-sutil)' ?>;border:1px solid <?= $feedbackType === 'sucesso' ? 'var(--borda-sucesso)' : 'var(--borda-erro)' ?>;border-radius:12px;padding:14px 20px;margin-bottom:24px;color:<?= $feedbackType === 'sucesso' ? 'var(--texto-sucesso-claro)' : 'var(--texto-erro-claro)' ?>;font-size:0.9rem;">
         <?= htmlspecialchars($feedback) ?>
     </div>
     <?php endif; ?>
@@ -939,11 +939,11 @@ try {
                             type="button"
                             class="menu-item"
                             onclick="abrirModalDeletar(<?= (int) $item['id_comp'] ?>, <?= htmlspecialchars(json_encode($item['nome']), ENT_QUOTES) ?>)"
-                            style="color: #f87171;"
+                            style="color: var(--cor-erro-claro);"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                 style="color: #f87171;">
+                                 style="color: var(--cor-erro-claro);">
                                 <polyline points="3 6 5 6 21 6"/>
                                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
                                 <path d="M10 11v6"/><path d="M14 11v6"/>

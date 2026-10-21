@@ -386,7 +386,7 @@ $etapas = [
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -394,9 +394,9 @@ $etapas = [
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -406,7 +406,7 @@ $etapas = [
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
 
     .btn-back svg {
         width: 20px;
@@ -417,7 +417,7 @@ $etapas = [
     .section-title {
         font-size: 1.8rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 16px;
     }
 
@@ -433,15 +433,15 @@ $etapas = [
     .data-entrega {
         font-size: 1.5rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         white-space: nowrap;
     }
 
     /* ── Barra de progresso de status ──────── */
     .status-bar {
         display: flex;
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 50px;
         overflow: hidden;
         margin-bottom: 28px;
@@ -450,38 +450,38 @@ $etapas = [
     .renovacao-box {
         margin-bottom: 32px;
         padding: 14px 16px;
-        border: 1px solid #2a2a2a;
+        border: 1px solid var(--borda-card);
         border-radius: 12px;
-        background-color: #171717;
+        background-color: var(--bg-subpainel);
     }
 
     .renovacao-texto {
         font-size: 0.95rem;
-        color: #b4b4b4;
+        color: var(--texto-suave);
         line-height: 1.45;
         margin-bottom: 12px;
     }
 
-    .renovacao-texto strong { color: #fff; }
+    .renovacao-texto strong { color: var(--texto-principal); }
 
     .btn-solicitar-renovacao {
         width: 100%;
         border: none;
         border-radius: 10px;
         padding: 10px 14px;
-        background-color: #f5f5f5;
-        color: #141414;
+        background-color: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
         font-size: 0.92rem;
         font-weight: 700;
         cursor: pointer;
         font-family: inherit;
     }
 
-    .btn-solicitar-renovacao:hover { background-color: #e9e9e9; }
+    .btn-solicitar-renovacao:hover { background-color: var(--bg-acao-primaria-hover); }
 
     .btn-solicitar-renovacao:disabled {
-        background-color: #2a2a2a;
-        color: #8a8a8a;
+        background-color: var(--bg-controle);
+        color: var(--texto-secundario);
         cursor: not-allowed;
     }
 
@@ -491,14 +491,14 @@ $etapas = [
         font-weight: 600;
     }
 
-    .renovacao-feedback.ok { color: #86efac; }
-    .renovacao-feedback.erro { color: #fca5a5; }
+    .renovacao-feedback.ok { color: var(--texto-sucesso); }
+    .renovacao-feedback.erro { color: var(--texto-erro); }
 
     .modal-renovacao-overlay {
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0,0,0,0.78);
+        background-color: var(--overlay-modal);
         z-index: 240;
         align-items: center;
         justify-content: center;
@@ -510,8 +510,8 @@ $etapas = [
     .modal-renovacao {
         width: 100%;
         max-width: 540px;
-        background-color: #1b1b1b;
-        border: 1px solid #2f2f2f;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 16px;
         padding: 22px;
     }
@@ -519,12 +519,12 @@ $etapas = [
     .modal-renovacao h3 {
         font-size: 1.2rem;
         font-weight: 800;
-        color: #fff;
+        color: var(--texto-principal);
         margin-bottom: 8px;
     }
 
     .modal-renovacao p {
-        color: #a3a3a3;
+        color: var(--texto-suave);
         font-size: 0.88rem;
         margin-bottom: 14px;
     }
@@ -541,16 +541,16 @@ $etapas = [
         align-items: center;
         gap: 8px;
         padding: 10px 12px;
-        border: 1px solid #333;
+        border: 1px solid var(--borda-forte);
         border-radius: 10px;
         cursor: pointer;
-        background-color: #151515;
-        color: #ddd;
+        background-color: var(--bg-campo-interno);
+        color: var(--texto-forte);
         font-size: 0.84rem;
         font-weight: 600;
     }
 
-    .renovacao-opcoes input[type="radio"] { accent-color: #fff; }
+    .renovacao-opcoes input[type="radio"] { accent-color: var(--texto-principal); }
 
     .renovacao-campos-extra {
         display: none;
@@ -562,7 +562,7 @@ $etapas = [
     .renovacao-campos-extra label {
         display: block;
         font-size: 0.82rem;
-        color: #cfcfcf;
+        color: var(--texto-medio);
         margin-bottom: 6px;
         font-weight: 600;
     }
@@ -571,9 +571,9 @@ $etapas = [
     .renovacao-campos-extra textarea {
         width: 100%;
         border-radius: 10px;
-        border: 1.5px solid #333;
-        background-color: #111;
-        color: #fff;
+        border: 1.5px solid var(--borda-forte);
+        background-color: var(--bg-campo-profundo);
+        color: var(--texto-principal);
         padding: 10px 12px;
         font-size: 0.86rem;
         font-family: inherit;
@@ -589,7 +589,7 @@ $etapas = [
     .renovacao-erro {
         min-height: 18px;
         font-size: 0.8rem;
-        color: #f87171;
+        color: var(--cor-erro-claro);
         margin-bottom: 8px;
     }
 
@@ -611,14 +611,14 @@ $etapas = [
 
     .btn-renovacao-cancelar {
         background: none;
-        color: #aaa;
-        border: 1px solid #444;
+        color: var(--texto-suave);
+        border: 1px solid var(--borda-controle);
     }
 
     .btn-renovacao-enviar {
         border: none;
-        background-color: #fff;
-        color: #111;
+        background-color: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
     }
 
     .status-step {
@@ -626,7 +626,7 @@ $etapas = [
         padding: 10px 4px;
         text-align: center;
         font-size: 0.82rem;
-        color: #888;
+        color: var(--texto-secundario);
         border-radius: 50px;
         cursor: default;
         white-space: nowrap;
@@ -634,23 +634,23 @@ $etapas = [
     }
 
     .status-step.active {
-        background-color: #ffffff;
-        color: #141414;
+        background-color: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
         font-weight: 700;
     }
 
     /* ── Chat de acompanhamento ───────────── */
     .chat-bloco {
         margin-bottom: 40px;
-        background-color: #1b1b1b;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 16px;
         overflow: hidden;
     }
 
     .chat-header {
         padding: 14px 18px;
-        border-bottom: 1px solid #2a2a2a;
+        border-bottom: 1px solid var(--borda-card);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -659,16 +659,16 @@ $etapas = [
     .chat-title {
         font-size: 0.95rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .chat-status {
         font-size: 0.78rem;
-        color: #a3a3a3;
+        color: var(--texto-suave);
     }
 
     .chat-status.atrasado {
-        color: #fca5a5;
+        color: var(--texto-erro);
         font-weight: 700;
     }
 
@@ -679,11 +679,11 @@ $etapas = [
         display: flex;
         flex-direction: column;
         gap: 10px;
-        border-bottom: 1px solid #2a2a2a;
+        border-bottom: 1px solid var(--borda-card);
     }
 
     .chat-vazio {
-        color: #777;
+        color: var(--texto-secundario);
         text-align: center;
         padding: 10px 0;
         font-size: 0.84rem;
@@ -701,23 +701,23 @@ $etapas = [
 
     .chat-baloon.aluno {
         align-self: flex-end;
-        background-color: #1f2937;
-        border: 1px solid #374151;
-        color: #e5e7eb;
+        background-color: var(--chat-aluno-bg);
+        border: 1px solid var(--chat-aluno-borda);
+        color: var(--chat-aluno-texto);
     }
 
     .chat-baloon.laboratorista {
         align-self: flex-start;
-        background-color: #2a1a1a;
-        border: 1px solid #7f1d1d;
-        color: #fecaca;
+        background-color: var(--chat-lab-bg);
+        border: 1px solid var(--chat-lab-borda);
+        color: var(--chat-lab-texto);
     }
 
     .chat-baloon.sistema {
         align-self: center;
-        background-color: #202020;
-        border: 1px solid #333;
-        color: #d4d4d4;
+        background-color: var(--chat-sistema-bg);
+        border: 1px solid var(--chat-sistema-borda);
+        color: var(--chat-sistema-texto);
     }
 
     .chat-acoes {
@@ -730,8 +730,8 @@ $etapas = [
         border: none;
         border-radius: 10px;
         padding: 10px 12px;
-        background-color: #f5f5f5;
-        color: #141414;
+        background-color: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
         font-size: 0.82rem;
         font-weight: 700;
         cursor: pointer;
@@ -746,9 +746,9 @@ $etapas = [
         width: 100%;
         min-height: 90px;
         border-radius: 10px;
-        border: 1.5px solid #333;
-        background-color: #111;
-        color: #fff;
+        border: 1.5px solid var(--borda-forte);
+        background-color: var(--bg-campo-profundo);
+        color: var(--texto-principal);
         font-size: 0.88rem;
         padding: 10px 12px;
         resize: vertical;
@@ -758,7 +758,7 @@ $etapas = [
 
     .chat-erro {
         margin-top: 8px;
-        color: #f87171;
+        color: var(--cor-erro-claro);
         font-size: 0.8rem;
         min-height: 16px;
     }
@@ -773,8 +773,8 @@ $etapas = [
         border: none;
         border-radius: 10px;
         padding: 10px 14px;
-        background-color: #7f1d1d;
-        color: #fff;
+        background-color: var(--cor-erro-forte);
+        color: #ffffff;
         font-size: 0.84rem;
         font-weight: 700;
         cursor: pointer;
@@ -783,8 +783,8 @@ $etapas = [
 
     /* ── Itens do pedido ──────────────────── */
     .item-card {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 16px;
         padding: 20px;
         display: flex;
@@ -797,7 +797,7 @@ $etapas = [
         width: 90px;
         height: 90px;
         border-radius: 10px;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         object-fit: cover;
         flex-shrink: 0;
     }
@@ -806,12 +806,12 @@ $etapas = [
         width: 90px;
         height: 90px;
         border-radius: 10px;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        color: #555;
+        color: var(--texto-auxiliar);
     }
 
     .item-info {
@@ -820,26 +820,26 @@ $etapas = [
 
     .item-categoria {
         font-size: 0.78rem;
-        color: #888;
+        color: var(--texto-secundario);
         margin-bottom: 4px;
     }
 
     .item-nome {
         font-size: 1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 4px;
     }
 
     .item-descricao {
         font-size: 0.82rem;
-        color: #aaa;
+        color: var(--texto-suave);
     }
 
     .item-quantidade {
         font-size: 1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         white-space: nowrap;
         flex-shrink: 0;
     }
@@ -852,8 +852,8 @@ $etapas = [
     }
 
     .historico-card {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 14px;
         padding: 18px 24px;
         display: flex;
@@ -865,7 +865,7 @@ $etapas = [
     .historico-data {
         font-size: 0.95rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .historico-actions {
@@ -883,20 +883,20 @@ $etapas = [
         text-align: center;
     }
 
-    .status-badge.em-andamento       { background-color: #1a56db; color: #ffffff; }
-    .status-badge.pronto-para-retirada { background-color: #b45309; color: #ffffff; }
-    .status-badge.em-separacao       { background-color: #7e22ce; color: #ffffff; }
-    .status-badge.enviado            { background-color: #374151; color: #ffffff; }
-    .status-badge.finalizado         { background-color: #166534; color: #ffffff; }
-    .status-badge.cancelado          { background-color: #b91c1c; color: #ffffff; }
+    .status-badge.em-andamento         { background-color: var(--status-andamento-bg); color: var(--status-andamento-texto); }
+    .status-badge.pronto-para-retirada { background-color: var(--status-pronto-bg); color: var(--status-pronto-texto); }
+    .status-badge.em-separacao         { background-color: var(--status-separacao-bg); color: var(--status-separacao-texto); }
+    .status-badge.enviado              { background-color: var(--status-enviado-bg); color: var(--status-enviado-texto); }
+    .status-badge.finalizado           { background-color: var(--status-finalizado-bg); color: var(--status-finalizado-texto); }
+    .status-badge.cancelado            { background-color: var(--status-cancelado-bg); color: var(--status-cancelado-texto); }
 
     .btn-details {
         width: 40px;
         height: 40px;
         border-radius: 10px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -906,7 +906,7 @@ $etapas = [
         flex-shrink: 0;
     }
 
-    .btn-details:hover { background-color: #333; }
+    .btn-details:hover { background-color: var(--bg-controle-hover); }
 
     .btn-details svg {
         width: 18px;
@@ -1010,8 +1010,8 @@ $etapas = [
 
     <!-- Cabeçalho -->
     <?php if (!$db_ok || !$pedido): ?>
-    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
-        <h2 style="color: #ef4444; margin-bottom: 8px;">Pedido não encontrado</h2>
+    <div style="background-color: var(--bg-superficie); border: 1px solid var(--borda-erro-sutil); border-radius: 16px; padding: 40px; text-align: center; color: var(--texto-suave);">
+        <h2 style="color: var(--cor-erro); margin-bottom: 8px;">Pedido não encontrado</h2>
         <p>Não foi possível carregar os dados deste pedido. Verifique a conexão com o MySQL ou volte à página anterior.</p>
     </div>
     <?php else: ?>
@@ -1087,7 +1087,7 @@ $etapas = [
     </div>
     <?php endforeach; ?>
     <?php else: ?>
-    <p style="color: #888; text-align: center; padding: 20px;">Nenhum item neste pedido.</p>
+    <p style="color: var(--texto-secundario); text-align: center; padding: 20px;">Nenhum item neste pedido.</p>
     <?php endif; ?>
 
     <!-- Histórico de atualizações -->
@@ -1118,7 +1118,7 @@ $etapas = [
         <?php endforeach; ?>
     </div>
     <?php else: ?>
-    <p style="color: #888; text-align: center; padding: 20px;">Nenhuma atualização registrada ainda.</p>
+    <p style="color: var(--texto-secundario); text-align: center; padding: 20px;">Nenhuma atualização registrada ainda.</p>
     <?php endif; ?>
     <?php endif; ?>
 

@@ -27,7 +27,7 @@ $is_admin = ($usuario_perfil === 'admin');
     .page-title {
         font-size: 3rem;
         font-weight: 900;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1;
     }
 
@@ -35,9 +35,9 @@ $is_admin = ($usuario_perfil === 'admin');
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background: #1e1e1e;
-        border: 1.5px solid #333;
-        color: #ffffff;
+        background: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
+        color: var(--texto-principal);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -46,12 +46,12 @@ $is_admin = ($usuario_perfil === 'admin');
         flex-shrink: 0;
     }
 
-    .back-btn:hover { background: #2a2a2a; }
+    .back-btn:hover { background: var(--bg-controle); }
     .back-btn svg { width: 20px; height: 20px; }
 
     /* ── Cards de relatório ── */
     .relatorio-card {
-        background: #1e1e1e;
+        background: var(--bg-modal);
         border-radius: 16px;
         padding: 28px 32px;
         display: flex;
@@ -64,13 +64,13 @@ $is_admin = ($usuario_perfil === 'admin');
     .relatorio-info h3 {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 6px;
     }
 
     .relatorio-info p {
         font-size: 0.875rem;
-        color: #888;
+        color: var(--texto-secundario);
         line-height: 1.5;
         max-width: 420px;
     }
@@ -84,10 +84,10 @@ $is_admin = ($usuario_perfil === 'admin');
     .tres-pontos-btn {
         width: 46px;
         height: 46px;
-        background: #2a2a2a;
-        border: 1.5px solid #3a3a3a;
+        background: var(--bg-controle);
+        border: 1.5px solid var(--borda-controle);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -95,7 +95,7 @@ $is_admin = ($usuario_perfil === 'admin');
         transition: background 0.15s;
     }
 
-    .tres-pontos-btn:hover { background: #333; }
+    .tres-pontos-btn:hover { background: var(--bg-controle-hover); }
     .tres-pontos-btn svg { width: 22px; height: 22px; }
 
     /* Dropdown do menu */
@@ -104,12 +104,12 @@ $is_admin = ($usuario_perfil === 'admin');
         position: absolute;
         top: calc(100% + 8px);
         right: 0;
-        background: #1e1e1e;
-        border: 1px solid #2e2e2e;
+        background: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 12px;
         min-width: 210px;
         overflow: hidden;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        box-shadow: var(--sombra-modal);
         z-index: 50;
     }
 
@@ -122,12 +122,12 @@ $is_admin = ($usuario_perfil === 'admin');
         gap: 12px;
         width: 100%;
         padding: 14px 18px;
-        color: #ffffff;
+        color: var(--texto-principal);
         text-decoration: none;
         font-size: 0.9rem;
         background: none;
         border: none;
-        border-bottom: 1px solid #2a2a2a;
+        border-bottom: 1px solid var(--borda-card);
         cursor: pointer;
         text-align: left;
         transition: background 0.15s;
@@ -136,13 +136,13 @@ $is_admin = ($usuario_perfil === 'admin');
     .relatorio-dropdown a:last-child,
     .relatorio-dropdown button:last-child { border-bottom: none; }
     .relatorio-dropdown a:hover,
-    .relatorio-dropdown button:hover { background: #2a2a2a; }
-    .relatorio-dropdown svg { width: 16px; height: 16px; color: #aaa; flex-shrink: 0; }
+    .relatorio-dropdown button:hover { background: var(--bg-controle); }
+    .relatorio-dropdown svg { width: 16px; height: 16px; color: var(--texto-suave); flex-shrink: 0; }
 
     /* ── Seção "Pedir informações" ── */
     .admin-section {
         margin-top: 48px;
-        border-top: 1px solid #222;
+        border-top: 1px solid var(--borda-sutil);
         padding-top: 40px;
     }
 
@@ -150,11 +150,11 @@ $is_admin = ($usuario_perfil === 'admin');
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        background: #1e1e1e;
-        border: 1.5px solid #333;
+        background: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 12px;
         padding: 16px 24px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.95rem;
         font-weight: 600;
         cursor: pointer;
@@ -162,8 +162,8 @@ $is_admin = ($usuario_perfil === 'admin');
         text-align: left;
     }
 
-    .pedir-info-btn:hover { background: #2a2a2a; border-color: #444; }
-    .pedir-info-btn svg { width: 20px; height: 20px; color: #aaa; flex-shrink: 0; }
+    .pedir-info-btn:hover { background: var(--bg-controle); border-color: var(--borda-forte); }
+    .pedir-info-btn svg { width: 20px; height: 20px; color: var(--texto-suave); flex-shrink: 0; }
 
     /* ══════════════════════════════════════════
        MODAIS
@@ -172,7 +172,7 @@ $is_admin = ($usuario_perfil === 'admin');
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.72);
+        background: var(--overlay-modal);
         z-index: 200;
         align-items: center;
         justify-content: center;
@@ -182,13 +182,13 @@ $is_admin = ($usuario_perfil === 'admin');
     .modal-overlay.open { display: flex; }
 
     .modal-box {
-        background: #1a1a1a;
-        border: 1px solid #2e2e2e;
+        background: var(--bg-superficie-tabela);
+        border: 1px solid var(--borda-padrao);
         border-radius: 20px;
         padding: 36px 40px;
         max-width: 520px;
         width: 100%;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+        box-shadow: 0 20px 60px var(--overlay-modal);
         animation: modalIn .18s ease;
     }
 
@@ -200,13 +200,13 @@ $is_admin = ($usuario_perfil === 'admin');
     .modal-box h2 {
         font-size: 1.25rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 16px;
     }
 
     .modal-box p {
         font-size: 0.9rem;
-        color: #aaa;
+        color: var(--texto-suave);
         line-height: 1.65;
         margin-bottom: 28px;
     }
@@ -214,7 +214,7 @@ $is_admin = ($usuario_perfil === 'admin');
     .modal-aviso-icon {
         width: 48px;
         height: 48px;
-        background: #2a1f00;
+        background: var(--bg-alerta-icone);
         border-radius: 12px;
         display: flex;
         align-items: center;
@@ -222,7 +222,7 @@ $is_admin = ($usuario_perfil === 'admin');
         margin-bottom: 20px;
     }
 
-    .modal-aviso-icon svg { width: 26px; height: 26px; color: #f59e0b; }
+    .modal-aviso-icon svg { width: 26px; height: 26px; color: var(--cor-alerta); }
 
     .modal-actions {
         display: flex;
@@ -234,29 +234,29 @@ $is_admin = ($usuario_perfil === 'admin');
     .btn-cancel {
         padding: 11px 22px;
         border-radius: 10px;
-        border: 1.5px solid #333;
+        border: 1.5px solid var(--borda-padrao);
         background: none;
-        color: #aaa;
+        color: var(--texto-suave);
         font-size: 0.9rem;
         cursor: pointer;
         transition: background 0.15s;
     }
 
-    .btn-cancel:hover { background: #222; color: #fff; }
+    .btn-cancel:hover { background: var(--bg-cabecalho-tabela); color: var(--texto-principal); }
 
     .btn-confirm {
         padding: 11px 22px;
         border-radius: 10px;
         border: none;
-        background: #ffffff;
-        color: #000000;
+        background: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
         font-size: 0.9rem;
         font-weight: 700;
         cursor: pointer;
         transition: background 0.15s;
     }
 
-    .btn-confirm:hover { background: #e0e0e0; }
+    .btn-confirm:hover { background: var(--bg-acao-primaria-hover); }
 
     /* ── Modal de seleção de laboratorista ── */
     .modal-box.modal-lab {
@@ -266,26 +266,26 @@ $is_admin = ($usuario_perfil === 'admin');
     .modal-search {
         display: flex;
         align-items: center;
-        background: #242424;
-        border: 1.5px solid #333;
+        background: var(--bg-hover-card);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
         padding: 10px 16px;
         gap: 10px;
         margin-bottom: 20px;
     }
 
-    .modal-search svg { width: 18px; height: 18px; color: #666; flex-shrink: 0; }
+    .modal-search svg { width: 18px; height: 18px; color: var(--texto-auxiliar); flex-shrink: 0; }
 
     .modal-search input {
         flex: 1;
         background: none;
         border: none;
         outline: none;
-        color: #fff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
     }
 
-    .modal-search input::placeholder { color: #555; }
+    .modal-search input::placeholder { color: var(--texto-placeholder); }
 
     .lab-list {
         max-height: 340px;
@@ -296,29 +296,29 @@ $is_admin = ($usuario_perfil === 'admin');
     }
 
     .lab-list::-webkit-scrollbar { width: 6px; }
-    .lab-list::-webkit-scrollbar-track { background: #1a1a1a; }
-    .lab-list::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    .lab-list::-webkit-scrollbar-track { background: var(--bg-superficie-tabela); }
+    .lab-list::-webkit-scrollbar-thumb { background: var(--bg-controle-hover); border-radius: 3px; }
 
     .lab-item {
         display: flex;
         align-items: center;
         gap: 14px;
         padding: 14px 16px;
-        background: #242424;
-        border: 1px solid #2e2e2e;
+        background: var(--bg-hover-card);
+        border: 1px solid var(--borda-padrao);
         border-radius: 12px;
         cursor: pointer;
         text-decoration: none;
-        color: #ffffff;
+        color: var(--texto-principal);
         transition: background 0.15s, border-color 0.15s;
     }
 
-    .lab-item:hover { background: #2e2e2e; border-color: #3a3a3a; }
+    .lab-item:hover { background: var(--bg-hover-card); border-color: var(--borda-controle); }
 
     .lab-avatar {
         width: 40px;
         height: 40px;
-        background: #333;
+        background: var(--bg-controle-hover);
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -326,31 +326,31 @@ $is_admin = ($usuario_perfil === 'admin');
         flex-shrink: 0;
     }
 
-    .lab-avatar svg { width: 20px; height: 20px; color: #aaa; }
+    .lab-avatar svg { width: 20px; height: 20px; color: var(--texto-suave); }
 
     .lab-info-name {
         font-size: 0.95rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .lab-info-email {
         font-size: 0.8rem;
-        color: #666;
+        color: var(--texto-auxiliar);
         margin-top: 2px;
     }
 
     .lab-empty {
         text-align: center;
-        color: #555;
+        color: var(--texto-placeholder);
         font-size: 0.9rem;
         padding: 32px 0;
     }
 
     /* ── Footer ── */
     .site-footer {
-        background: #111;
-        border-top: 1px solid #1e1e1e;
+        background: var(--bg-campo-profundo);
+        border-top: 1px solid var(--borda-sutil);
         padding: 56px 48px;
         display: flex;
         align-items: flex-start;
@@ -364,7 +364,7 @@ $is_admin = ($usuario_perfil === 'admin');
 
     .footer-brand p {
         font-size: 0.9rem;
-        color: #555;
+        color: var(--texto-placeholder);
         margin-bottom: 8px;
     }
 
@@ -373,13 +373,13 @@ $is_admin = ($usuario_perfil === 'admin');
         font-size: 1.6rem;
         font-weight: 900;
         letter-spacing: 0.06em;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .footer-text {
         flex: 1;
         font-size: 0.83rem;
-        color: #555;
+        color: var(--texto-placeholder);
         line-height: 1.7;
     }
 

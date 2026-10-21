@@ -759,7 +759,7 @@ $status_map = [
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -767,9 +767,9 @@ $status_map = [
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -779,7 +779,7 @@ $status_map = [
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
     .btn-back svg { width: 20px; height: 20px; }
 
     /* ── Barra de busca + filtro ──────────── */
@@ -799,17 +799,17 @@ $status_map = [
     .search-wrap input {
         width: 100%;
         padding: 12px 48px 12px 20px;
-        background-color: #1e1e1e;
-        border: 1.5px solid #333;
+        background-color: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 50px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         outline: none;
         transition: border-color 0.2s;
     }
 
-    .search-wrap input::placeholder { color: #666; }
-    .search-wrap input:focus        { border-color: #555; }
+    .search-wrap input::placeholder { color: var(--texto-auxiliar); }
+    .search-wrap input:focus        { border-color: var(--borda-foco); }
 
     .search-wrap button {
         position: absolute;
@@ -818,7 +818,7 @@ $status_map = [
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: #aaa;
+        color: var(--texto-suave);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -830,9 +830,9 @@ $status_map = [
         gap: 8px;
         padding: 12px 24px;
         background-color: transparent;
-        border: 1.5px solid #ffffff;
+        border: 1.5px solid var(--borda-destaque);
         border-radius: 50px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         font-weight: 600;
         cursor: pointer;
@@ -841,13 +841,13 @@ $status_map = [
         transition: background-color 0.15s;
     }
 
-    .btn-filtrar:hover { background-color: #1e1e1e; }
+    .btn-filtrar:hover { background-color: var(--bg-modal); }
 
     /* Painel de filtros */
     .filtros-panel {
         display: none;
-        background-color: #1c1c1c;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-padrao);
         border-radius: 16px;
         padding: 20px 24px;
         margin-bottom: 28px;
@@ -860,16 +860,16 @@ $status_map = [
 
     .filtros-panel label {
         font-size: 0.85rem;
-        color: #aaa;
+        color: var(--texto-suave);
         margin-right: 4px;
     }
 
     .filtros-panel select {
         padding: 8px 14px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
+        background-color: var(--bg-campo);
+        border: 1px solid var(--borda-controle);
         border-radius: 8px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.85rem;
         cursor: pointer;
         outline: none;
@@ -878,24 +878,24 @@ $status_map = [
     .filtros-panel .btn-limpar {
         padding: 8px 18px;
         background: none;
-        border: 1px solid #444;
+        border: 1px solid var(--borda-forte);
         border-radius: 8px;
-        color: #aaa;
+        color: var(--texto-suave);
         font-size: 0.85rem;
         cursor: pointer;
         text-decoration: none;
         transition: border-color 0.15s, color 0.15s;
     }
 
-    .filtros-panel .btn-limpar:hover { border-color: #888; color: #fff; }
+    .filtros-panel .btn-limpar:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
     /* ── Alerta de erro ───────────────────── */
     .alert-erro {
-        background-color: #1c0a0a;
-        border: 1px solid #7f1d1d;
+        background-color: var(--bg-erro-sutil);
+        border: 1px solid var(--borda-erro);
         border-radius: 12px;
         padding: 14px 20px;
-        color: #fca5a5;
+        color: var(--texto-erro);
         font-size: 0.9rem;
         margin-bottom: 24px;
     }
@@ -904,7 +904,7 @@ $status_map = [
     .section-title {
         font-size: 1.4rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 20px;
     }
 
@@ -916,8 +916,8 @@ $status_map = [
     }
 
     .pedido-card {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 16px;
         padding: 22px 28px;
         display: flex;
@@ -926,7 +926,7 @@ $status_map = [
         transition: border-color 0.15s;
     }
 
-    .pedido-card:hover { border-color: #3a3a3a; }
+    .pedido-card:hover { border-color: var(--borda-controle); }
 
     .pedido-info {
         flex: 1;
@@ -936,13 +936,13 @@ $status_map = [
     .pedido-numero {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 4px;
     }
 
     .pedido-meta {
         font-size: 0.82rem;
-        color: #888;
+        color: var(--texto-secundario);
         line-height: 1.7;
     }
 
@@ -965,7 +965,7 @@ $status_map = [
 
     .atendimento-pergunta {
         font-size: 0.82rem;
-        color: #b5b5b5;
+        color: var(--texto-secundario);
         font-weight: 600;
     }
 
@@ -974,7 +974,7 @@ $status_map = [
         border-radius: 10px;
         height: 38px;
         padding: 0 12px;
-        color: #fff;
+        color: #ffffff;
         font-size: 0.82rem;
         font-weight: 700;
         display: inline-flex;
@@ -989,12 +989,12 @@ $status_map = [
     .btn-atendimento:hover { filter: brightness(1.08); }
     .btn-atendimento svg { width: 15px; height: 15px; }
 
-    .btn-atendimento.verde { background-color: #166534; }
+    .btn-atendimento.verde { background-color: var(--cor-sucesso-forte); }
 
     .pedido-bloqueado {
-        background-color: #2a2a2a;
-        border: 1px solid #3b3b3b;
-        color: #bdbdbd;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-secundario);
         border-radius: 10px;
         height: 38px;
         padding: 0 14px;
@@ -1016,24 +1016,24 @@ $status_map = [
         min-width: 110px;
     }
 
-    .status-badge.pendente             { background-color: #78350f; color: #fde68a; }
-    .status-badge.em-separacao         { background-color: #4c1d95; color: #ddd6fe; }
-    .status-badge.pronto-para-retirada { background-color: #78350f; color: #fed7aa; }
-    .status-badge.em-andamento         { background-color: #1e3a8a; color: #bfdbfe; }
-    .status-badge.negado               { background-color: #7f1d1d; color: #fecaca; }
-    .status-badge.cancelado            { background-color: #7f1d1d; color: #fecaca; }
-    .status-badge.finalizado           { background-color: #14532d; color: #bbf7d0; }
-    .status-badge.renovacao-solicitada { background-color: #713f12; color: #fef08a; }
-    .status-badge.em-atendimento-lab   { background-color: #1f2937; color: #d1d5db; }
+    .status-badge.pendente             { background-color: var(--status-pendente-bg); color: var(--status-pendente-texto); }
+    .status-badge.em-separacao         { background-color: var(--status-separacao-bg); color: var(--status-separacao-texto); }
+    .status-badge.pronto-para-retirada { background-color: var(--status-pronto-bg); color: var(--status-pronto-texto); }
+    .status-badge.em-andamento         { background-color: var(--status-andamento-bg); color: var(--status-andamento-texto); }
+    .status-badge.negado               { background-color: var(--status-cancelado-bg); color: var(--status-cancelado-texto); }
+    .status-badge.cancelado            { background-color: var(--status-cancelado-bg); color: var(--status-cancelado-texto); }
+    .status-badge.finalizado           { background-color: var(--status-finalizado-bg); color: var(--status-finalizado-texto); }
+    .status-badge.renovacao-solicitada { background-color: var(--status-pendente-bg); color: var(--status-pendente-texto); }
+    .status-badge.em-atendimento-lab   { background-color: var(--status-atendimento-bg); color: var(--status-atendimento-texto); }
 
     /* ── Botão de menu (3 risquinhos) ──────── */
     .btn-menu {
         width: 42px;
         height: 42px;
         border-radius: 10px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -1043,7 +1043,7 @@ $status_map = [
         transition: background-color 0.15s;
     }
 
-    .btn-menu:hover { background-color: #333; }
+    .btn-menu:hover { background-color: var(--bg-controle-hover); }
     .btn-menu svg   { width: 18px; height: 18px; pointer-events: none; }
 
     /* ── Dropdown de ações ────────────────── */
@@ -1056,12 +1056,12 @@ $status_map = [
         position: absolute;
         top: calc(100% + 8px);
         right: 0;
-        background-color: #1e1e1e;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 12px;
         min-width: 210px;
         overflow: hidden;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+        box-shadow: var(--sombra-modal);
         z-index: 50;
     }
 
@@ -1075,8 +1075,8 @@ $status_map = [
         padding: 13px 18px;
         background: none;
         border: none;
-        border-bottom: 1px solid #2a2a2a;
-        color: #ffffff;
+        border-bottom: 1px solid var(--borda-card);
+        color: var(--texto-principal);
         font-size: 0.88rem;
         cursor: pointer;
         text-align: left;
@@ -1085,34 +1085,34 @@ $status_map = [
     }
 
     .menu-item:last-child { border-bottom: none; }
-    .menu-item:hover      { background-color: #2a2a2a; }
+    .menu-item:hover      { background-color: var(--bg-controle); }
 
     .menu-item svg { width: 16px; height: 16px; flex-shrink: 0; }
 
-    .menu-item.danger       { color: #f87171; }
-    .menu-item.danger:hover { background-color: #2a1414; }
+    .menu-item.danger       { color: var(--cor-erro-claro); }
+    .menu-item.danger:hover { background-color: var(--bg-erro-hover); }
 
-    .menu-item.success       { color: #4ade80; }
-    .menu-item.success:hover { background-color: #0d2018; }
+    .menu-item.success       { color: var(--cor-sucesso); }
+    .menu-item.success:hover { background-color: var(--bg-sucesso-sutil); }
 
     /* ── Estado vazio / erro BD ───────────── */
     .empty-state {
         text-align: center;
         padding: 60px 0;
-        color: #555;
+        color: var(--texto-placeholder);
         font-size: 1rem;
     }
 
     .db-error {
-        background-color: #1c0a0a;
-        border: 1px solid #7f1d1d;
+        background-color: var(--bg-erro-sutil);
+        border: 1px solid var(--borda-erro);
         border-radius: 16px;
         padding: 40px;
         text-align: center;
-        color: #aaa;
+        color: var(--texto-suave);
     }
 
-    .db-error h2 { color: #ef4444; margin-bottom: 8px; }
+    .db-error h2 { color: var(--cor-erro); margin-bottom: 8px; }
 
     /* ══════════════════════════════════════════
        MODAL (negação com justificativa)
@@ -1121,7 +1121,7 @@ $status_map = [
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0,0,0,0.75);
+        background-color: var(--overlay-modal);
         z-index: 200;
         align-items: center;
         justify-content: center;
@@ -1131,8 +1131,8 @@ $status_map = [
     .modal-overlay.open { display: flex; }
 
     .modal-box {
-        background-color: #1e1e1e;
-        border: 1px solid #333;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 20px;
         padding: 36px 40px;
         width: 100%;
@@ -1142,24 +1142,24 @@ $status_map = [
     .modal-title {
         font-size: 1.4rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 8px;
     }
 
     .modal-desc {
         font-size: 0.88rem;
-        color: #aaa;
+        color: var(--texto-suave);
         margin-bottom: 24px;
         line-height: 1.6;
     }
 
-    .modal-desc strong { color: #ffffff; }
+    .modal-desc strong { color: var(--texto-principal); }
 
     .modal-label {
         display: block;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #cccccc;
+        color: var(--texto-medio);
         margin-bottom: 8px;
     }
 
@@ -1167,10 +1167,10 @@ $status_map = [
         width: 100%;
         min-height: 110px;
         padding: 12px 16px;
-        background-color: #141414;
-        border: 1.5px solid #333;
+        background-color: var(--bg-subpainel);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         font-family: inherit;
         resize: vertical;
@@ -1179,15 +1179,15 @@ $status_map = [
         margin-bottom: 6px;
     }
 
-    .modal-textarea:focus { border-color: #555; }
+    .modal-textarea:focus { border-color: var(--borda-foco); }
 
     .modal-hint {
         font-size: 0.78rem;
-        color: #666;
+        color: var(--texto-auxiliar);
         margin-bottom: 24px;
     }
 
-    .modal-hint.error { color: #f87171; }
+    .modal-hint.error { color: var(--cor-erro-claro); }
 
     .modal-actions {
         display: flex;
@@ -1198,20 +1198,20 @@ $status_map = [
     .btn-cancelar-modal {
         padding: 11px 24px;
         background: none;
-        border: 1px solid #444;
+        border: 1px solid var(--borda-forte);
         border-radius: 10px;
-        color: #aaa;
+        color: var(--texto-suave);
         font-size: 0.88rem;
         cursor: pointer;
         font-family: inherit;
         transition: border-color 0.15s, color 0.15s;
     }
 
-    .btn-cancelar-modal:hover { border-color: #888; color: #fff; }
+    .btn-cancelar-modal:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
     .btn-confirmar-negar {
         padding: 11px 24px;
-        background-color: #7f1d1d;
+        background-color: var(--cor-erro-forte);
         border: none;
         border-radius: 10px;
         color: #ffffff;
@@ -1222,16 +1222,16 @@ $status_map = [
         transition: background-color 0.15s;
     }
 
-    .btn-confirmar-negar:hover { background-color: #991b1b; }
+    .btn-confirmar-negar:hover { background-color: var(--cor-erro-hover); }
 
     /* ── Botão olho (preview) ─────────────── */
     .btn-eye {
         width: 42px;
         height: 42px;
         border-radius: 10px;
-        background-color: #18191a;
-        border: 1px solid #34373a;
-        color: #ffffff;
+        background-color: var(--bg-controle-alt);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -1239,16 +1239,16 @@ $status_map = [
         flex-shrink: 0;
         transition: background-color 0.15s;
     }
-    .btn-eye:hover { background-color: #2d2d2d; }
+    .btn-eye:hover { background-color: var(--bg-controle); }
     .btn-eye svg   { width: 18px; height: 18px; pointer-events: none; }
 
     .btn-extensao {
         width: 42px;
         height: 42px;
         border-radius: 10px;
-        background-color: #2a1f06;
-        border: 1px solid #713f12;
-        color: #fbbf24;
+        background-color: var(--bg-alerta-sutil);
+        border: 1px solid var(--borda-alerta);
+        color: var(--cor-alerta);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -1256,15 +1256,15 @@ $status_map = [
         flex-shrink: 0;
         transition: background-color 0.15s;
     }
-    .btn-extensao:hover { background-color: #3b2a0a; }
+    .btn-extensao:hover { background-color: var(--bg-alerta-badge); }
     .btn-extensao svg { width: 18px; height: 18px; pointer-events: none; }
 
     .btn-atrasado {
         height: 42px;
         border-radius: 10px;
-        border: 1px solid #7f1d1d;
-        background-color: #2a1212;
-        color: #fca5a5;
+        border: 1px solid var(--borda-erro);
+        background-color: var(--bg-erro-card);
+        color: var(--texto-erro);
         padding: 0 12px;
         display: inline-flex;
         align-items: center;
@@ -1276,31 +1276,31 @@ $status_map = [
     }
 
     .btn-atrasado:hover {
-        background-color: #3a1515;
-        border-color: #991b1b;
+        background-color: var(--bg-erro-hover);
+        border-color: var(--borda-erro);
     }
 
     .btn-atrasado.neutro {
-        border-color: #3a3a3a;
-        background-color: #1f1f1f;
-        color: #c4c4c4;
+        border-color: var(--borda-controle);
+        background-color: var(--bg-controle-alt);
+        color: var(--texto-medio);
     }
 
     .btn-atrasado.neutro:hover {
-        background-color: #262626;
-        border-color: #4a4a4a;
+        background-color: var(--bg-controle-alt);
+        border-color: var(--borda-forte);
     }
 
     .btn-atrasado.neutro .alerta {
-        background-color: #4b5563;
+        background-color: var(--texto-secundario);
     }
 
     .btn-atrasado .alerta {
         width: 18px;
         height: 18px;
         border-radius: 50%;
-        background-color: #7f1d1d;
-        color: #fff;
+        background-color: var(--cor-erro-forte);
+        color: #ffffff;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1314,7 +1314,7 @@ $status_map = [
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0,0,0,0.78);
+        background-color: var(--overlay-modal);
         z-index: 300;
         align-items: center;
         justify-content: center;
@@ -1323,8 +1323,8 @@ $status_map = [
     .preview-overlay.open { display: flex; }
 
     .preview-box {
-        background-color: #1a1a1a;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-superficie-tabela);
+        border: 1px solid var(--borda-padrao);
         border-radius: 22px;
         width: 100%;
         max-width: 420px;
@@ -1337,8 +1337,8 @@ $status_map = [
         align-items: center;
         gap: 10px;
         padding: 28px 28px 20px;
-        border-bottom: 1px solid #2a2a2a;
-        background-color: #141414;
+        border-bottom: 1px solid var(--borda-card);
+        background-color: var(--bg-subpainel);
     }
 
     .preview-avatar {
@@ -1346,27 +1346,27 @@ $status_map = [
         height: 72px;
         border-radius: 50%;
         object-fit: cover;
-        border: 2px solid #3a3a3a;
-        background-color: #2a2a2a;
+        border: 2px solid var(--borda-controle);
+        background-color: var(--bg-controle);
     }
 
     .preview-avatar-placeholder {
         width: 72px;
         height: 72px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 2px solid #3a3a3a;
+        background-color: var(--bg-controle);
+        border: 2px solid var(--borda-controle);
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #666;
+        color: var(--texto-auxiliar);
         flex-shrink: 0;
     }
 
     .preview-nome {
         font-size: 1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .preview-body {
@@ -1378,7 +1378,7 @@ $status_map = [
     .preview-subtitle {
         font-size: 0.75rem;
         font-weight: 600;
-        color: #666;
+        color: var(--texto-auxiliar);
         text-transform: uppercase;
         letter-spacing: 0.06em;
         margin-bottom: 14px;
@@ -1395,8 +1395,8 @@ $status_map = [
         display: flex;
         align-items: center;
         gap: 14px;
-        background-color: #222;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-cabecalho-tabela);
+        border: 1px solid var(--borda-padrao);
         border-radius: 12px;
         padding: 12px 16px;
     }
@@ -1406,7 +1406,7 @@ $status_map = [
         height: 52px;
         border-radius: 8px;
         object-fit: cover;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         flex-shrink: 0;
     }
 
@@ -1414,11 +1414,11 @@ $status_map = [
         width: 52px;
         height: 52px;
         border-radius: 8px;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #555;
+        color: var(--texto-placeholder);
         flex-shrink: 0;
     }
 
@@ -1427,7 +1427,7 @@ $status_map = [
     .preview-item-nome {
         font-size: 0.9rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -1435,19 +1435,19 @@ $status_map = [
 
     .preview-item-qtd {
         font-size: 0.8rem;
-        color: #888;
+        color: var(--texto-secundario);
         margin-top: 3px;
     }
 
     .preview-empty {
         text-align: center;
-        color: #555;
+        color: var(--texto-placeholder);
         font-size: 0.9rem;
         padding: 20px 0;
     }
 
     .preview-msg-wrap {
-        border-top: 1px solid #2a2a2a;
+        border-top: 1px solid var(--borda-card);
         margin-top: 6px;
         padding-top: 14px;
         padding-bottom: 16px;
@@ -1456,18 +1456,18 @@ $status_map = [
     .preview-msg-title {
         font-size: 0.75rem;
         font-weight: 600;
-        color: #666;
+        color: var(--texto-auxiliar);
         text-transform: uppercase;
         letter-spacing: 0.06em;
         margin-bottom: 8px;
     }
 
     .preview-msg-box {
-        background-color: #222;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-cabecalho-tabela);
+        border: 1px solid var(--borda-padrao);
         border-radius: 10px;
         padding: 10px 12px;
-        color: #d4d4d4;
+        color: var(--texto-medio);
         font-size: 0.84rem;
         line-height: 1.5;
         white-space: pre-wrap;
@@ -1475,15 +1475,15 @@ $status_map = [
     }
 
     .preview-msg-empty {
-        color: #666;
+        color: var(--texto-auxiliar);
         font-size: 0.82rem;
     }
 
     .preview-date-highlight {
         margin-top: 10px;
-        border: 1px solid #2563eb;
-        background-color: #172554;
-        color: #dbeafe;
+        border: 1px solid var(--borda-info);
+        background-color: var(--bg-info-badge);
+        color: var(--texto-info);
         border-radius: 10px;
         padding: 10px 12px;
         font-size: 0.9rem;
@@ -1503,15 +1503,15 @@ $status_map = [
     .btn-fechar-preview {
         padding: 9px 22px;
         background: none;
-        border: 1px solid #333;
+        border: 1px solid var(--borda-padrao);
         border-radius: 10px;
-        color: #aaa;
+        color: var(--texto-suave);
         font-size: 0.85rem;
         cursor: pointer;
         font-family: inherit;
         transition: border-color 0.15s, color 0.15s;
     }
-    .btn-fechar-preview:hover { border-color: #777; color: #fff; }
+    .btn-fechar-preview:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
     .btn-confirmar-renov,
     .btn-discordar-renov {
@@ -1520,18 +1520,18 @@ $status_map = [
         border: none;
         font-size: 0.85rem;
         font-weight: 700;
-        color: #fff;
+        color: #ffffff;
         cursor: pointer;
         font-family: inherit;
         transition: filter 0.15s;
     }
 
     .btn-confirmar-renov {
-        background-color: #166534;
+        background-color: var(--cor-sucesso-forte);
     }
 
     .btn-discordar-renov {
-        background-color: #991b1b;
+        background-color: var(--cor-erro-forte);
     }
 
     .btn-confirmar-renov:hover,
@@ -1543,7 +1543,7 @@ $status_map = [
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0, 0, 0, 0.8);
+        background-color: var(--overlay-modal);
         z-index: 350;
         align-items: center;
         justify-content: center;
@@ -1555,8 +1555,8 @@ $status_map = [
     .nota-box {
         width: 100%;
         max-width: 560px;
-        background-color: #1b1b1b;
-        border: 1px solid #2f2f2f;
+        background-color: var(--bg-superficie-alt);
+        border: 1px solid var(--borda-card);
         border-radius: 18px;
         overflow: hidden;
     }
@@ -1566,8 +1566,8 @@ $status_map = [
         align-items: center;
         gap: 12px;
         padding: 18px 20px;
-        border-bottom: 1px solid #2a2a2a;
-        background-color: #141414;
+        border-bottom: 1px solid var(--borda-card);
+        background-color: var(--bg-subpainel);
     }
 
     .nota-avatar {
@@ -1575,8 +1575,8 @@ $status_map = [
         height: 48px;
         border-radius: 50%;
         object-fit: cover;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
         flex-shrink: 0;
     }
 
@@ -1587,23 +1587,23 @@ $status_map = [
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #666;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-auxiliar);
         flex-shrink: 0;
     }
 
     .nota-header-text { min-width: 0; }
 
     .nota-nome {
-        color: #fff;
+        color: var(--texto-principal);
         font-size: 0.95rem;
         font-weight: 700;
         margin-bottom: 2px;
     }
 
     .nota-prazo {
-        color: #fca5a5;
+        color: var(--texto-erro);
         font-size: 0.8rem;
         font-weight: 600;
     }
@@ -1615,11 +1615,11 @@ $status_map = [
         display: flex;
         flex-direction: column;
         gap: 10px;
-        border-bottom: 1px solid #2a2a2a;
+        border-bottom: 1px solid var(--borda-card);
     }
 
     .nota-empty {
-        color: #666;
+        color: var(--texto-auxiliar);
         font-size: 0.84rem;
         text-align: center;
         padding: 12px 0;
@@ -1637,9 +1637,9 @@ $status_map = [
 
     .baloon.lab {
         align-self: flex-end;
-        background-color: #1f2937;
-        border: 1px solid #374151;
-        color: #e5e7eb;
+        background-color: var(--chat-aluno-bg);
+        border: 1px solid var(--chat-aluno-borda);
+        color: var(--chat-aluno-texto);
     }
 
     .baloon-wrap {
@@ -1653,9 +1653,9 @@ $status_map = [
         width: 26px;
         height: 26px;
         border-radius: 8px;
-        border: 1px solid #4b5563;
-        background-color: #1f2937;
-        color: #cbd5e1;
+        border: 1px solid var(--borda-controle);
+        background-color: var(--bg-controle);
+        color: var(--texto-medio);
         cursor: pointer;
         font-size: 0.72rem;
         display: inline-flex;
@@ -1665,15 +1665,15 @@ $status_map = [
     }
 
     .btn-msg-apagar:hover {
-        border-color: #ef4444;
-        color: #ef4444;
+        border-color: var(--cor-erro);
+        color: var(--cor-erro);
     }
 
     .baloon.aluno {
         align-self: flex-start;
-        background-color: #2a1a1a;
-        border: 1px solid #7f1d1d;
-        color: #fecaca;
+        background-color: var(--bg-erro-hover);
+        border: 1px solid var(--borda-erro);
+        color: var(--texto-erro-claro);
     }
 
     .nota-form {
@@ -1682,7 +1682,7 @@ $status_map = [
 
     .nota-form label {
         display: block;
-        color: #ccc;
+        color: var(--texto-medio);
         font-size: 0.82rem;
         font-weight: 600;
         margin-bottom: 8px;
@@ -1692,9 +1692,9 @@ $status_map = [
         width: 100%;
         min-height: 90px;
         border-radius: 10px;
-        border: 1.5px solid #333;
-        background-color: #111;
-        color: #fff;
+        border: 1.5px solid var(--borda-padrao);
+        background-color: var(--bg-campo-profundo);
+        color: var(--texto-principal);
         font-size: 0.88rem;
         padding: 10px 12px;
         resize: vertical;
@@ -1702,11 +1702,11 @@ $status_map = [
         font-family: inherit;
     }
 
-    .nota-textarea:focus { border-color: #555; }
+    .nota-textarea:focus { border-color: var(--borda-foco); }
 
     .nota-erro {
         margin-top: 8px;
-        color: #f87171;
+        color: var(--cor-erro-claro);
         font-size: 0.8rem;
         min-height: 16px;
     }
@@ -1730,19 +1730,19 @@ $status_map = [
 
     .btn-nota-cancelar {
         background: none;
-        color: #aaa;
-        border: 1px solid #444;
+        color: var(--texto-suave);
+        border: 1px solid var(--borda-forte);
     }
 
-    .btn-nota-cancelar:hover { border-color: #888; color: #fff; }
+    .btn-nota-cancelar:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
     .btn-nota-enviar {
-        background-color: #7f1d1d;
-        color: #fff;
+        background-color: var(--cor-erro-forte);
+        color: #ffffff;
         border: none;
     }
 
-    .btn-nota-enviar:hover { background-color: #991b1b; }
+    .btn-nota-enviar:hover { background-color: var(--cor-erro-hover); }
 
     /* ── Responsivo ───────────────────────── */
     /* ── Animação de arquivar card ───────── */
@@ -2141,7 +2141,7 @@ $status_map = [
             <div class="pedido-info">
                 <p class="pedido-numero">Pedido #<?= htmlspecialchars($numFmt) ?></p>
                 <div class="pedido-meta">
-                    <span>Pedido feito por: <strong style="color:#ccc"><?= htmlspecialchars($p['nome_estudante']) ?></strong></span>
+                    <span>Pedido feito por: <strong style="color:var(--texto-medio)"><?= htmlspecialchars($p['nome_estudante']) ?></strong></span>
                     <span>Data da última atualização: <?= htmlspecialchars($p['data_fmt'] ?? '—') ?></span>
                     <?php if ($atendimentoInfo !== ''): ?>
                         <span>Atendimento: <?= htmlspecialchars($atendimentoInfo) ?></span>
@@ -2678,7 +2678,7 @@ function svgIcon(string $name): string {
 
             const emailSeguro = email !== '' ? escapeHtml(email) : 'email não informado';
             const emailLink = email !== ''
-                ? `<a href="mailto:${encodeURIComponent(email)}" style="color:#93c5fd;text-decoration:underline;">Contate esse e-mail clicando aqui</a>`
+                ? `<a href="mailto:${encodeURIComponent(email)}" style="color:var(--link-cor);text-decoration:underline;">Contate esse e-mail clicando aqui</a>`
                 : 'E-mail do aluno não informado.';
 
             chat.innerHTML = `

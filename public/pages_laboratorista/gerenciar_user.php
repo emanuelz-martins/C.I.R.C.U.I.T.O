@@ -237,7 +237,7 @@ require_once '../includes/header.php';
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -245,9 +245,9 @@ require_once '../includes/header.php';
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -257,7 +257,7 @@ require_once '../includes/header.php';
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
     .btn-back svg   { width: 20px; height: 20px; }
 
     /* ── Barra de busca + filtro ─────────────────────── */
@@ -276,17 +276,17 @@ require_once '../includes/header.php';
     .search-input {
         width: 100%;
         padding: 14px 50px 14px 20px;
-        background-color: #1e1e1e;
-        border: 1.5px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 12px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.95rem;
         outline: none;
         transition: border-color 0.2s;
     }
 
-    .search-input::placeholder { color: #555; }
-    .search-input:focus { border-color: #555; }
+    .search-input::placeholder { color: var(--texto-placeholder); }
+    .search-input:focus { border-color: var(--borda-foco); }
 
     .search-btn {
         position: absolute;
@@ -295,7 +295,7 @@ require_once '../includes/header.php';
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: #aaa;
+        color: var(--texto-suave);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -309,8 +309,8 @@ require_once '../includes/header.php';
         align-items: center;
         gap: 8px;
         padding: 14px 24px;
-        background-color: #ffffff;
-        color: #000000;
+        background-color: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
         border: none;
         border-radius: 12px;
         font-size: 0.95rem;
@@ -320,7 +320,7 @@ require_once '../includes/header.php';
         transition: background-color 0.15s;
     }
 
-    .btn-filter:hover { background-color: #e5e5e5; }
+    .btn-filter:hover { background-color: var(--bg-acao-primaria-hover); }
     .btn-filter svg   { width: 18px; height: 18px; }
 
     /* ── Lista de usuários ──────────────────────────── */
@@ -331,8 +331,8 @@ require_once '../includes/header.php';
     }
 
     .user-card {
-        background-color: #1e1e1e;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-card);
         border-radius: 16px;
         padding: 20px 24px;
         display: flex;
@@ -341,17 +341,17 @@ require_once '../includes/header.php';
         transition: border-color 0.15s;
     }
 
-    .user-card.bloqueado { border-color: #7f1d1d; }
+    .user-card.bloqueado { border-color: var(--borda-erro); }
     .user-card.prebloqueado {
-        border-color: #7f1d1d;
-        background: linear-gradient(180deg, rgba(127, 29, 29, 0.18) 0%, rgba(30, 30, 30, 1) 70%);
+        border-color: var(--borda-erro);
+        background: var(--gradiente-prebloqueado);
     }
 
     .user-avatar {
         width: 46px;
         height: 46px;
         border-radius: 10px;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         flex-shrink: 0;
         overflow: hidden;
         display: flex;
@@ -368,7 +368,7 @@ require_once '../includes/header.php';
     .user-avatar svg {
         width: 26px;
         height: 26px;
-        color: #555;
+        color: var(--texto-placeholder);
     }
 
     .user-info { flex: 1; min-width: 0; }
@@ -376,17 +376,17 @@ require_once '../includes/header.php';
     .user-nome {
         font-size: 1.05rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 4px;
     }
 
-    .user-sub { font-size: 0.85rem; color: #888; }
+    .user-sub { font-size: 0.85rem; color: var(--texto-secundario); }
 
     .badge-bloqueado {
         font-size: 0.75rem;
         font-weight: 700;
-        background-color: #7f1d1d;
-        color: #fca5a5;
+        background-color: var(--bg-erro-badge);
+        color: var(--texto-erro);
         padding: 3px 10px;
         border-radius: 20px;
         white-space: nowrap;
@@ -396,8 +396,8 @@ require_once '../includes/header.php';
     .badge-prebloqueado {
         font-size: 0.75rem;
         font-weight: 700;
-        background-color: #451a1a;
-        color: #fca5a5;
+        background-color: var(--bg-erro-badge);
+        color: var(--texto-erro);
         padding: 3px 10px;
         border-radius: 20px;
         white-space: nowrap;
@@ -410,9 +410,9 @@ require_once '../includes/header.php';
         width: 44px;
         height: 44px;
         border-radius: 10px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -421,7 +421,7 @@ require_once '../includes/header.php';
         transition: background-color 0.15s;
     }
 
-    .btn-menu:hover { background-color: #333; }
+    .btn-menu:hover { background-color: var(--bg-controle-hover); }
     .btn-menu svg   { width: 20px; height: 20px; }
 
     /* ── Dropdown de ações ──────────────────────────── */
@@ -432,12 +432,12 @@ require_once '../includes/header.php';
         position: absolute;
         right: 0;
         top: calc(100% + 8px);
-        background-color: #1e1e1e;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 12px;
         min-width: 200px;
         overflow: hidden;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        box-shadow: var(--sombra-modal);
         z-index: 50;
     }
 
@@ -451,8 +451,8 @@ require_once '../includes/header.php';
         padding: 14px 18px;
         background: none;
         border: none;
-        border-bottom: 1px solid #2a2a2a;
-        color: #ffffff;
+        border-bottom: 1px solid var(--borda-card);
+        color: var(--texto-principal);
         font-size: 0.9rem;
         cursor: pointer;
         text-align: left;
@@ -460,25 +460,25 @@ require_once '../includes/header.php';
     }
 
     .action-dropdown button:last-child { border-bottom: none; }
-    .action-dropdown button:hover      { background-color: #2a2a2a; }
+    .action-dropdown button:hover      { background-color: var(--bg-controle); }
 
     .action-dropdown button svg {
         width: 17px;
         height: 17px;
         flex-shrink: 0;
-        color: #aaa;
+        color: var(--texto-suave);
     }
 
-    .action-dropdown button.danger      { color: #ef4444; }
-    .action-dropdown button.danger  svg { color: #ef4444; }
-    .action-dropdown button.unblock     { color: #4ade80; }
-    .action-dropdown button.unblock svg { color: #4ade80; }
+    .action-dropdown button.danger      { color: var(--cor-erro); }
+    .action-dropdown button.danger  svg { color: var(--cor-erro); }
+    .action-dropdown button.unblock     { color: var(--cor-sucesso); }
+    .action-dropdown button.unblock svg { color: var(--cor-sucesso); }
 
     /* ── Estado vazio ───────────────────────────────── */
     .empty-state {
         text-align: center;
         padding: 60px 0;
-        color: #555;
+        color: var(--texto-placeholder);
         font-size: 1rem;
     }
 
@@ -489,7 +489,7 @@ require_once '../includes/header.php';
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0,0,0,0.75);
+        background-color: var(--overlay-modal);
         z-index: 200;
         align-items: center;
         justify-content: center;
@@ -498,8 +498,8 @@ require_once '../includes/header.php';
     .modal-overlay.open { display: flex; }
 
     .modal {
-        background-color: #1e1e1e;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 20px;
         padding: 36px;
         width: 100%;
@@ -512,17 +512,17 @@ require_once '../includes/header.php';
     .modal-title {
         font-size: 1.4rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .modal-recipient {
         font-size: 0.9rem;
-        color: #888;
+        color: var(--texto-secundario);
         margin-top: -12px;
     }
 
     .modal-recipient span {
-        color: #ffffff;
+        color: var(--texto-principal);
         font-weight: 600;
     }
 
@@ -530,17 +530,17 @@ require_once '../includes/header.php';
         display: block;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #aaa;
+        color: var(--texto-suave);
         margin-bottom: 8px;
     }
 
     .modal input,
     .modal textarea {
         width: 100%;
-        background-color: #141414;
-        border: 1.5px solid #2e2e2e;
+        background-color: var(--bg-subpainel);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.95rem;
         font-family: inherit;
         outline: none;
@@ -550,10 +550,10 @@ require_once '../includes/header.php';
     }
 
     .modal input::placeholder,
-    .modal textarea::placeholder { color: #444; }
+    .modal textarea::placeholder { color: var(--icone-vazio); }
 
     .modal input:focus,
-    .modal textarea:focus { border-color: #555; }
+    .modal textarea:focus { border-color: var(--borda-foco); }
 
     .modal textarea { min-height: 120px; }
 
@@ -565,31 +565,31 @@ require_once '../includes/header.php';
 
     .btn-cancel {
         padding: 12px 24px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         font-weight: 600;
         cursor: pointer;
         transition: background-color 0.15s;
     }
 
-    .btn-cancel:hover { background-color: #333; }
+    .btn-cancel:hover { background-color: var(--bg-controle-hover); }
 
     .btn-send {
         padding: 12px 24px;
-        background-color: #ffffff;
+        background-color: var(--bg-acao-primaria);
         border: none;
         border-radius: 10px;
-        color: #000000;
+        color: var(--texto-acao-primaria);
         font-size: 0.9rem;
         font-weight: 700;
         cursor: pointer;
         transition: background-color 0.15s;
     }
 
-    .btn-send:hover    { background-color: #e5e5e5; }
+    .btn-send:hover    { background-color: var(--bg-acao-primaria-hover); }
     .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* ── Toast ──────────────────────────────────────── */
@@ -598,11 +598,11 @@ require_once '../includes/header.php';
         bottom: 28px;
         left: 50%;
         transform: translateX(-50%) translateY(60px);
-        background-color: #1e1e1e;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 12px;
         padding: 14px 24px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         font-weight: 600;
         z-index: 300;
@@ -613,8 +613,8 @@ require_once '../includes/header.php';
     }
 
     .toast.show    { transform: translateX(-50%) translateY(0); opacity: 1; }
-    .toast.success { border-color: #166534; color: #4ade80; }
-    .toast.error   { border-color: #7f1d1d; color: #f87171; }
+    .toast.success { border-color: var(--borda-sucesso); color: var(--cor-sucesso); }
+    .toast.error   { border-color: var(--borda-erro); color: var(--cor-erro-claro); }
 
     /* ── Seletor de rosto ───────────────────── */
     .face-picker {
@@ -626,8 +626,8 @@ require_once '../includes/header.php';
     .face-btn {
         flex: 1;
         padding: 10px 6px;
-        background-color: #141414;
-        border: 1.5px solid #2e2e2e;
+        background-color: var(--bg-subpainel);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
         cursor: pointer;
         display: flex;
@@ -635,18 +635,18 @@ require_once '../includes/header.php';
         align-items: center;
         gap: 6px;
         transition: border-color 0.15s, background-color 0.15s;
-        color: #aaa;
+        color: var(--texto-suave);
         font-size: 0.75rem;
         font-weight: 600;
     }
 
     .face-btn svg { width: 32px; height: 32px; }
 
-    .face-btn:hover { background-color: #1e1e1e; }
+    .face-btn:hover { background-color: var(--bg-modal); }
 
-    .face-btn[data-humor="feliz"].selected  { border-color: #4ade80; background-color: #0d2b16; color: #4ade80; }
-    .face-btn[data-humor="triste"].selected { border-color: #ef4444; background-color: #2b0d0d; color: #ef4444; }
-    .face-btn[data-humor="neutro"].selected { border-color: #f59e0b; background-color: #2b200d; color: #f59e0b; }
+    .face-btn[data-humor="feliz"].selected  { border-color: var(--cor-sucesso); background-color: var(--bg-sucesso-sutil); color: var(--cor-sucesso); }
+    .face-btn[data-humor="triste"].selected { border-color: var(--cor-erro); background-color: var(--bg-erro-sutil); color: var(--cor-erro); }
+    .face-btn[data-humor="neutro"].selected { border-color: var(--cor-alerta); background-color: var(--bg-alerta-sutil); color: var(--cor-alerta); }
 </style>
 </head>
 <body>
@@ -737,8 +737,8 @@ require_once '../includes/header.php';
     </form>
 
     <?php if (!$db_ok): ?>
-    <div style="background-color:#1c1c1c;border:1px solid #3a1a1a;border-radius:16px;padding:40px;text-align:center;color:#aaa;">
-        <h2 style="color:#ef4444;margin-bottom:8px;">Banco de dados indisponível</h2>
+    <div style="background-color:var(--bg-superficie);border:1px solid var(--borda-erro-sutil);border-radius:16px;padding:40px;text-align:center;color:var(--texto-suave);">
+        <h2 style="color:var(--cor-erro);margin-bottom:8px;">Banco de dados indisponível</h2>
         <p>Não foi possível carregar os usuários. Verifique a conexão com o MySQL.</p>
     </div>
     <?php elseif (empty($usuarios)): ?>
@@ -879,7 +879,7 @@ require_once '../includes/header.php';
         </div>
 
         <div>
-            <label>Rosto da notificação <span style="color:#555;font-weight:400">(opcional)</span></label>
+            <label>Rosto da notificação <span style="color:var(--texto-placeholder);font-weight:400">(opcional)</span></label>
             <div class="face-picker" id="facePicker">
                 <button type="button" class="face-btn" data-humor="feliz" onclick="selectFace(this)">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"

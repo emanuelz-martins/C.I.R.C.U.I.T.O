@@ -76,7 +76,7 @@ try {
     .section-label {
         font-size: 1.1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 18px;
     }
 
@@ -90,7 +90,7 @@ try {
     /* Card esquerdo — usuários ativos */
     .card-emprestimos {
         position: relative;
-        background-color: #1c1c1c;
+        background-color: var(--bg-superficie);
         border-radius: 16px;
         padding: 28px 32px;
         min-width: 260px;
@@ -104,8 +104,8 @@ try {
     .card-emprestimos-pattern {
         position: absolute;
         inset: 0;
-        filter: invert(1);
-        opacity: 0.1;
+        filter: var(--filtro-padrao-circuito);
+        opacity: var(--opacidade-padrao-circuito);
         pointer-events: none;
     }
 
@@ -114,7 +114,7 @@ try {
     .card-emprestimos-num {
         font-size: 3.2rem;
         font-weight: 900;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1;
         position: relative;
         z-index: 1;
@@ -124,7 +124,7 @@ try {
     .card-emprestimos-label {
         font-size: 1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.35;
         position: relative;
         z-index: 1;
@@ -133,8 +133,8 @@ try {
     /* Card direito — stats */
     .card-stats {
         flex: 1;
-        background-color: #1c1c1c;
-        border: 1.5px solid #333;
+        background-color: var(--bg-superficie);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 16px;
         padding: 28px 40px;
         display: flex;
@@ -150,7 +150,7 @@ try {
     }
 
     .stat-item + .stat-item {
-        border-left: 1px solid #2e2e2e;
+        border-left: 1px solid var(--borda-padrao);
         padding-left: 40px;
     }
 
@@ -161,24 +161,24 @@ try {
         flex-shrink: 0;
     }
 
-    .stat-num.blue { color: #3b82f6; }
-    .stat-num.red  { color: #ef4444; }
+    .stat-num.blue { color: var(--cor-primaria); }
+    .stat-num.red  { color: var(--cor-erro); }
 
     .stat-label {
         font-size: 1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.35;
     }
 
-    .stat-label.blue { color: #3b82f6; }
-    .stat-label.red  { color: #ef4444; }
+    .stat-label.blue { color: var(--cor-primaria); }
+    .stat-label.red  { color: var(--cor-erro); }
 
     /* ── Seção: Acessar funcionalidades ───── */
     .section-title {
         font-size: 2.8rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 32px;
     }
 
@@ -189,12 +189,12 @@ try {
     }
 
     .func-card {
-        background-color: #1e1e1e;
+        background-color: var(--bg-modal);
         border-radius: 16px;
         padding: 28px 24px 36px;
         border: none;
         text-decoration: none;
-        color: #ffffff;
+        color: var(--texto-principal);
         display: flex;
         flex-direction: column;
         gap: 20px;
@@ -207,13 +207,13 @@ try {
         appearance: none;
     }
 
-    .func-card:hover { background-color: #262626; }
+    .func-card:hover { background-color: var(--bg-controle-alt); }
 
 
     .func-icon {
         width: 48px;
         height: 48px;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         border-radius: 10px;
         display: flex;
         align-items: center;
@@ -224,13 +224,13 @@ try {
     .func-icon svg {
         width: 26px;
         height: 26px;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .func-label {
         font-size: 1.15rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.3;
     }
 
@@ -239,7 +239,7 @@ try {
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0,0,0,0.75);
+        background-color: var(--overlay-modal);
         z-index: 200;
         align-items: center;
         justify-content: center;
@@ -247,8 +247,8 @@ try {
     .choice-overlay.open { display: flex; }
 
     .choice-modal {
-        background-color: #1e1e1e;
-        border: 1px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 20px;
         padding: 36px;
         width: 100%;
@@ -261,12 +261,12 @@ try {
     .choice-title {
         font-size: 1.4rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .choice-subtitle {
         font-size: 0.9rem;
-        color: #888;
+        color: var(--texto-secundario);
         margin-top: -12px;
     }
 
@@ -279,9 +279,9 @@ try {
         flex: 1;
         padding: 20px 16px;
         border-radius: 14px;
-        border: 1.5px solid #2e2e2e;
-        background-color: #141414;
-        color: #ffffff;
+        border: 1.5px solid var(--borda-padrao);
+        background-color: var(--bg-subpainel);
+        color: var(--texto-principal);
         text-decoration: none;
         display: flex;
         flex-direction: column;
@@ -294,22 +294,22 @@ try {
         text-align: center;
     }
 
-    .choice-btn:hover { background-color: #1e1e1e; border-color: #555; }
+    .choice-btn:hover { background-color: var(--bg-modal); border-color: var(--borda-foco); }
 
-    .choice-btn svg { width: 36px; height: 36px; color: #aaa; }
-    .choice-btn:hover svg { color: #fff; }
+    .choice-btn svg { width: 36px; height: 36px; color: var(--texto-suave); }
+    .choice-btn:hover svg { color: var(--texto-principal); }
 
     .choice-cancel {
         background: none;
         border: none;
-        color: #666;
+        color: var(--texto-auxiliar);
         font-size: 0.85rem;
         cursor: pointer;
         align-self: center;
         padding: 4px 8px;
         transition: color 0.15s;
     }
-    .choice-cancel:hover { color: #aaa; }
+    .choice-cancel:hover { color: var(--texto-suave); }
 
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 1100px) {
@@ -320,7 +320,7 @@ try {
         .main { padding: 40px 20px 60px; }
         .ocorrencia-row { flex-direction: column; }
         .card-stats { flex-direction: column; gap: 24px; align-items: flex-start; }
-        .stat-item + .stat-item { border-left: none; padding-left: 0; border-top: 1px solid #2e2e2e; padding-top: 24px; }
+        .stat-item + .stat-item { border-left: none; padding-left: 0; border-top: 1px solid var(--borda-padrao); padding-top: 24px; }
         .funcionalidades-grid { grid-template-columns: repeat(2, 1fr); }
         .section-title { font-size: 2rem; }
     }

@@ -1,7 +1,16 @@
 <?php
 require_once __DIR__ . '/../../src/config/database.php';
 loadEnv(dirname(__DIR__, 2) . '/.env');
-$faviconUrl = rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/') . '/assets/img/sempre/circuito.svg?v=2';
+$basePath = rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/');
+if ($basePath === '' && isset($_SERVER['SCRIPT_NAME'])) {
+    $scriptPath = str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']);
+    if (preg_match('#^(.*?/public)(?:/|$)#', $scriptPath, $m)) {
+        $basePath = rtrim($m[1], '/');
+    }
+}
+$faviconUrl = $basePath . '/assets/img/sempre/circuito.svg?v=2';
+$temaJsUrl = $basePath . '/assets/js/tema.js';
+$temaCssUrl = $basePath . '/assets/css/tema.css';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -18,6 +27,8 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="<?= htmlspecialchars($temaJsUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
+    <link rel="stylesheet" href="<?= htmlspecialchars($temaCssUrl, ENT_QUOTES, 'UTF-8') ?>">
     <link rel="icon" type="image/svg+xml" sizes="any" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
     <title><?= isset($page_title) ? htmlspecialchars($page_title) . ' – C.I.R.C.U.I.T.O.' : 'C.I.R.C.U.I.T.O.' ?></title>
     <?php if (($authUser['perfil'] ?? '') === 'admin'):
@@ -28,8 +39,8 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
         $previewAluno = str_contains($previewScript, '/pages_aluno/') || (($_SESSION['admin_visualizacao'] ?? '') === 'estudante' && !$previewLab && !str_contains($previewScript, '/pages_admin/'));
         $previewAtivo = $previewLab || $previewAluno;
     ?>
-    <script id="adminPreviewConfig" type="application/json"><?= json_encode(['labRestrito' => $previewRestrito, 'aluno' => $previewAluno, 'ativo' => $previewAtivo, 'modo' => $previewLab ? 'Laboratorista' : 'Estudante', 'mensagem' => AVISO_PERMISSAO_ADMIN, 'voltar' => rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/') . '/pages_admin/index.php'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-    <script src="<?= htmlspecialchars(rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/') . '/assets/js/visualizacao-admin.js', ENT_QUOTES, 'UTF-8') ?>" defer></script>
+    <script id="adminPreviewConfig" type="application/json"><?= json_encode(['labRestrito' => $previewRestrito, 'aluno' => $previewAluno, 'ativo' => $previewAtivo, 'modo' => $previewLab ? 'Laboratorista' : 'Estudante', 'mensagem' => AVISO_PERMISSAO_ADMIN, 'voltar' => $basePath . '/pages_admin/index.php'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+    <script src="<?= htmlspecialchars($basePath . '/assets/js/visualizacao-admin.js', ENT_QUOTES, 'UTF-8') ?>" defer></script>
     <?php endif; ?>
     <style>
         * {
@@ -39,8 +50,8 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
         }
 
         body {
-            background-color: #141414;
-            color: #ffffff;
+            background-color: var(--bg-pagina);
+            color: var(--texto-principal);
             font-family: 'Segoe UI', Arial, sans-serif;
             min-height: 100vh;
         }
@@ -54,11 +65,11 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             gap: 20px;
             padding: 0 40px;
             height: 64px;
-            background-color: #141414;
+            background-color: var(--bg-pagina);
             position: sticky;
             top: 0;
             z-index: 100;
-            border-bottom: 1px solid #222;
+            border-bottom: 1px solid var(--borda-sutil);
         }
 
         .nav-logo {
@@ -66,7 +77,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             font-size: 1.15rem;
             font-weight: 900;
             letter-spacing: 0.06em;
-            color: #ffffff;
+            color: var(--texto-principal);
             text-decoration: none;
             white-space: nowrap;
             flex-shrink: 0;
@@ -82,17 +93,17 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
         .nav-search input {
             width: 100%;
             padding: 10px 44px 10px 18px;
-            background-color: #2a2a2a;
-            border: 1.5px solid #333;
+            background-color: var(--bg-controle);
+            border: 1.5px solid var(--borda-campo);
             border-radius: 50px;
-            color: #ffffff;
+            color: var(--texto-principal);
             font-size: 0.875rem;
             outline: none;
             transition: border-color 0.2s;
         }
 
-        .nav-search input::placeholder { color: #666; }
-        .nav-search input:focus { border-color: #555; }
+        .nav-search input::placeholder { color: var(--texto-auxiliar); }
+        .nav-search input:focus { border-color: var(--borda-foco); }
 
         .nav-search button {
             position: absolute;
@@ -102,7 +113,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             background: none;
             border: none;
             cursor: pointer;
-            color: #aaa;
+            color: var(--texto-secundario);
             padding: 0;
             display: flex;
             align-items: center;
@@ -122,7 +133,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             gap: 7px;
             background: none;
             border: none;
-            color: #ffffff;
+            color: var(--texto-principal);
             font-size: 0.875rem;
             cursor: pointer;
             text-decoration: none;
@@ -130,7 +141,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             transition: color 0.15s;
         }
 
-        .nav-action-btn:hover { color: #cccccc; }
+        .nav-action-btn:hover { color: var(--texto-medio); }
 
         .nav-action-btn svg {
             width: 22px;
@@ -149,7 +160,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             gap: 8px;
             background: none;
             border: none;
-            color: #ffffff;
+            color: var(--texto-principal);
             cursor: pointer;
             font-size: 0.875rem;
             text-align: left;
@@ -165,7 +176,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
 
         .nav-user-btn .greeting span {
             display: block;
-            color: #aaa;
+            color: var(--texto-secundario);
             font-size: 0.78rem;
         }
 
@@ -174,12 +185,12 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             position: absolute;
             top: calc(100% + 14px);
             right: 0;
-            background-color: #1e1e1e;
-            border: 1px solid #2e2e2e;
+            background-color: var(--bg-superficie-alt);
+            border: 1px solid var(--borda-card);
             border-radius: 12px;
             min-width: 200px;
             overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            box-shadow: var(--sombra-dropdown);
         }
 
         .nav-user.open .dropdown { display: block; }
@@ -189,20 +200,20 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             align-items: center;
             gap: 12px;
             padding: 14px 20px;
-            color: #ffffff;
+            color: var(--texto-principal);
             text-decoration: none;
             font-size: 0.9rem;
             transition: background-color 0.15s;
-            border-bottom: 1px solid #2a2a2a;
+            border-bottom: 1px solid var(--borda-padrao);
         }
 
         .dropdown a:last-child { border-bottom: none; }
-        .dropdown a:hover { background-color: #2a2a2a; }
+        .dropdown a:hover { background-color: var(--bg-hover-menu); }
 
         .dropdown a svg {
             width: 18px;
             height: 18px;
-            color: #aaa;
+            color: var(--texto-secundario);
             flex-shrink: 0;
         }
 

@@ -239,7 +239,7 @@ require_once '../includes/header.php';
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -247,9 +247,9 @@ require_once '../includes/header.php';
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -259,66 +259,66 @@ require_once '../includes/header.php';
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
     .btn-back svg   { width: 20px; height: 20px; }
 
     /* ── Alertas de erro ──────────────────── */
     .alert-erros {
-        background-color: #1c0a0a;
-        border: 1px solid #7f1d1d;
+        background-color: var(--bg-erro-sutil);
+        border: 1px solid var(--borda-erro);
         border-radius: 12px;
         padding: 16px 20px;
         margin-bottom: 28px;
     }
 
     .alert-erros p {
-        color: #fca5a5;
+        color: var(--texto-erro);
         font-size: 0.88rem;
         line-height: 1.8;
     }
 
     /* ── Aviso sem categorias ─────────────── */
     .aviso-sem-cat {
-        background-color: #1c1a08;
-        border: 1px solid #713f12;
+        background-color: var(--bg-alerta-sutil);
+        border: 1px solid var(--borda-alerta);
         border-radius: 10px;
         padding: 12px 18px;
-        color: #fde68a;
+        color: var(--texto-alerta-forte);
         font-size: 0.85rem;
         margin-bottom: 28px;
     }
 
     /* ── Área de upload de imagem ─────────── */
     .upload-area {
-        border: 1.5px dashed #3a3a3a;
+        border: 1.5px dashed var(--borda-controle);
         border-radius: 16px;
         padding: 48px 20px;
         text-align: center;
         cursor: pointer;
         transition: border-color 0.2s, background-color 0.2s;
         margin-bottom: 28px;
-        background-color: #1a1a1a;
+        background-color: var(--bg-superficie-tabela);
         user-select: none;
     }
 
     .upload-area:hover,
     .upload-area.dragover {
-        border-color: #666;
-        background-color: #1e1e1e;
+        border-color: var(--borda-foco);
+        background-color: var(--bg-modal);
     }
 
-    .upload-icon { color: #ffffff; margin-bottom: 12px; }
+    .upload-icon { color: var(--texto-principal); margin-bottom: 12px; }
     .upload-icon svg { width: 36px; height: 36px; }
 
     .upload-label {
         font-size: 0.95rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .upload-hint {
         font-size: 0.78rem;
-        color: #666;
+        color: var(--texto-auxiliar);
         margin-top: 4px;
     }
 
@@ -339,7 +339,7 @@ require_once '../includes/header.php';
 
     .upload-preview-nome {
         font-size: 0.82rem;
-        color: #aaa;
+        color: var(--texto-suave);
     }
 
     /* ── Campos do formulário ─────────────── */
@@ -349,14 +349,14 @@ require_once '../includes/header.php';
         display: block;
         font-size: 1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 10px;
     }
 
     .form-label .label-hint {
         font-size: 0.78rem;
         font-weight: 400;
-        color: #8b8b8b;
+        color: var(--texto-suave);
         margin-left: 8px;
     }
 
@@ -365,10 +365,10 @@ require_once '../includes/header.php';
     .form-textarea {
         width: 100%;
         padding: 14px 18px;
-        background-color: #1e1e1e;
-        border: 1.5px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.95rem;
         font-family: inherit;
         outline: none;
@@ -376,11 +376,11 @@ require_once '../includes/header.php';
     }
 
     .form-input::placeholder,
-    .form-textarea::placeholder { color: #555; }
+    .form-textarea::placeholder { color: var(--texto-placeholder); }
 
     .form-input:focus,
     .form-select:focus,
-    .form-textarea:focus { border-color: #555; }
+    .form-textarea:focus { border-color: var(--borda-foco); }
 
     /* Select com seta customizada */
     .form-select {
@@ -391,7 +391,7 @@ require_once '../includes/header.php';
         cursor: pointer;
     }
 
-    .form-select option { background-color: #1e1e1e; }
+    .form-select option { background-color: var(--bg-modal); }
 
     .form-textarea {
         min-height: 130px;
@@ -414,10 +414,10 @@ require_once '../includes/header.php';
         display: block;
         width: 100%;
         padding: 18px;
-        background-color: #ffffff;
+        background-color: var(--bg-acao-primaria);
         border: none;
         border-radius: 10px;
-        color: #141414;
+        color: var(--texto-acao-primaria);
         font-size: 1rem;
         font-weight: 700;
         cursor: pointer;
@@ -426,7 +426,7 @@ require_once '../includes/header.php';
         margin-top: 36px;
     }
 
-    .btn-cadastrar:hover    { background-color: #e0e0e0; }
+    .btn-cadastrar:hover    { background-color: var(--bg-acao-primaria-hover); }
     .btn-cadastrar:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* ── Responsivo ───────────────────────── */
@@ -543,7 +543,7 @@ require_once '../includes/header.php';
                 <span class="upload-preview-nome" id="previewNome"></span>
                 <button
                     type="button"
-                    style="background:none;border:none;color:#aaa;font-size:0.82rem;cursor:pointer;margin-top:4px"
+                    style="background:none;border:none;color:var(--texto-suave);font-size:0.82rem;cursor:pointer;margin-top:4px"
                     onclick="limparImagem(event)"
                 >Trocar imagem</button>
             </div>

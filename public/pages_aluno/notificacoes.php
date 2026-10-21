@@ -81,10 +81,10 @@ function robotFaceSvg(?string $humor, string $mensagem = '', string $tipo = ''):
     }
 
     [$color, $mouth] = match($humor) {
-        'feliz'  => ['#4ade80', '<path d="M9 14c.8 1 5.2 1 6 0"/>'],
-        'triste' => ['#ef4444', '<path d="M9 15c.8-1 5.2-1 6 0"/>'],
-        'neutro' => ['#f59e0b', '<line x1="9" y1="14" x2="15" y2="14"/>'],
-        default  => ['#ffffff', '<path d="M9 14c.8 1 5.2 1 6 0"/>'],
+        'feliz'  => ['var(--cor-sucesso)', '<path d="M9 14c.8 1 5.2 1 6 0"/>'],
+        'triste' => ['var(--cor-erro)', '<path d="M9 15c.8-1 5.2-1 6 0"/>'],
+        'neutro' => ['var(--cor-alerta)', '<line x1="9" y1="14" x2="15" y2="14"/>'],
+        default  => ['currentColor', '<path d="M9 14c.8 1 5.2 1 6 0"/>'],
     };
 
     return sprintf(
@@ -108,7 +108,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
         static function (array $m): string {
             $email = $m[1];
             $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
-            return '<a href="mailto:' . $safeEmail . '" style="color:#93c5fd;text-decoration:underline;">clicando aqui</a> (' . $safeEmail . ')';
+            return '<a href="mailto:' . $safeEmail . '" style="color:var(--link-cor);text-decoration:underline;">clicando aqui</a> (' . $safeEmail . ')';
         },
         $safe
     );
@@ -138,7 +138,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -146,9 +146,9 @@ function formatarMensagemNotificacao(string $mensagem): string {
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -158,7 +158,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
 
     .btn-back svg {
         width: 20px;
@@ -169,7 +169,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
     .section-title {
         font-size: 1.4rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 20px;
     }
 
@@ -181,8 +181,8 @@ function formatarMensagemNotificacao(string $mensagem): string {
     }
 
     .notif-card {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 16px;
         padding: 20px 24px;
         display: flex;
@@ -195,13 +195,13 @@ function formatarMensagemNotificacao(string $mensagem): string {
     .notif-icon {
         width: 60px;
         height: 60px;
-        border: 2px solid #3a3a3a;
+        border: 2px solid var(--borda-controle);
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .notif-icon svg {
@@ -218,23 +218,23 @@ function formatarMensagemNotificacao(string $mensagem): string {
     .notif-titulo {
         font-size: 1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 4px;
     }
 
     .notif-mensagem {
         font-size: 0.85rem;
-        color: #aaa;
+        color: var(--texto-suave);
         margin-bottom: 4px;
         line-height: 1.5;
     }
 
-    .notif-mensagem strong { color: #ffffff; }
-    .notif-mensagem em     { font-style: italic; color: #cccccc; }
+    .notif-mensagem strong { color: var(--texto-principal); }
+    .notif-mensagem em     { font-style: italic; color: var(--texto-medio); }
 
     .notif-data {
         font-size: 0.78rem;
-        color: #666;
+        color: var(--texto-auxiliar);
     }
 
     /* ── Ações ────────────────────────────── */
@@ -255,20 +255,20 @@ function formatarMensagemNotificacao(string $mensagem): string {
         min-width: 110px;
     }
 
-    .status-badge.pronto-para-retirada { background-color: #92400e; color: #ffffff; }
-    .status-badge.em-separacao         { background-color: #7e22ce; color: #ffffff; }
-    .status-badge.enviado              { background-color: #854d0e; color: #ffffff; }
-    .status-badge.negado               { background-color: #b91c1c; color: #ffffff; }
-    .status-badge.em-andamento         { background-color: #1a56db; color: #ffffff; }
-    .status-badge.finalizado           { background-color: #166534; color: #ffffff; }
+    .status-badge.pronto-para-retirada { background-color: var(--status-pronto-bg); color: var(--status-pronto-texto); }
+    .status-badge.em-separacao         { background-color: var(--status-separacao-bg); color: var(--status-separacao-texto); }
+    .status-badge.enviado              { background-color: var(--status-pendente-bg); color: var(--status-pendente-texto); }
+    .status-badge.negado               { background-color: var(--status-cancelado-bg); color: var(--status-cancelado-texto); }
+    .status-badge.em-andamento         { background-color: var(--status-andamento-bg); color: var(--status-andamento-texto); }
+    .status-badge.finalizado           { background-color: var(--status-finalizado-bg); color: var(--status-finalizado-texto); }
 
     .btn-details {
         width: 44px;
         height: 44px;
         border-radius: 10px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -278,7 +278,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
         flex-shrink: 0;
     }
 
-    .btn-details:hover { background-color: #333; }
+    .btn-details:hover { background-color: var(--bg-controle-hover); }
 
     .btn-details svg {
         width: 20px;
@@ -289,7 +289,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
     .notif-empty {
         text-align: center;
         padding: 40px 0;
-        color: #555;
+        color: var(--texto-auxiliar);
         font-size: 1rem;
     }
 
@@ -299,7 +299,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
         align-items: center;
         font-size: 1.3rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 16px;
     }
 
@@ -311,12 +311,12 @@ function formatarMensagemNotificacao(string $mensagem): string {
         min-width: 22px;
         height: 22px;
         padding: 0 6px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
         border-radius: 20px;
         font-size: 0.75rem;
         font-weight: 700;
-        color: #aaa;
+        color: var(--texto-suave);
         margin-left: 10px;
     }
 
@@ -325,7 +325,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
         display: inline-block;
         width: 8px;
         height: 8px;
-        background: #3b82f6;
+        background: var(--cor-primaria);
         border-radius: 50%;
         margin-left: 6px;
         vertical-align: middle;
@@ -337,12 +337,12 @@ function formatarMensagemNotificacao(string $mensagem): string {
 
     /* ── Variante aviso (borda âmbar) ─────── */
     .notif-card.notif-aviso {
-        border-color: #3a2e10;
+        border-color: var(--borda-alerta-sutil);
     }
 
     .notif-card.notif-aviso .notif-icon.icon-aviso {
-        border-color: #78350f;
-        color: #f59e0b;
+        border-color: var(--borda-alerta);
+        color: var(--cor-alerta);
     }
 
     /* ── Botões de ação da notificação ─────── */
@@ -350,9 +350,9 @@ function formatarMensagemNotificacao(string $mensagem): string {
         width: 38px;
         height: 38px;
         border-radius: 9px;
-        border: 1px solid #3a3a3a;
-        background-color: #2a2a2a;
-        color: #aaa;
+        border: 1px solid var(--borda-controle);
+        background-color: var(--bg-controle);
+        color: var(--texto-suave);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -363,12 +363,12 @@ function formatarMensagemNotificacao(string $mensagem): string {
 
     .btn-notif svg { width: 18px; height: 18px; pointer-events: none; }
 
-    .btn-notif:hover { background-color: #333; color: #fff; }
+    .btn-notif:hover { background-color: var(--bg-controle-hover); color: var(--texto-principal); }
 
-    .btn-notif.btn-lida:hover  { background-color: #1a3a5c; border-color: #3b82f6; color: #3b82f6; }
-    .btn-notif.btn-lida.active { background-color: #1a3a5c; border-color: #3b82f6; color: #3b82f6; opacity: 1 !important; }
+    .btn-notif.btn-lida:hover  { background-color: var(--bg-info-hover); border-color: var(--cor-primaria); color: var(--cor-primaria); }
+    .btn-notif.btn-lida.active { background-color: var(--bg-info-hover); border-color: var(--cor-primaria); color: var(--cor-primaria); opacity: 1 !important; }
 
-    .btn-notif.btn-excluir:hover { background-color: #3a1a1a; border-color: #ef4444; color: #ef4444; }
+    .btn-notif.btn-excluir:hover { background-color: var(--bg-erro-hover); border-color: var(--cor-erro); color: var(--cor-erro); }
 
     /* card sendo removido */
     .notif-card.removendo {
@@ -378,21 +378,21 @@ function formatarMensagemNotificacao(string $mensagem): string {
     }
 
     /* ── Cores do ícone por humor ─────────── */
-    .notif-icon.humor-feliz  { border-color: #14532d; color: #4ade80; }
-    .notif-icon.humor-triste { border-color: #7f1d1d; color: #ef4444; }
-    .notif-icon.humor-neutro { border-color: #78350f; color: #f59e0b; }
+    .notif-icon.humor-feliz  { border-color: var(--borda-sucesso); color: var(--cor-sucesso); }
+    .notif-icon.humor-triste { border-color: var(--borda-erro); color: var(--cor-erro); }
+    .notif-icon.humor-neutro { border-color: var(--borda-alerta); color: var(--cor-alerta); }
 
     .notif-resposta {
         margin-top: 10px;
         padding: 10px;
-        border: 1px solid #7f1d1d;
+        border: 1px solid var(--borda-erro);
         border-radius: 10px;
-        background-color: #1f1212;
+        background-color: var(--bg-erro-sutil);
     }
 
     .notif-resposta label {
         display: block;
-        color: #fca5a5;
+        color: var(--texto-erro);
         font-size: 0.78rem;
         font-weight: 700;
         margin-bottom: 6px;
@@ -402,9 +402,9 @@ function formatarMensagemNotificacao(string $mensagem): string {
         width: 100%;
         min-height: 72px;
         border-radius: 8px;
-        border: 1px solid #3a3a3a;
-        background-color: #111;
-        color: #fff;
+        border: 1px solid var(--borda-controle);
+        background-color: var(--bg-campo-profundo);
+        color: var(--texto-principal);
         font-size: 0.84rem;
         padding: 8px 10px;
         font-family: inherit;
@@ -412,7 +412,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
         outline: none;
     }
 
-    .notif-resposta textarea:focus { border-color: #555; }
+    .notif-resposta textarea:focus { border-color: var(--borda-foco); }
 
     .notif-resposta-actions {
         display: flex;
@@ -424,18 +424,18 @@ function formatarMensagemNotificacao(string $mensagem): string {
         border: none;
         border-radius: 8px;
         padding: 8px 12px;
-        background-color: #7f1d1d;
-        color: #fff;
+        background-color: var(--cor-erro-forte);
+        color: #ffffff;
         font-size: 0.78rem;
         font-weight: 700;
         cursor: pointer;
     }
 
-    .btn-responder:hover { background-color: #991b1b; }
+    .btn-responder:hover { background-color: var(--cor-erro-hover); }
 
     .notif-resposta-erro {
         margin-top: 6px;
-        color: #f87171;
+        color: var(--cor-erro-claro);
         font-size: 0.75rem;
         min-height: 14px;
     }
@@ -447,9 +447,9 @@ function formatarMensagemNotificacao(string $mensagem): string {
     }
 
     .alert-fluxo {
-        background-color: #2a1212;
-        border: 1px solid #7f1d1d;
-        color: #fca5a5;
+        background-color: var(--bg-erro-sutil);
+        border: 1px solid var(--borda-erro);
+        color: var(--texto-erro);
         border-radius: 12px;
         padding: 12px 16px;
         margin-bottom: 20px;
@@ -571,8 +571,8 @@ function formatarMensagemNotificacao(string $mensagem): string {
     <?php endif; ?>
 
     <?php if (!$db_ok): ?>
-    <div style="background-color:#1c1c1c;border:1px solid #3a1a1a;border-radius:16px;padding:40px;text-align:center;color:#aaa;">
-        <h2 style="color:#ef4444;margin-bottom:8px;">Banco de dados indisponível</h2>
+    <div style="background-color:var(--bg-superficie);border:1px solid var(--borda-erro-sutil);border-radius:16px;padding:40px;text-align:center;color:var(--texto-suave);">
+        <h2 style="color:var(--cor-erro);margin-bottom:8px;">Banco de dados indisponível</h2>
         <p>Não foi possível carregar as notificações. Verifique a conexão com o MySQL.</p>
     </div>
     <?php else: ?>
@@ -581,7 +581,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
     <h2 class="section-title">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:#f59e0b;">
+             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:var(--cor-alerta);">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
         </svg>
@@ -659,7 +659,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
     <h2 class="section-title">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:#3b82f6;">
+             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:var(--cor-primaria);">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8"  y1="2" x2="8"  y2="6"/>

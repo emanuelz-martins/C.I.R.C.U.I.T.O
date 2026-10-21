@@ -148,7 +148,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         .page-title {
             font-size: 3rem;
             font-weight: 800;
-            color: #ffffff;
+            color: var(--texto-principal);
             line-height: 1.1;
         }
 
@@ -156,9 +156,9 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background-color: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            color: #ffffff;
+            background-color: var(--bg-controle);
+            border: 1px solid var(--borda-controle);
+            color: var(--texto-principal);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -168,7 +168,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             flex-shrink: 0;
         }
 
-        .btn-back:hover { background-color: #333; }
+        .btn-back:hover { background-color: var(--bg-controle-hover); }
 
         .btn-back svg {
             width: 20px;
@@ -177,8 +177,8 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
 
         /* ── Card de perfil ───────────────────── */
         .profile-card {
-            background-color: #1c1c1c;
-            border: 1px solid #2a2a2a;
+            background-color: var(--bg-superficie);
+            border: 1px solid var(--borda-padrao);
             border-radius: 20px;
             padding: 28px 36px;
             display: flex;
@@ -188,12 +188,12 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         }
 
         .profile-card.prebloqueado {
-            background-color: #2a1212;
-            border-color: #7f1d1d;
+            background-color: var(--bg-erro-card);
+            border-color: var(--borda-erro);
         }
 
         .profile-card.prebloqueado .profile-role {
-            color: #fca5a5;
+            color: var(--texto-erro);
             font-weight: 700;
         }
 
@@ -209,7 +209,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             width: 110px;
             height: 110px;
             border-radius: 12px;
-            background-color: #2e2e2e;
+            background-color: var(--bg-controle);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -224,7 +224,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         .profile-avatar svg {
             width: 64px;
             height: 64px;
-            color: #666;
+            color: var(--texto-auxiliar);
         }
 
         .profile-avatar img {
@@ -262,7 +262,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
 
         .avatar-hint {
             font-size: 0.75rem;
-            color: #666;
+            color: var(--texto-auxiliar);
             margin-top: 6px;
             text-align: center;
             line-height: 1.3;
@@ -274,12 +274,13 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             bottom: 28px;
             left: 50%;
             transform: translateX(-50%) translateY(20px);
-            background-color: #1c1c1c;
-            border: 1px solid #3a3a3a;
-            color: #fff;
+            background-color: var(--bg-superficie);
+            border: 1px solid var(--borda-controle);
+            color: var(--texto-principal);
             padding: 12px 24px;
             border-radius: 12px;
             font-size: 0.9rem;
+            box-shadow: var(--sombra-toast);
             opacity: 0;
             transition: opacity 0.25s, transform 0.25s;
             z-index: 9999;
@@ -292,8 +293,8 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             transform: translateX(-50%) translateY(0);
         }
 
-        .toast.erro { border-color: #b91c1c; color: #fca5a5; }
-        .toast.ok   { border-color: #1a7a34; color: #86efac; }
+        .toast.erro { border-color: var(--borda-erro); color: var(--texto-erro); }
+        .toast.ok   { border-color: var(--borda-sucesso); color: var(--texto-sucesso); }
 
         .profile-info {
             flex: 1;
@@ -305,13 +306,13 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
 
         .profile-role {
             font-size: 0.9rem;
-            color: #aaa;
+            color: var(--texto-secundario);
         }
 
         .profile-name {
             font-size: 2.2rem;
             font-weight: 800;
-            color: #ffffff;
+            color: var(--texto-principal);
             text-align: right;
         }
 
@@ -319,8 +320,8 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         .theme-toggle {
             display: flex;
             align-items: center;
-            background-color: #2a2a2a;
-            border: 1px solid #3a3a3a;
+            background-color: var(--bg-controle);
+            border: 1px solid var(--borda-controle);
             border-radius: 50px;
             overflow: hidden;
             margin-top: 8px;
@@ -330,7 +331,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             padding: 5px 18px;
             background: none;
             border: none;
-            color: #aaa;
+            color: var(--texto-secundario);
             font-size: 0.8rem;
             cursor: pointer;
             border-radius: 50px;
@@ -338,8 +339,8 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         }
 
         .theme-toggle button.active {
-            background-color: #ffffff;
-            color: #141414;
+            background-color: var(--bg-acao-primaria);
+            color: var(--texto-acao-primaria);
             font-weight: 600;
         }
 
@@ -347,7 +348,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         .section-title {
             font-size: 1.8rem;
             font-weight: 800;
-            color: #ffffff;
+            color: var(--texto-principal);
             margin-bottom: 20px;
         }
 
@@ -358,8 +359,8 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         }
 
         .order-card {
-            background-color: #1c1c1c;
-            border: 1px solid #2a2a2a;
+            background-color: var(--bg-superficie);
+            border: 1px solid var(--borda-padrao);
             border-radius: 16px;
             padding: 20px 24px;
             display: flex;
@@ -375,13 +376,13 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         .order-number {
             font-size: 1rem;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--texto-principal);
             margin-bottom: 4px;
         }
 
         .order-date {
             font-size: 0.82rem;
-            color: #888;
+            color: var(--texto-suave);
         }
 
         .order-actions {
@@ -400,27 +401,27 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
         }
 
         .status-badge.em-andamento {
-            background-color: #1a56db;
-            color: #ffffff;
+            background-color: var(--status-andamento-bg);
+            color: var(--status-andamento-texto);
         }
 
         .status-badge.finalizado {
-            background-color: #1a7a34;
-            color: #ffffff;
+            background-color: var(--status-finalizado-bg);
+            color: var(--status-finalizado-texto);
         }
 
         .status-badge.cancelado {
-            background-color: #b91c1c;
-            color: #ffffff;
+            background-color: var(--status-cancelado-bg);
+            color: var(--status-cancelado-texto);
         }
 
         .btn-details {
             width: 42px;
             height: 42px;
             border-radius: 10px;
-            background-color: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            color: #ffffff;
+            background-color: var(--bg-controle);
+            border: 1px solid var(--borda-controle);
+            color: var(--texto-principal);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -430,7 +431,7 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             flex-shrink: 0;
         }
 
-        .btn-details:hover { background-color: #333; }
+        .btn-details:hover { background-color: var(--bg-controle-hover); }
 
         .btn-details svg {
             width: 20px;
@@ -588,8 +589,8 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
             <span class="profile-name"><?= htmlspecialchars($usuario_nome) ?></span>
 
             <div class="theme-toggle" id="themeToggle">
-                <button id="btnClaro" onclick="setTheme('claro')">Claro</button>
-                <button id="btnEscuro" onclick="setTheme('escuro')" class="active">Escuro</button>
+                <button type="button" id="btnClaro" onclick="setTheme('claro')" aria-pressed="false">Claro</button>
+                <button type="button" id="btnEscuro" onclick="setTheme('escuro')" class="active" aria-pressed="true">Escuro</button>
             </div>
         </div>
     </div>
@@ -598,12 +599,12 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
     <h2 class="section-title">Histórico de pedidos</h2>
 
     <?php if (!$db_ok): ?>
-    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
-        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+    <div style="background-color: var(--bg-superficie); border: 1px solid var(--borda-erro-sutil); border-radius: 16px; padding: 40px; text-align: center; color: var(--texto-secundario);">
+        <h2 style="color: var(--cor-erro); margin-bottom: 8px;">Banco de dados indisponível</h2>
         <p>Não foi possível carregar seus pedidos. Verifique a conexão com o MySQL.</p>
     </div>
     <?php elseif (empty($pedidos)): ?>
-    <div style="background-color: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 16px; padding: 40px; text-align: center; color: #888;">
+    <div style="background-color: var(--bg-superficie); border: 1px solid var(--borda-padrao); border-radius: 16px; padding: 40px; text-align: center; color: var(--texto-suave);">
         <p>Você ainda não possui pedidos realizados.</p>
     </div>
     <?php else: ?>
@@ -685,102 +686,77 @@ $usuario_role = $alunoPreBloqueado ? 'Estudante | Pré-Bloqueado' : $usuario_rol
     .btn-edit-perfil {
         width: 44px; height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex; align-items: center; justify-content: center;
         flex-shrink: 0;
         transition: background-color 0.15s;
     }
-    .btn-edit-perfil:hover { background-color: #333; }
+    .btn-edit-perfil:hover { background-color: var(--bg-controle-hover); }
     .btn-edit-perfil svg { width: 20px; height: 20px; }
 
     .perfil-overlay {
         display: none; position: fixed; inset: 0;
-        background: rgba(0,0,0,0.75); z-index: 200;
+        background: var(--overlay-modal); z-index: 200;
         align-items: center; justify-content: center;
     }
     .perfil-overlay.open { display: flex; }
     .perfil-modal {
-        background: #1e1e1e; border: 1px solid #2e2e2e;
+        background: var(--bg-modal); border: 1px solid var(--borda-card);
         border-radius: 20px; padding: 36px;
         width: 100%; max-width: 480px;
         display: flex; flex-direction: column; gap: 18px;
         max-height: 90vh; overflow-y: auto;
+        box-shadow: var(--sombra-modal);
     }
-    .perfil-modal h2 { font-size: 1.4rem; font-weight: 800; color: #fff; margin: 0; }
-    .perfil-modal label { display: block; font-size: 0.85rem; font-weight: 600; color: #aaa; margin-bottom: 6px; }
+    .perfil-modal h2 { font-size: 1.4rem; font-weight: 800; color: var(--texto-principal); margin: 0; }
+    .perfil-modal label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--texto-secundario); margin-bottom: 6px; }
     .perfil-modal input, .perfil-modal textarea, .perfil-modal select {
-        width: 100%; background: #141414; border: 1.5px solid #2e2e2e;
-        border-radius: 10px; color: #fff; font-size: 0.95rem; font-family: inherit;
+        width: 100%; background: var(--bg-campo-interno); border: 1.5px solid var(--borda-card);
+        border-radius: 10px; color: var(--texto-principal); font-size: 0.95rem; font-family: inherit;
         outline: none; padding: 11px 14px; transition: border-color 0.2s; resize: vertical;
     }
-    .perfil-modal select option { background: #1e1e1e; }
-    .perfil-modal input::placeholder, .perfil-modal textarea::placeholder { color: #444; }
-    .perfil-modal input:focus, .perfil-modal textarea:focus, .perfil-modal select:focus { border-color: #555; }
+    .perfil-modal select option { background: var(--bg-modal); }
+    .perfil-modal input::placeholder, .perfil-modal textarea::placeholder { color: var(--texto-placeholder); }
+    .perfil-modal input:focus, .perfil-modal textarea:focus, .perfil-modal select:focus { border-color: var(--borda-foco); }
     .perfil-modal textarea { min-height: 80px; }
     .perfil-foto-row { display: flex; align-items: center; gap: 14px; }
     .perfil-avatar-preview {
         width: 56px; height: 56px; border-radius: 12px;
-        background: #2a2a2a; border: 1px solid #3a3a3a;
+        background: var(--bg-controle); border: 1px solid var(--borda-controle);
         overflow: hidden; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
     }
     .perfil-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
-    .perfil-avatar-preview svg { width: 28px; height: 28px; color: #555; }
+    .perfil-avatar-preview svg { width: 28px; height: 28px; color: var(--texto-placeholder); }
     .perfil-foto-btn {
-        padding: 9px 16px; background: #2a2a2a; border: 1px solid #3a3a3a;
-        border-radius: 9px; color: #fff; font-size: 0.85rem; cursor: pointer;
+        padding: 9px 16px; background: var(--bg-controle); border: 1px solid var(--borda-controle);
+        border-radius: 9px; color: var(--texto-principal); font-size: 0.85rem; cursor: pointer;
         transition: background 0.15s;
     }
-    .perfil-foto-btn:hover { background: #333; }
+    .perfil-foto-btn:hover { background: var(--bg-controle-hover); }
     .perfil-modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
     .perfil-btn-cancel {
-        padding: 11px 22px; background: #2a2a2a; border: 1px solid #3a3a3a;
-        border-radius: 10px; color: #fff; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+        padding: 11px 22px; background: var(--bg-controle); border: 1px solid var(--borda-controle);
+        border-radius: 10px; color: var(--texto-principal); font-size: 0.9rem; font-weight: 600; cursor: pointer;
         transition: background 0.15s;
     }
-    .perfil-btn-cancel:hover { background: #333; }
+    .perfil-btn-cancel:hover { background: var(--bg-controle-hover); }
     .perfil-btn-save {
-        padding: 11px 22px; background: #fff; border: none;
-        border-radius: 10px; color: #000; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+        padding: 11px 22px; background: var(--bg-acao-primaria); border: none;
+        border-radius: 10px; color: var(--texto-acao-primaria); font-size: 0.9rem; font-weight: 700; cursor: pointer;
         transition: background 0.15s;
     }
-    .perfil-btn-save:hover { background: #e5e5e5; }
+    .perfil-btn-save:hover { background: var(--bg-acao-primaria-hover); }
     .perfil-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
     .perfil-notice { padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; display: none; }
-    .perfil-notice.ok   { background: #0d2b16; border: 1px solid #166534; color: #4ade80; display: block; }
-    .perfil-notice.erro { background: #2b0d0d; border: 1px solid #7f1d1d; color: #f87171; display: block; }
+    .perfil-notice.ok   { background: var(--bg-sucesso-sutil); border: 1px solid var(--borda-sucesso); color: var(--cor-sucesso); display: block; }
+    .perfil-notice.erro { background: var(--bg-erro-sutil); border: 1px solid var(--borda-erro); color: var(--cor-erro-claro); display: block; }
 </style>
 
 <script>
-    /* ── Toggle de tema ── */
-    function setTheme(tema) {
-        const btnClaro  = document.getElementById('btnClaro');
-        const btnEscuro = document.getElementById('btnEscuro');
-
-        if (tema === 'claro') {
-            btnClaro.classList.add('active');
-            btnEscuro.classList.remove('active');
-            document.body.style.backgroundColor = '#f5f5f5';
-            document.body.style.color = '#141414';
-        } else {
-            btnEscuro.classList.add('active');
-            btnClaro.classList.remove('active');
-            document.body.style.backgroundColor = '#141414';
-            document.body.style.color = '#ffffff';
-        }
-
-        localStorage.setItem('tema', tema);
-    }
-
-    /* Restaura tema salvo */
-    (function () {
-        const temaSalvo = localStorage.getItem('tema');
-        if (temaSalvo === 'claro') setTheme('claro');
-    })();
-
     /* ── Upload de foto de perfil ── */
     let toastTimer;
 

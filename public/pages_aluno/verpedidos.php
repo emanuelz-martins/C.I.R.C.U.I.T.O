@@ -109,7 +109,7 @@ $status_map = [
 	.page-title {
 		font-size: 3rem;
 		font-weight: 800;
-		color: #ffffff;
+		color: var(--texto-principal);
 		line-height: 1.1;
 	}
 
@@ -117,9 +117,9 @@ $status_map = [
 		width: 44px;
 		height: 44px;
 		border-radius: 50%;
-		background-color: #2a2a2a;
-		border: 1px solid #3a3a3a;
-		color: #ffffff;
+		background-color: var(--bg-controle);
+		border: 1px solid var(--borda-controle);
+		color: var(--texto-principal);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
@@ -129,7 +129,7 @@ $status_map = [
 		flex-shrink: 0;
 	}
 
-	.btn-back:hover { background-color: #333; }
+	.btn-back:hover { background-color: var(--bg-controle-hover); }
 	.btn-back svg { width: 20px; height: 20px; }
 
 	.pedidos-list {
@@ -139,8 +139,8 @@ $status_map = [
 	}
 
 	.pedido-card {
-		background-color: #1c1c1c;
-		border: 1px solid #2a2a2a;
+		background-color: var(--bg-superficie);
+		border: 1px solid var(--borda-padrao);
 		border-radius: 16px;
 		padding: 22px 24px;
 		display: flex;
@@ -152,25 +152,25 @@ $status_map = [
 	.pedido-numero {
 		font-size: 1.1rem;
 		font-weight: 700;
-		color: #ffffff;
+		color: var(--texto-principal);
 		margin-bottom: 5px;
 	}
 
 	.pedido-meta {
 		font-size: 0.84rem;
-		color: #9ca3af;
+		color: var(--texto-secundario);
 	}
 
 	.pedido-prazo {
 		font-size: 0.88rem;
-		color: #d1d5db;
+		color: var(--texto-medio);
 		font-weight: 600;
 		margin-bottom: 4px;
 	}
 
 	.pedido-atualizacao {
 		font-size: 0.78rem;
-		color: #6b7280;
+		color: var(--texto-suave);
 	}
 
 	.pedido-actions {
@@ -188,26 +188,26 @@ $status_map = [
 		white-space: nowrap;
 	}
 
-	.status-badge.enviado { background-color: #374151; color: #e5e7eb; }
-	.status-badge.em-separacao { background-color: #7e22ce; color: #ede9fe; }
-	.status-badge.pronto-para-retirada { background-color: #92400e; color: #fed7aa; }
-	.status-badge.em-andamento { background-color: #1d4ed8; color: #dbeafe; }
-	.status-badge.finalizado { background-color: #166534; color: #bbf7d0; }
-	.status-badge.cancelado { background-color: #991b1b; color: #fecaca; }
+	.status-badge.enviado { background-color: var(--status-enviado-bg); color: var(--status-enviado-texto); }
+	.status-badge.em-separacao { background-color: var(--status-separacao-bg); color: var(--status-separacao-texto); }
+	.status-badge.pronto-para-retirada { background-color: var(--status-pronto-bg); color: var(--status-pronto-texto); }
+	.status-badge.em-andamento { background-color: var(--status-andamento-bg); color: var(--status-andamento-texto); }
+	.status-badge.finalizado { background-color: var(--status-finalizado-bg); color: var(--status-finalizado-texto); }
+	.status-badge.cancelado { background-color: var(--status-cancelado-bg); color: var(--status-cancelado-texto); }
 
 	.btn-ver {
 		padding: 10px 16px;
 		border-radius: 10px;
-		border: 1px solid #3a3a3a;
-		background-color: #2a2a2a;
-		color: #ffffff;
+		border: 1px solid var(--borda-controle);
+		background-color: var(--bg-controle);
+		color: var(--texto-principal);
 		text-decoration: none;
 		font-size: 0.86rem;
 		font-weight: 600;
 		transition: background-color 0.15s;
 	}
 
-	.btn-ver:hover { background-color: #333; }
+	.btn-ver:hover { background-color: var(--bg-controle-hover); }
 
 	.btn-ver.disabled,
 	.btn-arquivar.disabled {
@@ -219,9 +219,9 @@ $status_map = [
 	.btn-bloqueio {
 		padding: 8px 10px;
 		border-radius: 8px;
-		border: 1px solid #7f1d1d;
-		background-color: #2a1212;
-		color: #fca5a5;
+		border: 1px solid var(--borda-erro);
+		background-color: var(--bg-erro-card);
+		color: var(--texto-erro);
 		font-size: 0.74rem;
 		font-weight: 700;
 		white-space: nowrap;
@@ -231,9 +231,9 @@ $status_map = [
 		width: 40px;
 		height: 40px;
 		border-radius: 10px;
-		border: 1px solid #3a3a3a;
-		background-color: #2a2a2a;
-		color: #9ca3af;
+		border: 1px solid var(--borda-controle);
+		background-color: var(--bg-controle);
+		color: var(--texto-secundario);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
@@ -243,15 +243,15 @@ $status_map = [
 	}
 
 	.btn-arquivar svg { width: 18px; height: 18px; pointer-events: none; }
-	.btn-arquivar:hover { background-color: #2a2e1a; border-color: #84cc16; color: #84cc16; }
+	.btn-arquivar:hover { background-color: var(--bg-arquivar-hover); border-color: var(--cor-arquivar); color: var(--cor-arquivar); }
 	.btn-arquivar[title]:hover::after {
 		content: attr(title);
 		position: absolute;
 		bottom: calc(100% + 6px);
 		right: 0;
-		background: #1a1a1a;
-		border: 1px solid #3a3a3a;
-		color: #fff;
+		background: var(--bg-superficie-tabela);
+		border: 1px solid var(--borda-controle);
+		color: var(--texto-principal);
 		font-size: 0.75rem;
 		padding: 4px 8px;
 		border-radius: 6px;
@@ -265,14 +265,14 @@ $status_map = [
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		color: #6b7280;
+		color: var(--texto-suave);
 		font-size: 0.84rem;
 		text-decoration: none;
 		transition: color 0.15s;
 		margin-bottom: 24px;
 	}
 
-	.link-arquivados:hover { color: #9ca3af; }
+	.link-arquivados:hover { color: var(--texto-principal); }
 	.link-arquivados svg { width: 16px; height: 16px; }
 
 	.pedido-card.arquivando {
@@ -284,20 +284,20 @@ $status_map = [
 	.empty-state {
 		text-align: center;
 		padding: 64px 0;
-		color: #666;
+		color: var(--texto-auxiliar);
 		font-size: 1rem;
 	}
 
 	.db-error {
-		background-color: #1c0a0a;
-		border: 1px solid #7f1d1d;
+		background-color: var(--bg-erro-sutil);
+		border: 1px solid var(--borda-erro);
 		border-radius: 16px;
 		padding: 36px;
 		text-align: center;
-		color: #aaa;
+		color: var(--texto-secundario);
 	}
 
-	.db-error h2 { color: #ef4444; margin-bottom: 8px; }
+	.db-error h2 { color: var(--cor-erro); margin-bottom: 8px; }
 
 	@media (max-width: 720px) {
 		.main { padding: 30px 18px 60px; }

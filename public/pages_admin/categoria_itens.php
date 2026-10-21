@@ -147,7 +147,7 @@ require_once '../includes/header.php';
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -155,9 +155,9 @@ require_once '../includes/header.php';
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -167,41 +167,41 @@ require_once '../includes/header.php';
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
     .btn-back svg   { width: 20px; height: 20px; }
 
     /* ── Alertas ──────────────────────────── */
     .alert-erros {
-        background-color: #1c0a0a;
-        border: 1px solid #7f1d1d;
+        background-color: var(--bg-erro-sutil);
+        border: 1px solid var(--borda-erro);
         border-radius: 12px;
         padding: 16px 20px;
         margin-bottom: 28px;
     }
 
     .alert-erros p {
-        color: #fca5a5;
+        color: var(--texto-erro);
         font-size: 0.88rem;
         line-height: 1.8;
     }
 
     .alert-sucesso {
-        background-color: #0d2018;
-        border: 1px solid #166534;
+        background-color: var(--bg-sucesso-sutil);
+        border: 1px solid var(--borda-sucesso);
         border-radius: 12px;
         padding: 14px 20px;
         margin-bottom: 24px;
-        color: #bbf7d0;
+        color: var(--texto-sucesso-claro);
         font-size: 0.9rem;
     }
 
     .alert-aviso {
-        background-color: #1c1a08;
-        border: 1px solid #713f12;
+        background-color: var(--bg-alerta-sutil);
+        border: 1px solid var(--borda-alerta);
         border-radius: 12px;
         padding: 14px 20px;
         margin-bottom: 24px;
-        color: #fde68a;
+        color: var(--texto-alerta-forte);
         font-size: 0.9rem;
     }
 
@@ -212,35 +212,35 @@ require_once '../includes/header.php';
         display: block;
         font-size: 1rem;
         font-weight: 600;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 10px;
     }
 
     .form-input {
         width: 100%;
         padding: 14px 18px;
-        background-color: #1e1e1e;
-        border: 1.5px solid #2e2e2e;
+        background-color: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.95rem;
         font-family: inherit;
         outline: none;
         transition: border-color 0.2s;
     }
 
-    .form-input::placeholder { color: #555; }
-    .form-input:focus        { border-color: #555; }
+    .form-input::placeholder { color: var(--texto-placeholder); }
+    .form-input:focus        { border-color: var(--borda-foco); }
 
     /* ── Botão principal ──────────────────── */
     .btn-cadastrar {
         display: block;
         width: 100%;
         padding: 18px;
-        background-color: #ffffff;
+        background-color: var(--bg-acao-primaria);
         border: none;
         border-radius: 10px;
-        color: #141414;
+        color: var(--texto-acao-primaria);
         font-size: 1rem;
         font-weight: 700;
         cursor: pointer;
@@ -249,19 +249,19 @@ require_once '../includes/header.php';
         margin-top: 8px;
     }
 
-    .btn-cadastrar:hover { background-color: #e0e0e0; }
+    .btn-cadastrar:hover { background-color: var(--bg-acao-primaria-hover); }
 
     /* ── Divisor ──────────────────────────── */
     .section-divider {
         border: none;
-        border-top: 1px solid #2a2a2a;
+        border-top: 1px solid var(--borda-card);
         margin: 48px 0 36px;
     }
 
     .section-title {
         font-size: 1.4rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 20px;
     }
 
@@ -273,8 +273,8 @@ require_once '../includes/header.php';
     }
 
     .cat-card {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 14px;
         padding: 16px 20px;
         display: flex;
@@ -283,18 +283,18 @@ require_once '../includes/header.php';
         transition: border-color 0.15s;
     }
 
-    .cat-card:hover { border-color: #3a3a3a; }
+    .cat-card:hover { border-color: var(--borda-controle); }
 
     .cat-icon {
         width: 44px;
         height: 44px;
         border-radius: 10px;
-        background-color: #222;
+        background-color: var(--bg-cabecalho-tabela);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        color: #555;
+        color: var(--texto-placeholder);
     }
 
     .cat-info {
@@ -305,7 +305,7 @@ require_once '../includes/header.php';
     .cat-nome {
         font-size: 0.95rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -313,7 +313,7 @@ require_once '../includes/header.php';
 
     .cat-desc {
         font-size: 0.8rem;
-        color: #666;
+        color: var(--texto-auxiliar);
         margin-top: 2px;
         white-space: nowrap;
         overflow: hidden;
@@ -322,7 +322,7 @@ require_once '../includes/header.php';
 
     .cat-badge {
         font-size: 0.78rem;
-        color: #777;
+        color: var(--texto-auxiliar);
         white-space: nowrap;
         flex-shrink: 0;
     }
@@ -337,9 +337,9 @@ require_once '../includes/header.php';
         width: 36px;
         height: 36px;
         border-radius: 8px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #aaa;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-suave);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -347,28 +347,28 @@ require_once '../includes/header.php';
         transition: background-color 0.15s, color 0.15s;
     }
 
-    .btn-acao:hover            { background-color: #333; color: #fff; }
-    .btn-acao.btn-excluir:hover { background-color: #3d1010; border-color: #7f1d1d; color: #f87171; }
+    .btn-acao:hover            { background-color: var(--bg-controle-hover); color: var(--texto-principal); }
+    .btn-acao.btn-excluir:hover { background-color: var(--bg-erro-hover); border-color: var(--borda-erro); color: var(--cor-erro-claro); }
     .btn-acao svg              { width: 15px; height: 15px; }
 
     /* ── Estado vazio ─────────────────────── */
     .empty-state {
         text-align: center;
         padding: 40px 0;
-        color: #555;
+        color: var(--texto-placeholder);
         font-size: 0.95rem;
     }
 
     .db-error {
-        background-color: #1c0a0a;
-        border: 1px solid #7f1d1d;
+        background-color: var(--bg-erro-sutil);
+        border: 1px solid var(--borda-erro);
         border-radius: 16px;
         padding: 40px;
         text-align: center;
-        color: #aaa;
+        color: var(--texto-suave);
     }
 
-    .db-error h2 { color: #ef4444; margin-bottom: 8px; }
+    .db-error h2 { color: var(--cor-erro); margin-bottom: 8px; }
 
     /* ══════════════════════════════════════════
        MODAL — EDITAR CATEGORIA
@@ -377,7 +377,7 @@ require_once '../includes/header.php';
         display: none;
         position: fixed;
         inset: 0;
-        background-color: rgba(0,0,0,0.75);
+        background-color: var(--overlay-modal);
         z-index: 200;
         align-items: center;
         justify-content: center;
@@ -387,8 +387,8 @@ require_once '../includes/header.php';
     .modal-overlay.open { display: flex; }
 
     .modal-box {
-        background-color: #1e1e1e;
-        border: 1px solid #333;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-padrao);
         border-radius: 20px;
         padding: 36px 40px;
         width: 100%;
@@ -398,7 +398,7 @@ require_once '../includes/header.php';
     .modal-title {
         font-size: 1.4rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 24px;
     }
 
@@ -408,28 +408,28 @@ require_once '../includes/header.php';
         display: block;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #cccccc;
+        color: var(--texto-medio);
         margin-bottom: 8px;
     }
 
     .modal-input {
         width: 100%;
         padding: 11px 16px;
-        background-color: #141414;
-        border: 1.5px solid #333;
+        background-color: var(--bg-subpainel);
+        border: 1.5px solid var(--borda-padrao);
         border-radius: 10px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.9rem;
         font-family: inherit;
         outline: none;
         transition: border-color 0.2s;
     }
 
-    .modal-input:focus { border-color: #555; }
+    .modal-input:focus { border-color: var(--borda-foco); }
 
     .modal-hint-error {
         font-size: 0.78rem;
-        color: #f87171;
+        color: var(--cor-erro-claro);
         margin-top: 4px;
         display: none;
     }
@@ -444,23 +444,23 @@ require_once '../includes/header.php';
     .btn-cancelar-modal {
         padding: 11px 24px;
         background: none;
-        border: 1px solid #444;
+        border: 1px solid var(--borda-forte);
         border-radius: 10px;
-        color: #aaa;
+        color: var(--texto-suave);
         font-size: 0.88rem;
         cursor: pointer;
         font-family: inherit;
         transition: border-color 0.15s, color 0.15s;
     }
 
-    .btn-cancelar-modal:hover { border-color: #888; color: #fff; }
+    .btn-cancelar-modal:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
     .btn-salvar {
         padding: 11px 28px;
-        background-color: #ffffff;
+        background-color: var(--bg-acao-primaria);
         border: none;
         border-radius: 10px;
-        color: #141414;
+        color: var(--texto-acao-primaria);
         font-size: 0.88rem;
         font-weight: 700;
         cursor: pointer;
@@ -468,7 +468,7 @@ require_once '../includes/header.php';
         transition: background-color 0.15s;
     }
 
-    .btn-salvar:hover { background-color: #e0e0e0; }
+    .btn-salvar:hover { background-color: var(--bg-acao-primaria-hover); }
 
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 640px) {

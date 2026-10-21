@@ -1,7 +1,7 @@
 <style>
     .site-footer {
-        background: #111;
-        border-top: 1px solid #1e1e1e;
+        background: var(--bg-rodape);
+        border-top: 1px solid var(--borda-sutil);
         padding: 56px 48px;
         display: flex;
         align-items: flex-start;
@@ -15,7 +15,7 @@
 
     .footer-brand p {
         font-size: 0.9rem;
-        color: #555;
+        color: var(--texto-placeholder);
         margin-bottom: 8px;
     }
 
@@ -24,13 +24,13 @@
         font-size: 1.6rem;
         font-weight: 900;
         letter-spacing: 0.06em;
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     .footer-text {
         flex: 1;
         font-size: 0.83rem;
-        color: #555;
+        color: var(--texto-placeholder);
         line-height: 1.7;
     }
 
@@ -75,7 +75,7 @@
 </footer>
 <style>
 .admin-view-options{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
-.admin-view-options button{background:#1e1e1e;color:#fff;border:1px solid #333;border-radius:10px;padding:12px 18px;font:600 .85rem 'Segoe UI',Arial,sans-serif;cursor:pointer}
-.admin-view-options button:hover{background:#2a2a2a}
-.admin-view-options button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.admin-view-options button{background:var(--bg-superficie-alt);color:var(--texto-principal);border:1px solid var(--borda-campo);border-radius:10px;padding:12px 18px;font:600 .85rem 'Segoe UI',Arial,sans-serif;cursor:pointer}
+.admin-view-options button:hover{background:var(--bg-hover-menu)}
+.admin-view-options button:focus-visible{outline:2px solid var(--anel-foco);outline-offset:3px}
 </style>

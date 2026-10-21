@@ -93,8 +93,8 @@ require_once 'includes/header.php';
 
         /* ── Card "Como usar a plataforma?" ──────── */
         .how-to-card {
-            background-color: #1c1c1c;
-            border: 1px solid #2a2a2a;
+            background-color: var(--bg-superficie);
+            border: 1px solid var(--borda-padrao);
             border-radius: 20px;
             padding: 48px 56px;
             display: grid;
@@ -108,7 +108,7 @@ require_once 'includes/header.php';
             font-size: 2.6rem;
             font-weight: 800;
             line-height: 1.15;
-            color: #ffffff;
+            color: var(--texto-principal);
             align-self: center;
         }
 
@@ -121,18 +121,18 @@ require_once 'includes/header.php';
         .step h4 {
             font-size: 0.9rem;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--texto-principal);
             margin-bottom: 3px;
         }
 
         .step p {
             font-size: 0.85rem;
-            color: #999;
+            color: var(--texto-suave);
             line-height: 1.55;
         }
 
         .step p em {
-            color: #ccc;
+            color: var(--texto-medio);
             font-style: italic;
         }
 
@@ -144,7 +144,7 @@ require_once 'includes/header.php';
         .category-title {
             font-size: 1.1rem;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--texto-principal);
             margin-bottom: 20px;
         }
 
@@ -171,9 +171,9 @@ require_once 'includes/header.php';
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background-color: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            color: #ffffff;
+            background-color: var(--bg-controle);
+            border: 1px solid var(--borda-controle);
+            color: var(--texto-principal);
             font-size: 1.2rem;
             cursor: pointer;
             display: flex;
@@ -183,15 +183,15 @@ require_once 'includes/header.php';
             transition: background-color 0.15s;
         }
 
-        .carousel-btn:hover { background-color: #3a3a3a; }
+        .carousel-btn:hover { background-color: var(--bg-controle-ativo); }
         .carousel-btn.prev { left: -20px; }
         .carousel-btn.next { right: -20px; }
 
         /* ── Cards de componentes ─────────────────── */
         .component-card {
             flex: 0 0 240px;
-            background-color: #1e1e1e;
-            border: 1px solid #2a2a2a;
+            background-color: var(--bg-superficie-alt);
+            border: 1px solid var(--borda-padrao);
             border-radius: 14px;
             overflow: hidden;
             display: flex;
@@ -203,36 +203,36 @@ require_once 'includes/header.php';
         }
 
         .component-card:hover {
-            border-color: #444;
+            border-color: var(--borda-forte);
             transform: translateY(-2px);
         }
 
         .component-card.out-of-stock {
             opacity: 0.75;
-            border-color: #3a1a1a;
+            border-color: var(--borda-erro-sutil);
         }
 
         .component-card.out-of-stock:hover {
             transform: none;
-            border-color: #5a2a2a;
+            border-color: var(--borda-erro);
         }
 
         .card-img {
             width: 100%;
             aspect-ratio: 4/3;
             object-fit: cover;
-            background-color: #111;
+            background-color: var(--bg-midia);
             display: block;
         }
 
         .card-img-placeholder {
             width: 100%;
             aspect-ratio: 4/3;
-            background-color: #111;
+            background-color: var(--bg-midia);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #333;
+            color: var(--icone-vazio);
         }
 
         .card-body {
@@ -245,13 +245,13 @@ require_once 'includes/header.php';
         .card-name {
             font-size: 0.95rem;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--texto-principal);
             margin-bottom: 6px;
         }
 
         .card-desc {
             font-size: 0.8rem;
-            color: #888;
+            color: var(--texto-suave);
             line-height: 1.5;
             flex: 1;
             margin-bottom: 10px;
@@ -259,12 +259,12 @@ require_once 'includes/header.php';
 
         .card-stock {
             font-size: 0.78rem;
-            color: #666;
+            color: var(--texto-auxiliar);
             margin-bottom: 14px;
         }
 
         .card-stock.out {
-            color: #fca5a5;
+            color: var(--texto-erro);
             font-weight: 700;
         }
 
@@ -275,10 +275,10 @@ require_once 'includes/header.php';
             gap: 8px;
             width: 100%;
             padding: 10px;
-            background-color: #2a2a2a;
-            border: 1px solid #3a3a3a;
+            background-color: var(--bg-controle);
+            border: 1px solid var(--borda-controle);
             border-radius: 8px;
-            color: #ffffff;
+            color: var(--texto-principal);
             font-size: 0.82rem;
             font-weight: 600;
             cursor: pointer;
@@ -286,7 +286,7 @@ require_once 'includes/header.php';
             transition: background-color 0.15s;
         }
 
-        .btn-add-cart:hover { background-color: #383838; }
+        .btn-add-cart:hover { background-color: var(--bg-controle-hover); }
 
         .btn-add-cart svg {
             width: 15px;
@@ -311,9 +311,9 @@ require_once 'includes/header.php';
         }
 
         .site-footer {
-            border-top: 1px solid #222;
+            border-top: 1px solid var(--borda-sutil);
             padding: 18px 40px 22px;
-            color: #7a7a7a;
+            color: var(--texto-auxiliar);
             font-size: 0.85rem;
             letter-spacing: 0.04em;
             display: flex;
@@ -325,12 +325,12 @@ require_once 'includes/header.php';
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            color: #7a7a7a;
+            color: var(--texto-auxiliar);
             transition: color 0.15s;
         }
 
         .site-footer .github-link:hover {
-            color: #a0a0a0;
+            color: var(--texto-principal);
         }
 
         .site-footer .github-link svg {
@@ -447,7 +447,7 @@ require_once 'includes/header.php';
 <main class="main">
 
     <?php if ($alunoPreBloqueado): ?>
-    <div style="background-color:#2a1212;border:1px solid #7f1d1d;border-radius:14px;padding:14px 16px;color:#fca5a5;font-size:0.88rem;margin-bottom:18px;">
+    <div style="background-color:var(--bg-erro-card);border:1px solid var(--borda-erro);border-radius:14px;padding:14px 16px;color:var(--texto-erro);font-size:0.88rem;margin-bottom:18px;">
         Você está pré-bloqueado, resolva sua situação com um superior, abra suas notificações e entenda mais...
     </div>
     <?php endif; ?>
@@ -482,12 +482,12 @@ require_once 'includes/header.php';
 
     <!-- Seções de categorias -->
     <?php if (!$db_ok): ?>
-    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa; margin-bottom: 40px;">
-        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+    <div style="background-color: var(--bg-superficie); border: 1px solid var(--borda-erro-sutil); border-radius: 16px; padding: 40px; text-align: center; color: var(--texto-secundario); margin-bottom: 40px;">
+        <h2 style="color: var(--cor-erro); margin-bottom: 8px;">Banco de dados indisponível</h2>
         <p>Não foi possível carregar o catálogo. Verifique a conexão com o MySQL.</p>
     </div>
     <?php elseif (empty($categorias)): ?>
-    <div style="background-color: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 16px; padding: 40px; text-align: center; color: #888; margin-bottom: 40px;">
+    <div style="background-color: var(--bg-superficie); border: 1px solid var(--borda-padrao); border-radius: 16px; padding: 40px; text-align: center; color: var(--texto-suave); margin-bottom: 40px;">
         <p>Nenhuma categoria ou componente disponível no momento.</p>
     </div>
     <?php else: ?>
@@ -533,7 +533,7 @@ require_once 'includes/header.php';
                         <div class="card-stock out">Produto fora de estoque</div>
                         <?php endif; ?>
                         <?php if (!empty($item['qtd_max_user']) && (int)$item['qtd_max_user'] > 0): ?>
-                        <div class="card-stock" style="color:#555">Máx. por usuário: <?= (int)$item['qtd_max_user'] ?> unid.</div>
+                        <div class="card-stock" style="color:var(--texto-placeholder)">Máx. por usuário: <?= (int)$item['qtd_max_user'] ?> unid.</div>
                         <?php endif; ?>
                         <span class="btn-add-cart">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -561,7 +561,7 @@ require_once 'includes/header.php';
 
 <footer class="site-footer">
     <span>C.I.R.C.U.I.T.O.</span>
-    <span style="color: #666; font-size: 0.8rem;">• <?= htmlspecialchars($usuario_tipo_conta) ?></span>
+    <span style="color: var(--texto-auxiliar); font-size: 0.8rem;">• <?= htmlspecialchars($usuario_tipo_conta) ?></span>
     <a class="github-link" href="https://github.com/" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 2C6.48 2 2 6.58 2 12.23c0 4.52 2.87 8.35 6.84 9.71.5.1.68-.22.68-.5 0-.24-.01-1.03-.01-1.87-2.78.62-3.37-1.2-3.37-1.2-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.63.07-.63 1 .07 1.53 1.06 1.53 1.06.9 1.58 2.36 1.12 2.94.86.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.09 0-1.13.39-2.06 1.03-2.79-.1-.26-.45-1.31.1-2.74 0 0 .84-.28 2.75 1.07A9.3 9.3 0 0 1 12 6.98c.85 0 1.71.12 2.51.35 1.9-1.35 2.74-1.07 2.74-1.07.55 1.43.2 2.48.1 2.74.64.73 1.03 1.66 1.03 2.79 0 3.96-2.34 4.82-4.57 5.08.36.32.69.95.69 1.93 0 1.39-.01 2.5-.01 2.85 0 .27.18.6.69.5A10.24 10.24 0 0 0 22 12.23C22 6.58 17.52 2 12 2Z"/>

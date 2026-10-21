@@ -79,7 +79,7 @@ require_once '../includes/header.php';
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -87,9 +87,9 @@ require_once '../includes/header.php';
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -99,13 +99,13 @@ require_once '../includes/header.php';
         transition: background-color 0.15s;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
     .btn-back svg { width: 20px; height: 20px; }
 
     /* ── Card principal do item ───────────── */
     .item-card {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-padrao);
         border-radius: 20px;
         padding: 28px;
         display: grid;
@@ -126,26 +126,26 @@ require_once '../includes/header.php';
         aspect-ratio: 4/3;
         object-fit: cover;
         border-radius: 12px;
-        background-color: #111;
+        background-color: var(--bg-midia);
         display: block;
     }
 
     .item-img-placeholder {
         width: 100%;
         aspect-ratio: 4/3;
-        background-color: #111;
+        background-color: var(--bg-midia);
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #333;
+        color: var(--icone-vazio);
     }
 
     /* ── Descrição completa (abaixo da imagem) */
     .descricao-completa h3 {
         font-size: 1.1rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 14px;
     }
 
@@ -157,7 +157,7 @@ require_once '../includes/header.php';
 
     .descricao-bloco p {
         font-size: 0.82rem;
-        color: #aaa;
+        color: var(--texto-secundario);
         margin-bottom: 6px;
         font-weight: 600;
     }
@@ -170,7 +170,7 @@ require_once '../includes/header.php';
 
     .descricao-bloco ul li {
         font-size: 0.82rem;
-        color: #ccc;
+        color: var(--texto-medio);
         padding: 2px 0 2px 12px;
         position: relative;
         line-height: 1.6;
@@ -180,7 +180,7 @@ require_once '../includes/header.php';
         content: '·';
         position: absolute;
         left: 0;
-        color: #666;
+        color: var(--texto-auxiliar);
     }
 
     /* ── Bloco de informações (lado direito) ─ */
@@ -192,7 +192,7 @@ require_once '../includes/header.php';
 
     .item-categoria {
         font-size: 0.85rem;
-        color: #aaa;
+        color: var(--texto-secundario);
         margin-bottom: 8px;
         text-align: right;
     }
@@ -200,7 +200,7 @@ require_once '../includes/header.php';
     .item-nome {
         font-size: 2.2rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.15;
         text-align: right;
         margin-bottom: 10px;
@@ -208,7 +208,7 @@ require_once '../includes/header.php';
 
     .item-desc-curta {
         font-size: 0.95rem;
-        color: #aaa;
+        color: var(--texto-secundario);
         text-align: right;
         margin-bottom: 20px;
         line-height: 1.5;
@@ -216,13 +216,13 @@ require_once '../includes/header.php';
 
     .item-estoque {
         font-size: 0.9rem;
-        color: #aaa;
+        color: var(--texto-secundario);
         text-align: right;
         margin-bottom: 20px;
     }
 
     .item-estoque strong {
-        color: #ffffff;
+        color: var(--texto-principal);
     }
 
     /* ── Seletor de quantidade ────────────── */
@@ -237,9 +237,9 @@ require_once '../includes/header.php';
     .qty-btn {
         width: 38px;
         height: 38px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         font-size: 1.1rem;
         cursor: pointer;
         display: flex;
@@ -251,17 +251,17 @@ require_once '../includes/header.php';
 
     .qty-btn.minus { border-radius: 8px 0 0 8px; }
     .qty-btn.plus  { border-radius: 0 8px 8px 0; }
-    .qty-btn:hover { background-color: #3a3a3a; }
+    .qty-btn:hover { background-color: var(--bg-controle-ativo); }
 
     .qty-input {
         width: 52px;
         height: 38px;
-        background-color: #2a2a2a;
-        border-top: 1px solid #3a3a3a;
-        border-bottom: 1px solid #3a3a3a;
+        background-color: var(--bg-controle);
+        border-top: 1px solid var(--borda-controle);
+        border-bottom: 1px solid var(--borda-controle);
         border-left: none;
         border-right: none;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 1rem;
         font-weight: 600;
         text-align: center;
@@ -281,10 +281,10 @@ require_once '../includes/header.php';
         gap: 12px;
         width: 100%;
         padding: 16px;
-        background-color: #ffffff;
+        background-color: var(--bg-acao-primaria);
         border: none;
         border-radius: 10px;
-        color: #111111;
+        color: var(--texto-acao-primaria);
         font-size: 1rem;
         font-weight: 700;
         cursor: pointer;
@@ -293,7 +293,7 @@ require_once '../includes/header.php';
         margin-top: auto;
     }
 
-    .btn-cart:hover { background-color: #e5e5e5; }
+    .btn-cart:hover { background-color: var(--bg-acao-primaria-hover); }
 
     .btn-cart:disabled {
         opacity: 0.4;
@@ -305,8 +305,8 @@ require_once '../includes/header.php';
     /* ── Badge de indisponível ────────────── */
     .badge-indisponivel {
         display: inline-block;
-        background-color: #7f1d1d;
-        color: #fca5a5;
+        background-color: var(--bg-erro-badge);
+        color: var(--texto-erro);
         font-size: 0.78rem;
         font-weight: 700;
         padding: 4px 12px;
@@ -318,15 +318,15 @@ require_once '../includes/header.php';
 
     /* ── Erro de BD ───────────────────────── */
     .db-error {
-        background-color: #1c1c1c;
-        border: 1px solid #3a1a1a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-erro-sutil);
         border-radius: 16px;
         padding: 48px;
         text-align: center;
-        color: #aaa;
+        color: var(--texto-secundario);
     }
 
-    .db-error h2 { color: #ef4444; margin-bottom: 8px; }
+    .db-error h2 { color: var(--cor-erro); margin-bottom: 8px; }
 
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 900px) {

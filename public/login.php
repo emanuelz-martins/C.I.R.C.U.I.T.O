@@ -70,38 +70,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+$basePath = rtrim((string) parse_url((string) env('APP_URL', ''), PHP_URL_PATH), '/');
+if ($basePath === '' && isset($_SERVER['SCRIPT_NAME'])) {
+    $scriptPath = str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']);
+    if (preg_match('#^(.*?/public)(?:/|$)#', $scriptPath, $m)) {
+        $basePath = rtrim($m[1], '/');
+    }
+}
+$temaJsUrl = ($basePath !== '' ? $basePath : '') . '/assets/js/tema.js';
+$temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="<?= htmlspecialchars($temaJsUrl, ENT_QUOTES, 'UTF-8') ?>"></script>
+    <link rel="stylesheet" href="<?= htmlspecialchars($temaCssUrl, ENT_QUOTES, 'UTF-8') ?>">
     <link rel="icon" type="image/svg+xml" sizes="any" href="assets/img/sempre/circuito.svg?v=2">
     <title>C.I.R.C.U.I.T.O. — Login</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        :root { color-scheme: dark; }
-        body { min-height: 100vh; background: #141414; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; display: flex; align-items: center; justify-content: center; padding: 24px; }
-        body::before { content: ''; position: fixed; inset: -100px; background: linear-gradient(rgba(20,20,20,.45), rgba(20,20,20,.75)), url('assets/img/sempre/login-fundo.svg') center / cover no-repeat; filter: blur(28px); pointer-events: none; }
-        .container { position: relative; width: min(900px, 100%); min-height: 560px; background: #141414; border: 1px solid #2a2a2a; display: flex; border-radius: 20px; overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,.45); }
+        body { min-height: 100vh; background: var(--bg-pagina); color: var(--texto-principal); font-family: 'Segoe UI', Arial, sans-serif; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        body::before { content: ''; position: fixed; inset: -100px; background: linear-gradient(var(--bg-login-blur-1), var(--bg-login-blur-2)), url('assets/img/sempre/login-fundo.svg') center / cover no-repeat; filter: blur(28px); pointer-events: none; }
+        .container { position: relative; width: min(900px, 100%); min-height: 560px; background: var(--bg-superficie); border: 1px solid var(--borda-padrao); display: flex; border-radius: 20px; overflow: hidden; box-shadow: var(--sombra-login); }
         .login-area { width: 52%; padding: 48px; display: flex; flex-direction: column; justify-content: center; }
-        .login-area h1 { font-size: 38px; line-height: 1.08; color: #fff; margin-bottom: 12px; letter-spacing: -1.5px; }
-        .subtitle { font-size: 14px; color: #999; line-height: 1.5; margin-bottom: 26px; }
+        .login-area h1 { font-size: 38px; line-height: 1.08; color: var(--texto-principal); margin-bottom: 12px; letter-spacing: -1.5px; }
+        .subtitle { font-size: 14px; color: var(--texto-suave); line-height: 1.5; margin-bottom: 26px; }
         .account-selector { min-width: 0; border: 0; margin-bottom: 24px; }
-        .account-selector legend { font-size: 13px; font-weight: 600; color: #ccc; margin-bottom: 10px; }
+        .account-selector legend { font-size: 13px; font-weight: 600; color: var(--texto-medio); margin-bottom: 10px; }
         .account-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
         .account-option { position: relative; cursor: pointer; }
         .account-option input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-        .account-card { display: flex; flex-direction: column; justify-content: center; gap: 7px; height: 88px; padding: 13px; background: #1e1e1e; border: 1px solid #333; border-radius: 12px; transition: background-color .15s, border-color .15s; }
-        .account-heading { display: flex; align-items: center; gap: 8px; color: #bdbdbd; font-size: 14px; font-weight: 600; }
+        .account-card { display: flex; flex-direction: column; justify-content: center; gap: 7px; height: 88px; padding: 13px; background: var(--bg-campo); border: 1px solid var(--borda-campo); border-radius: 12px; transition: background-color .15s, border-color .15s; }
+        .account-heading { display: flex; align-items: center; gap: 8px; color: var(--texto-secundario); font-size: 14px; font-weight: 600; }
         .account-heading svg { width: 19px; height: 19px; flex-shrink: 0; }
-        .account-description { color: #999; font-size: 11px; line-height: 1.4; }
-        .account-check { width: 11px; height: 11px; border: 1px solid #666; border-radius: 50%; margin-left: auto; flex-shrink: 0; }
-        .account-option:hover .account-card { background: #252525; border-color: #666; }
-        .account-option input:checked + .account-card { background: #282828; border-color: #888; }
-        .account-option input:checked + .account-card .account-heading { color: #fff; }
-        .account-option input:checked + .account-card .account-check { border-color: #fff; background: #fff; box-shadow: inset 0 0 0 2px #282828; }
-        .account-option input:focus-visible + .account-card { outline: 2px solid #fff; outline-offset: 3px; }
+        .account-description { color: var(--texto-suave); font-size: 11px; line-height: 1.4; }
+        .account-check { width: 11px; height: 11px; border: 1px solid var(--texto-auxiliar); border-radius: 50%; margin-left: auto; flex-shrink: 0; }
+        .account-option:hover .account-card { background: var(--bg-hover-card); border-color: var(--borda-foco); }
+        .account-option input:checked + .account-card { background: var(--bg-selecionado); border-color: var(--borda-destaque); }
+        .account-option input:checked + .account-card .account-heading { color: var(--texto-principal); }
+        .account-option input:checked + .account-card .account-check { border-color: var(--texto-principal); background: var(--texto-principal); box-shadow: inset 0 0 0 2px var(--bg-selecionado); }
+        .account-option input:focus-visible + .account-card { outline: 2px solid var(--anel-foco); outline-offset: 3px; }
         .account-option:has(input:disabled) { cursor: not-allowed; }
         .account-option input:disabled + .account-card { opacity: .45; }
         .google-access { margin: 28px 0; padding-top: 22px; border-top: 1px solid #ddd; }
@@ -113,20 +124,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .google-access .google-error { color: #9f2525; margin: 10px 0 0; }
         .google-access [hidden] { display: none; }
         .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #ccc; margin-bottom: 8px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--texto-medio); margin-bottom: 8px; }
         .input-wrapper { position: relative; }
-        .input-wrapper input { width: 100%; height: 48px; border: 1px solid #333; border-radius: 10px; background: #1e1e1e; padding: 0 14px; font: inherit; font-size: 14px; color: #fff; outline: none; transition: border-color .15s, background-color .15s; }
-        .input-wrapper input::placeholder { color: #858585; opacity: 1; }
-        .input-wrapper input:focus { border-color: #aaa; background: #242424; box-shadow: 0 0 0 2px rgba(255,255,255,.06); }
-        .input-wrapper input:-webkit-autofill { -webkit-text-fill-color: #fff; -webkit-box-shadow: 0 0 0 1000px #242424 inset; caret-color: #fff; }
+        .input-wrapper input { width: 100%; height: 48px; border: 1px solid var(--borda-campo); border-radius: 10px; background: var(--bg-campo); padding: 0 14px; font: inherit; font-size: 14px; color: var(--texto-principal); outline: none; transition: border-color .15s, background-color .15s; }
+        .input-wrapper input::placeholder { color: var(--texto-placeholder); opacity: 1; }
+        .input-wrapper input:focus { border-color: var(--borda-destaque); background: var(--bg-campo-foco); box-shadow: 0 0 0 2px var(--sombra-foco-campo); }
+        .input-wrapper input:-webkit-autofill { -webkit-text-fill-color: var(--texto-principal); -webkit-box-shadow: 0 0 0 1000px var(--bg-campo-foco) inset; caret-color: var(--texto-principal); }
         .password-wrapper input { padding-right: 42px; }
-        .toggle-password { position: absolute; right: 0; top: 0; width: 44px; height: 48px; cursor: pointer; border: 0; border-radius: 10px; background: transparent; color: #aaa; font-size: 16px; line-height: 1; }
-        .toggle-password:focus-visible, .login-button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-        .login-button { width: 100%; height: 48px; border: 0; border-radius: 10px; background: #fff; color: #141414; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background-color .15s; }
-        .login-button:hover { background: #e5e5e5; }
-        .help { margin-top: 18px; min-height: 36px; font-size: 12px; line-height: 1.5; color: #999; }
-        .help strong { color: #ccc; }
-        .error-msg { background: #321c1c; border: 1px solid #713838; color: #fca5a5; border-radius: 10px; padding: 11px 13px; margin-bottom: 18px; font-size: 13px; line-height: 1.5; }
+        .toggle-password { position: absolute; right: 0; top: 0; width: 44px; height: 48px; cursor: pointer; border: 0; border-radius: 10px; background: transparent; color: var(--texto-secundario); font-size: 16px; line-height: 1; }
+        .toggle-password:focus-visible, .login-button:focus-visible { outline: 2px solid var(--anel-foco); outline-offset: 3px; }
+        .login-button { width: 100%; height: 48px; border: 0; border-radius: 10px; background: var(--bg-acao-primaria); color: var(--texto-acao-primaria); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background-color .15s; }
+        .login-button:hover { background: var(--bg-acao-primaria-hover); }
+        .help { margin-top: 18px; min-height: 36px; font-size: 12px; line-height: 1.5; color: var(--texto-suave); }
+        .help strong { color: var(--texto-medio); }
+        .error-msg { background: var(--bg-erro-card); border: 1px solid var(--borda-erro); color: var(--texto-erro); border-radius: 10px; padding: 11px 13px; margin-bottom: 18px; font-size: 13px; line-height: 1.5; }
         .info-area { width: 48%; margin: 14px 14px 14px 0; border: 1px solid #e5e5e5; border-radius: 18px; background: #fff; color: #141414; padding: 38px 30px; display: flex; flex-direction: column; justify-content: space-between; }
         .brand { margin-top: 5px; }
         .brand-small { font-size: 10px; color: #141414; margin-bottom: 3px; }

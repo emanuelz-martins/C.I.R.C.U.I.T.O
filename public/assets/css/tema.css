@@ -1,0 +1,314 @@
+/* Tokens semânticos de tema — C.I.R.C.U.I.T.O. */
+
+:root,
+:root[data-tema="escuro"] {
+    color-scheme: dark;
+
+    /* Fundo da página e rodapé */
+    --bg-pagina: #141414;
+    --bg-rodape: #111111;
+    --bg-login-blur-1: rgba(20, 20, 20, 0.45);
+    --bg-login-blur-2: rgba(20, 20, 20, 0.75);
+
+    /* Superfícies de cartões, tabelas, menus e modais */
+    --bg-superficie: #1c1c1c;
+    --bg-superficie-alt: #1e1e1e;
+    --bg-superficie-tabela: #1a1a1a;
+    --bg-cabecalho-tabela: #141414;
+    --bg-modal: #1e1e1e;
+    --bg-subpainel: #171717;
+    --bg-card-arquivado: #161616;
+    --bg-midia: #111111;
+
+    /* Fundo dos campos, controles e botões secundários */
+    --bg-campo: #1e1e1e;
+    --bg-campo-foco: #242424;
+    --bg-campo-interno: #141414;
+    --bg-campo-profundo: #111111;
+    --bg-controle: #2a2a2a;
+    --bg-controle-alt: #222222;
+    --bg-controle-hover: #333333;
+    --bg-controle-ativo: #3a3a3a;
+    --bg-pin-ativo: #444444;
+
+    /* Botão primário de alto contraste (branco no escuro, escuro no claro) */
+    --bg-acao-primaria: #ffffff;
+    --bg-acao-primaria-hover: #e5e5e5;
+    --texto-acao-primaria: #141414;
+
+    /* Texto principal, secundário, auxiliar e placeholder */
+    --texto-principal: #ffffff;
+    --texto-forte: #e5e7eb;
+    --texto-medio: #cccccc;
+    --texto-secundario: #aaaaaa;
+    --texto-suave: #888888;
+    --texto-auxiliar: #666666;
+    --texto-placeholder: #555555;
+    --icone-vazio: #333333;
+
+    /* Bordas */
+    --borda-sutil: #222222;
+    --borda-padrao: #2a2a2a;
+    --borda-card: #2e2e2e;
+    --borda-campo: #333333;
+    --borda-controle: #3a3a3a;
+    --borda-forte: #444444;
+    --borda-foco: #555555;
+    --borda-destaque: #888888;
+
+    /* Hover, seleção e foco */
+    --bg-hover-linha: #222222;
+    --bg-hover-card: #262626;
+    --bg-hover-menu: #2a2a2a;
+    --bg-selecionado: #282828;
+    --anel-foco: #ffffff;
+    --sombra-foco-campo: rgba(255, 255, 255, 0.06);
+
+    /* Sombras e sobreposição dos modais */
+    --sombra-dropdown: 0 8px 24px rgba(0, 0, 0, 0.55);
+    --sombra-modal: 0 20px 60px rgba(0, 0, 0, 0.65);
+    --sombra-login: 0 24px 80px rgba(0, 0, 0, 0.45);
+    --sombra-toast: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --overlay-modal: rgba(0, 0, 0, 0.75);
+
+    /* Cores de status, badges, alertas e avisos */
+    --cor-primaria: #3b82f6;
+    --cor-primaria-hover: #2563eb;
+    --cor-primaria-desabilitada: #1d3d7a;
+
+    --cor-sucesso: #4ade80;
+    --cor-sucesso-forte: #16a34a;
+    --bg-sucesso-sutil: #0d2018;
+    --bg-sucesso-badge: #1a2e22;
+    --borda-sucesso: #166534;
+    --texto-sucesso: #86efac;
+    --texto-sucesso-claro: #bbf7d0;
+
+    --cor-erro: #ef4444;
+    --cor-erro-forte: #dc2626;
+    --cor-erro-hover: #b91c1c;
+    --cor-erro-claro: #f87171;
+    --bg-erro-sutil: #1c0a0a;
+    --bg-erro-card: #2a1212;
+    --bg-erro-badge: #3b1111;
+    --bg-erro-hover: #3a1a1a;
+    --borda-erro: #7f1d1d;
+    --borda-erro-sutil: #3a1a1a;
+    --texto-erro: #fca5a5;
+    --texto-erro-claro: #fecaca;
+    --gradiente-prebloqueado: linear-gradient(180deg, rgba(127, 29, 29, 0.18) 0%, rgba(30, 30, 30, 1) 70%);
+
+    --cor-alerta: #f59e0b;
+    --cor-laranja: #f97316;
+    --bg-alerta-sutil: #1c1a08;
+    --bg-alerta-badge: #2d2300;
+    --bg-alerta-icone: #2a1f00;
+    --borda-alerta: #713f12;
+    --borda-alerta-sutil: #3a2e10;
+    --texto-alerta: #fde68a;
+    --texto-alerta-forte: #fbbf24;
+
+    --bg-info-badge: #1d3557;
+    --bg-info-icone: #1e2d3d;
+    --bg-info-hover: #1a3a5c;
+    --borda-info: #2563eb;
+    --texto-info: #90cdf4;
+    --texto-info-icone: #60a5fa;
+    --link-cor: #93c5fd;
+
+    --bg-roxo-badge: #3b1a57;
+    --texto-roxo: #c084fc;
+
+    --bg-arquivar-hover: #2a2e1a;
+    --cor-arquivar: #84cc16;
+
+    /* Badges de status de pedido */
+    --status-enviado-bg: #374151;
+    --status-enviado-texto: #e5e7eb;
+    --status-pendente-bg: #78350f;
+    --status-pendente-texto: #fde68a;
+    --status-separacao-bg: #7e22ce;
+    --status-separacao-texto: #ede9fe;
+    --status-pronto-bg: #92400e;
+    --status-pronto-texto: #fed7aa;
+    --status-andamento-bg: #1d4ed8;
+    --status-andamento-texto: #dbeafe;
+    --status-finalizado-bg: #166534;
+    --status-finalizado-texto: #bbf7d0;
+    --status-cancelado-bg: #991b1b;
+    --status-cancelado-texto: #fecaca;
+    --status-atendimento-bg: #1f2937;
+    --status-atendimento-texto: #d1d5db;
+
+    /* Balões de chat */
+    --chat-aluno-bg: #1f2937;
+    --chat-aluno-borda: #374151;
+    --chat-aluno-texto: #e5e7eb;
+    --chat-lab-bg: #2a1a1a;
+    --chat-lab-borda: #7f1d1d;
+    --chat-lab-texto: #fecaca;
+    --chat-sistema-bg: #202020;
+    --chat-sistema-borda: #333333;
+    --chat-sistema-texto: #d4d4d4;
+
+    /* Padrão de circuito decorativo */
+    --filtro-padrao-circuito: invert(1);
+    --opacidade-padrao-circuito: 0.1;
+    --opacidade-circuito-inline: 0.8;
+}
+
+:root[data-tema="claro"] {
+    color-scheme: light;
+
+    /* Fundo da página e rodapé */
+    --bg-pagina: #f5f5f5;
+    --bg-rodape: #ebebeb;
+    --bg-login-blur-1: rgba(245, 245, 245, 0.55);
+    --bg-login-blur-2: rgba(245, 245, 245, 0.82);
+
+    /* Superfícies de cartões, tabelas, menus e modais */
+    --bg-superficie: #ffffff;
+    --bg-superficie-alt: #ffffff;
+    --bg-superficie-tabela: #ffffff;
+    --bg-cabecalho-tabela: #efefef;
+    --bg-modal: #ffffff;
+    --bg-subpainel: #f8f8f8;
+    --bg-card-arquivado: #fafafa;
+    --bg-midia: #ececec;
+
+    /* Fundo dos campos, controles e botões secundários */
+    --bg-campo: #ffffff;
+    --bg-campo-foco: #ffffff;
+    --bg-campo-interno: #f7f7f7;
+    --bg-campo-profundo: #ffffff;
+    --bg-controle: #eaeaea;
+    --bg-controle-alt: #f0f0f0;
+    --bg-controle-hover: #dcdcdc;
+    --bg-controle-ativo: #d0d0d0;
+    --bg-pin-ativo: #d4d4d4;
+
+    /* Botão primário de alto contraste */
+    --bg-acao-primaria: #141414;
+    --bg-acao-primaria-hover: #2e2e2e;
+    --texto-acao-primaria: #ffffff;
+
+    /* Texto principal, secundário, auxiliar e placeholder */
+    --texto-principal: #141414;
+    --texto-forte: #1f2937;
+    --texto-medio: #333333;
+    --texto-secundario: #595959;
+    --texto-suave: #595959;
+    --texto-auxiliar: #666666;
+    --texto-placeholder: #737373;
+    --icone-vazio: #b5b5b5;
+
+    /* Bordas */
+    --borda-sutil: #e5e5e5;
+    --borda-padrao: #d9d9d9;
+    --borda-card: #d9d9d9;
+    --borda-campo: #cccccc;
+    --borda-controle: #c7c7c7;
+    --borda-forte: #b3b3b3;
+    --borda-foco: #595959;
+    --borda-destaque: #333333;
+
+    /* Hover, seleção e foco */
+    --bg-hover-linha: #f2f2f2;
+    --bg-hover-card: #efefef;
+    --bg-hover-menu: #f0f0f0;
+    --bg-selecionado: #eaeaea;
+    --anel-foco: #141414;
+    --sombra-foco-campo: rgba(20, 20, 20, 0.08);
+
+    /* Sombras e sobreposição dos modais */
+    --sombra-dropdown: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --sombra-modal: 0 20px 60px rgba(0, 0, 0, 0.18);
+    --sombra-login: 0 24px 80px rgba(0, 0, 0, 0.12);
+    --sombra-toast: 0 4px 16px rgba(0, 0, 0, 0.15);
+    --overlay-modal: rgba(0, 0, 0, 0.45);
+
+    /* Cores de status, badges, alertas e avisos */
+    --cor-primaria: #2563eb;
+    --cor-primaria-hover: #1d4ed8;
+    --cor-primaria-desabilitada: #93c5fd;
+
+    --cor-sucesso: #15803d;
+    --cor-sucesso-forte: #16a34a;
+    --bg-sucesso-sutil: #ecfdf5;
+    --bg-sucesso-badge: #dcfce7;
+    --borda-sucesso: #86efac;
+    --texto-sucesso: #166534;
+    --texto-sucesso-claro: #14532d;
+
+    --cor-erro: #dc2626;
+    --cor-erro-forte: #dc2626;
+    --cor-erro-hover: #b91c1c;
+    --cor-erro-claro: #b91c1c;
+    --bg-erro-sutil: #fef2f2;
+    --bg-erro-card: #fff1f2;
+    --bg-erro-badge: #fee2e2;
+    --bg-erro-hover: #fee2e2;
+    --borda-erro: #fca5a5;
+    --borda-erro-sutil: #fecaca;
+    --texto-erro: #991b1b;
+    --texto-erro-claro: #7f1d1d;
+    --gradiente-prebloqueado: linear-gradient(180deg, rgba(254, 202, 202, 0.55) 0%, rgba(255, 255, 255, 1) 70%);
+
+    --cor-alerta: #d97706;
+    --cor-laranja: #ea580c;
+    --bg-alerta-sutil: #fffbeb;
+    --bg-alerta-badge: #fef3c7;
+    --bg-alerta-icone: #fef3c7;
+    --borda-alerta: #fcd34d;
+    --borda-alerta-sutil: #fde68a;
+    --texto-alerta: #92400e;
+    --texto-alerta-forte: #b45309;
+
+    --bg-info-badge: #dbeafe;
+    --bg-info-icone: #dbeafe;
+    --bg-info-hover: #eff6ff;
+    --borda-info: #60a5fa;
+    --texto-info: #1e40af;
+    --texto-info-icone: #2563eb;
+    --link-cor: #1d4ed8;
+
+    --bg-roxo-badge: #f3e8ff;
+    --texto-roxo: #6b21a8;
+
+    --bg-arquivar-hover: #ecfccb;
+    --cor-arquivar: #4d7c0f;
+
+    /* Badges de status de pedido */
+    --status-enviado-bg: #e5e7eb;
+    --status-enviado-texto: #1f2937;
+    --status-pendente-bg: #fef3c7;
+    --status-pendente-texto: #92400e;
+    --status-separacao-bg: #f3e8ff;
+    --status-separacao-texto: #6b21a8;
+    --status-pronto-bg: #ffedd5;
+    --status-pronto-texto: #9a3412;
+    --status-andamento-bg: #dbeafe;
+    --status-andamento-texto: #1e40af;
+    --status-finalizado-bg: #dcfce7;
+    --status-finalizado-texto: #166534;
+    --status-cancelado-bg: #fee2e2;
+    --status-cancelado-texto: #991b1b;
+    --status-atendimento-bg: #e5e7eb;
+    --status-atendimento-texto: #374151;
+
+    /* Balões de chat */
+    --chat-aluno-bg: #eff6ff;
+    --chat-aluno-borda: #bfdbfe;
+    --chat-aluno-texto: #1e3a8a;
+    --chat-lab-bg: #fef2f2;
+    --chat-lab-borda: #fecaca;
+    --chat-lab-texto: #991b1b;
+    --chat-sistema-bg: #f3f4f6;
+    --chat-sistema-borda: #d1d5db;
+    --chat-sistema-texto: #374151;
+
+    /* Padrão de circuito decorativo */
+    --filtro-padrao-circuito: invert(0);
+    --opacidade-padrao-circuito: 0.08;
+    --opacidade-circuito-inline: 0.14;
+}

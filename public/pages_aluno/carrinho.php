@@ -378,7 +378,7 @@ try {
     .page-title {
         font-size: 3rem;
         font-weight: 800;
-        color: #ffffff;
+        color: var(--texto-principal);
         line-height: 1.1;
     }
 
@@ -386,9 +386,9 @@ try {
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -398,7 +398,7 @@ try {
         flex-shrink: 0;
     }
 
-    .btn-back:hover { background-color: #333; }
+    .btn-back:hover { background-color: var(--bg-controle-hover); }
 
     .btn-back svg {
         width: 20px;
@@ -414,8 +414,8 @@ try {
     }
 
     .cart-item {
-        background-color: #1c1c1c;
-        border: 1px solid #2a2a2a;
+        background-color: var(--bg-superficie);
+        border: 1px solid var(--borda-card);
         border-radius: 16px;
         padding: 20px 24px;
         display: flex;
@@ -429,19 +429,19 @@ try {
         border-radius: 10px;
         object-fit: cover;
         flex-shrink: 0;
-        background-color: #111;
+        background-color: var(--bg-midia);
     }
 
     .item-img-placeholder {
         width: 100px;
         height: 100px;
         border-radius: 10px;
-        background-color: #111;
+        background-color: var(--bg-midia);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        color: #444;
+        color: var(--texto-placeholder);
     }
 
     .item-info {
@@ -451,20 +451,20 @@ try {
 
     .item-categoria {
         font-size: 0.78rem;
-        color: #888;
+        color: var(--texto-secundario);
         margin-bottom: 4px;
     }
 
     .item-nome {
         font-size: 1.05rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         margin-bottom: 4px;
     }
 
     .item-descricao {
         font-size: 0.82rem;
-        color: #aaa;
+        color: var(--texto-suave);
         line-height: 1.4;
     }
 
@@ -479,7 +479,7 @@ try {
     .qty-control {
         display: flex;
         align-items: center;
-        border: 1px solid #3a3a3a;
+        border: 1px solid var(--borda-controle);
         border-radius: 10px;
         overflow: hidden;
     }
@@ -489,7 +489,7 @@ try {
         height: 40px;
         background: none;
         border: none;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 1.1rem;
         font-weight: 700;
         cursor: pointer;
@@ -499,16 +499,16 @@ try {
         transition: background-color 0.15s;
     }
 
-    .qty-btn:hover { background-color: #2a2a2a; }
+    .qty-btn:hover { background-color: var(--bg-controle); }
 
     .qty-value {
         width: 44px;
         height: 40px;
-        background-color: #2a2a2a;
+        background-color: var(--bg-controle);
         border: none;
-        border-left: 1px solid #3a3a3a;
-        border-right: 1px solid #3a3a3a;
-        color: #ffffff;
+        border-left: 1px solid var(--borda-controle);
+        border-right: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         font-size: 0.95rem;
         font-weight: 600;
         text-align: center;
@@ -523,9 +523,9 @@ try {
         width: 44px;
         height: 44px;
         border-radius: 10px;
-        background-color: #2a2a2a;
-        border: 1px solid #3a3a3a;
-        color: #ffffff;
+        background-color: var(--bg-controle);
+        border: 1px solid var(--borda-controle);
+        color: var(--texto-principal);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -534,7 +534,7 @@ try {
         flex-shrink: 0;
     }
 
-    .btn-delete:hover { background-color: #3a1a1a; border-color: #6b2222; }
+    .btn-delete:hover { background-color: var(--bg-erro-hover); border-color: var(--borda-erro); }
 
     .btn-delete svg {
         width: 18px;
@@ -545,14 +545,14 @@ try {
     .cart-empty {
         text-align: center;
         padding: 60px 0;
-        color: #555;
+        color: var(--texto-auxiliar);
     }
 
     .cart-empty svg {
         width: 64px;
         height: 64px;
         margin-bottom: 16px;
-        color: #333;
+        color: var(--icone-vazio);
     }
 
     .cart-empty p {
@@ -564,8 +564,8 @@ try {
         display: block;
         width: 100%;
         padding: 18px;
-        background-color: #ffffff;
-        color: #141414;
+        background-color: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
         font-size: 1.1rem;
         font-weight: 700;
         border: none;
@@ -576,7 +576,7 @@ try {
         text-decoration: none;
     }
 
-    .btn-enviar:hover { background-color: #e0e0e0; }
+    .btn-enviar:hover { background-color: var(--bg-acao-primaria-hover); }
 
     .btn-enviar:disabled {
         opacity: 0.4;
@@ -588,7 +588,7 @@ try {
         position: fixed;
         inset: 0;
         z-index: 220;
-        background-color: rgba(0, 0, 0, 0.75);
+        background-color: var(--overlay-modal);
         align-items: center;
         justify-content: center;
         padding: 20px;
@@ -599,20 +599,20 @@ try {
     .confirm-box {
         width: 100%;
         max-width: 540px;
-        background-color: #1e1e1e;
-        border: 1px solid #333;
+        background-color: var(--bg-modal);
+        border: 1px solid var(--borda-forte);
         border-radius: 16px;
         padding: 28px 26px;
     }
 
     .confirm-title {
         font-size: 1.4rem;
-        color: #fff;
+        color: var(--texto-principal);
         margin-bottom: 6px;
     }
 
     .confirm-desc {
-        color: #b1b1b1;
+        color: var(--texto-suave);
         font-size: 0.9rem;
         margin-bottom: 16px;
     }
@@ -620,7 +620,7 @@ try {
     .confirm-label {
         display: block;
         font-size: 0.84rem;
-        color: #d4d4d4;
+        color: var(--texto-medio);
         margin-bottom: 8px;
         font-weight: 600;
     }
@@ -628,9 +628,9 @@ try {
     .confirm-select,
     .confirm-textarea {
         width: 100%;
-        background-color: #141414;
-        color: #fff;
-        border: 1px solid #3a3a3a;
+        background-color: var(--bg-campo-interno);
+        color: var(--texto-principal);
+        border: 1px solid var(--borda-controle);
         border-radius: 10px;
         padding: 11px 12px;
         font-family: inherit;
@@ -639,7 +639,7 @@ try {
     }
 
     .confirm-select:focus,
-    .confirm-textarea:focus { border-color: #5a5a5a; }
+    .confirm-textarea:focus { border-color: var(--borda-foco); }
 
     .confirm-textarea {
         min-height: 96px;
@@ -649,10 +649,10 @@ try {
     .confirm-hint {
         margin-top: 10px;
         font-size: 0.8rem;
-        color: #8c8c8c;
+        color: var(--texto-secundario);
     }
 
-    .confirm-hint.error { color: #fca5a5; }
+    .confirm-hint.error { color: var(--texto-erro); }
 
     .confirm-actions {
         margin-top: 18px;
@@ -673,19 +673,19 @@ try {
 
     .btn-confirm-cancel {
         background: transparent;
-        color: #bdbdbd;
-        border: 1px solid #444;
+        color: var(--texto-suave);
+        border: 1px solid var(--borda-controle);
     }
 
-    .btn-confirm-cancel:hover { border-color: #777; color: #fff; }
+    .btn-confirm-cancel:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
     .btn-confirm-submit {
-        background: #fff;
-        color: #141414;
+        background: var(--bg-acao-primaria);
+        color: var(--texto-acao-primaria);
         border: none;
     }
 
-    .btn-confirm-submit:hover { background: #e6e6e6; }
+    .btn-confirm-submit:hover { background: var(--bg-acao-primaria-hover); }
 </style>
 </head>
 <body>
@@ -784,13 +784,13 @@ try {
 <main class="main">
 
     <?php if ($sucesso === '1'): ?>
-    <div style="background-color:#0f2e1d;border:1px solid #166534;border-radius:12px;padding:14px 18px;color:#86efac;margin-bottom:18px;">
+    <div style="background-color:var(--bg-sucesso-sutil);border:1px solid var(--borda-sucesso);border-radius:12px;padding:14px 18px;color:var(--texto-sucesso);margin-bottom:18px;">
         Pedido enviado com sucesso! O laboratorista já pode visualizar e avaliar sua solicitação.
     </div>
     <?php endif; ?>
 
     <?php if ($erro !== ''): ?>
-    <div style="background-color:#2a1111;border:1px solid #7f1d1d;border-radius:12px;padding:14px 18px;color:#fca5a5;margin-bottom:18px;">
+    <div style="background-color:var(--bg-erro-sutil);border:1px solid var(--borda-erro);border-radius:12px;padding:14px 18px;color:var(--texto-erro);margin-bottom:18px;">
         <?php
             if ($erro === 'usuario') {
                 echo 'Não foi possível identificar o usuário logado.';
@@ -826,8 +826,8 @@ try {
 
     <!-- Lista de itens -->
     <?php if (!$db_ok): ?>
-    <div style="background-color: #1c1c1c; border: 1px solid #3a1a1a; border-radius: 16px; padding: 40px; text-align: center; color: #aaa;">
-        <h2 style="color: #ef4444; margin-bottom: 8px;">Banco de dados indisponível</h2>
+    <div style="background-color: var(--bg-superficie); border: 1px solid var(--borda-erro-sutil); border-radius: 16px; padding: 40px; text-align: center; color: var(--texto-suave);">
+        <h2 style="color: var(--cor-erro); margin-bottom: 8px;">Banco de dados indisponível</h2>
         <p>Não foi possível carregar o carrinho. Verifique a conexão com o MySQL.</p>
     </div>
     <?php elseif (empty($itens)): ?>
