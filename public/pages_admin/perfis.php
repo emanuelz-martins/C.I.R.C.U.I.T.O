@@ -61,8 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $usuarios = [];
 try {
-    $where = [];
-    $params = [];
+    $where = ['id_user <> :ator_id'];
+    $params = ['ator_id' => $atorId];
     if ($busca !== '') {
         $digitos = preg_replace('/\D/', '', $busca);
         $loginNumerico = is_string($digitos) && strlen($digitos) === 11;
@@ -113,6 +113,7 @@ $esc = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES, 'UTF-8'
                 </div>
             </button>
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

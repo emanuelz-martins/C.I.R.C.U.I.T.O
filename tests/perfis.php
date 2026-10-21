@@ -26,6 +26,7 @@ $ids = [];
 $previewCategoria = null;
 $previewComponente = null;
 $clients = [];
+$fotoTeste = null;
 $checks = 0;
 $password = bin2hex(random_bytes(16));
 $prefix = 'Teste perfis ' . bin2hex(random_bytes(5));
@@ -50,7 +51,7 @@ function cliente(): CurlHandle
     return $c;
 }
 
-function requisicao(CurlHandle $c, string $path, ?array $post = null, bool $json = false, bool $corpoJson = false): array
+function requisicao(CurlHandle $c, string $path, ?array $post = null, bool $json = false, bool $corpoJson = false, bool $multipart = false): array
 {
     global $base;
     $headers = [];
@@ -69,7 +70,7 @@ function requisicao(CurlHandle $c, string $path, ?array $post = null, bool $json
         curl_setopt($c, CURLOPT_HTTPGET, true);
     } else {
         curl_setopt($c, CURLOPT_POST, true);
-        curl_setopt($c, CURLOPT_POSTFIELDS, $corpoJson ? json_encode($post, JSON_THROW_ON_ERROR) : http_build_query($post));
+        curl_setopt($c, CURLOPT_POSTFIELDS, $corpoJson ? json_encode($post, JSON_THROW_ON_ERROR) : ($multipart ? $post : http_build_query($post)));
     }
     $body = curl_exec($c);
     if ($body === false) {
@@ -126,6 +127,80 @@ try {
     $student = $users['estudante']['client'];
     $lab = $users['laboratorista']['client'];
     $admin = $users['admin']['client'];
+    // O perfil pessoal é compartilhado; editar a conta nunca concede recursos de outro papel.
+    verificar(requisicao($anonimo, '/perfil.php')['status'] === 302, 'perfil pessoal exige sessão');
+    verificar(requisicao($anonimo, '/api/perfil_atualizar.php', [], true)['status'] === 401, 'edição de perfil exige sessão');
+    $fotoTeste = tempnam(sys_get_temp_dir(), 'circuito-perfil-');
+    file_put_contents($fotoTeste, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII='));
+    $tokensPerfil = [];
+    foreach (['estudante' => 'Aluno', 'laboratorista' => 'Laboratorista', 'admin' => 'Administrador'] as $role => $rotulo) {
+        $c = $users[$role]['client'];
+        $id = $users[$role]['id'];
+        $r = requisicao($c, '/perfil.php');
+        verificar($r['status'] === 200 && str_contains($r['body'], '>' . $rotulo . '</span>'), 'perfil pessoal exibe papel real: ' . $role);
+        verificar(str_contains($r['body'], '<h2 class="section-title">Histórico de pedidos</h2>') === ($role === 'estudante'), 'histórico de pedidos aparece apenas ao aluno: ' . $role);
+        verificar(str_contains($r['body'], 'id="btnClaro"') && str_contains($r['body'], 'id="btnEscuro"'), 'seletor de tema disponível: ' . $role);
+        preg_match('/name="csrf_perfil" value="([a-f0-9]+)"/', $r['body'], $m);
+        $tokensPerfil[$role] = $m[1] ?? '';
+        verificar(strlen($tokensPerfil[$role]) === 64, 'perfil fornece CSRF: ' . $role);
+        verificar(requisicao($c, '/api/perfil_atualizar.php', ['descricao' => 'forjado'], true)['status'] === 403, 'edição sem CSRF é recusada: ' . $role);
+        verificar(requisicao($c, '/api/perfil_foto.php', ['csrf_perfil' => 'errado'], true)['status'] === 403, 'upload sem CSRF válido é recusado: ' . $role);
+        $r = requisicao($c, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil[$role], 'descricao' => 'Descrição de teste ' . $role,
+            'nome' => $prefix . ' perfil ' . $role, 'matricula' => '2026-' . $id, 'email' => $role . '@example.test', 'id_user' => $users['outro_admin']['id'], 'tipo_perfil' => 'admin', 'bloqueado' => 1], true);
+        verificar($r['status'] === 200 && json_decode($r['body'], true)['ok'], 'salva dados pessoais: ' . $role);
+        $stmt = $pdo->prepare('SELECT nome, matricula, descricao, email, tipo_perfil, bloqueado FROM Usuario WHERE id_user = ?');
+        $stmt->execute([$id]);
+        $atual = $stmt->fetch();
+        verificar($atual['nome'] === $prefix . ' perfil ' . $role && $atual['matricula'] === '2026-' . $id
+            && $atual['descricao'] === 'Descrição de teste ' . $role && $atual['email'] === $role . '@example.test'
+            && $atual['tipo_perfil'] === $role && (int) $atual['bloqueado'] === 0, 'edita somente a própria conta e preserva privilégios: ' . $role);
+        verificar($pdo->query('SELECT descricao FROM Usuario WHERE id_user = ' . $users['outro_admin']['id'])->fetchColumn() === null, 'ID forjado não altera outra conta: ' . $role);
+        $salvo = json_decode($r['body'], true, 512, JSON_THROW_ON_ERROR)['perfil'];
+        verificar($salvo['nome'] === $atual['nome'] && $salvo['matricula'] === $atual['matricula'] && $salvo['email'] === $atual['email'] && $salvo['descricao'] === $atual['descricao'], 'resposta permite atualizar o resumo sem recarregar: ' . $role);
+        $paginaSalva = requisicao($c, '/perfil.php');
+        verificar(str_contains($paginaSalva['body'], 'id="perfilMatricula"') && str_contains($paginaSalva['body'], '2026-' . $id)
+            && str_contains($paginaSalva['body'], 'Descrição de teste ' . $role), 'formulário recarregado mantém matrícula e descrição persistidas: ' . $role);
+        verificar(str_contains($paginaSalva['body'], 'id="perfilDescricaoContador"') && str_contains($paginaSalva['body'], '/500 caracteres'), 'edição oferece contador de descrição: ' . $role);
+        $telaPrincipal = explode('<!-- ══════ MODAL: Editar perfil ══════ -->', $paginaSalva['body'])[0];
+        verificar(str_contains($telaPrincipal, 'Página do usuário') && !str_contains($telaPrincipal, 'profile-details')
+            && !str_contains($telaPrincipal, 'perfilMatricula') && !str_contains($telaPrincipal, '<span>Editar perfil</span>'), 'tela original preservada; novos campos ficam somente no botão mais: ' . $role);
+
+
+        $r = requisicao($c, '/api/perfil_foto.php', ['csrf_perfil' => $tokensPerfil[$role], 'foto' => new CURLFile($fotoTeste, 'image/png', 'avatar.png')], true, false, true);
+        $upload = json_decode($r['body'], true, 512, JSON_THROW_ON_ERROR);
+        verificar($r['status'] === 200 && $upload['ok'] && str_contains($upload['url'], '/user_' . $id . '_'), 'foto própria pode ser alterada: ' . $role);
+        $r = requisicao($c, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil[$role], 'nome' => $atual['nome'], 'email' => $atual['email'],
+            'matricula' => $atual['matricula'], 'descricao' => $atual['descricao'], 'foto' => new CURLFile($fotoTeste, 'image/png', 'avatar.png')], true, false, true);
+        $formSalvo = json_decode($r['body'], true, 512, JSON_THROW_ON_ERROR);
+        verificar($r['status'] === 200 && $formSalvo['ok'] && str_contains($formSalvo['foto'], '/user_' . $id . '_')
+            && $formSalvo['perfil']['nome'] === $atual['nome'] && $formSalvo['perfil']['matricula'] === $atual['matricula'], 'formulário salva foto e identificação juntos: ' . $role);
+
+        verificar(requisicao($c, '/pages_aluno/profile.php')['status'] === 302, 'endereço antigo encaminha ao perfil comum: ' . $role);
+        $painel = match ($role) { 'admin' => '/pages_admin/index.php', 'laboratorista' => '/pages_laboratorista/index.php', default => '/index.php' };
+        verificar(str_contains(requisicao($c, $painel)['body'], 'Meu perfil'), 'menu do painel oferece Meu perfil: ' . $role);
+    }
+    verificar(requisicao($lab, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil['admin']], true)['status'] === 403, 'CSRF de outra sessão é recusado');
+    verificar(requisicao($student, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil['estudante'], 'email' => 'email-invalido'], true)['status'] === 422, 'perfil rejeita e-mail inválido');
+    $perfilAntes = $pdo->query('SELECT nome, email, matricula, descricao FROM Usuario WHERE id_user = ' . $users['estudante']['id'])->fetch();
+    foreach ([['nome' => '   '], ['nome' => str_repeat('á', 151)], ['matricula' => str_repeat('1', 51)],
+        ['nome' => 'Não deve salvar', 'descricao' => str_repeat('á', 501)], ['matricula' => ['valor inválido']]] as $invalido) {
+        $r = requisicao($student, '/api/perfil_atualizar.php', array_merge(['csrf_perfil' => $tokensPerfil['estudante']], $invalido), true);
+        verificar($r['status'] === 422, 'campos pessoais inválidos são recusados no servidor');
+        verificar($pdo->query('SELECT nome, email, matricula, descricao FROM Usuario WHERE id_user = ' . $users['estudante']['id'])->fetch() === $perfilAntes, 'validação impede alteração parcial dos dados');
+    }
+    $descricaoLimite = str_repeat('á', 498) . "\nç";
+    $r = requisicao($student, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil['estudante'], 'descricao' => $descricaoLimite], true);
+    verificar($r['status'] === 200 && json_decode($r['body'], true)['perfil']['descricao'] === $descricaoLimite, 'limite aceita 500 caracteres acentuados e quebra de linha');
+    $parcial = $pdo->query('SELECT nome, email, matricula FROM Usuario WHERE id_user = ' . $users['estudante']['id'])->fetch();
+    verificar($parcial === array_intersect_key($perfilAntes, $parcial), 'edição parcial não apaga nome, e-mail ou matrícula');
+    $r = requisicao($student, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil['estudante'], 'descricao' => '', 'matricula' => ''], true);
+    $limpo = json_decode($r['body'], true)['perfil'];
+    verificar($r['status'] === 200 && $limpo['descricao'] === null && $limpo['matricula'] === null, 'campos opcionais podem ser limpos');
+    $pdo->prepare('UPDATE Usuario SET google_sub = ? WHERE id_user = ?')->execute(['perfil-teste-' . bin2hex(random_bytes(6)), $users['laboratorista']['id']]);
+    $r = requisicao($lab, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil['laboratorista'], 'email' => 'alterado@example.test', 'descricao' => 'Descrição Google'], true);
+    verificar($r['status'] === 200 && $pdo->query('SELECT email FROM Usuario WHERE id_user = ' . $users['laboratorista']['id'])->fetchColumn() === 'laboratorista@example.test', 'e-mail verificado pelo Google não pode ser substituído');
+    $pdo->prepare('UPDATE Usuario SET google_sub = NULL WHERE id_user = ?')->execute([$users['laboratorista']['id']]);
+
     foreach (['google', 'sigaa', 'teste'] as $forma) {
         registrarFormaLogin($pdo, $users['laboratorista']['id'], $forma);
         verificar(formaLogin($pdo, $users['laboratorista']['id']) === $forma && perfil($pdo, $users['laboratorista']['id']) === 'laboratorista', 'registro do método ' . $forma . ' preserva o perfil');
@@ -136,7 +211,7 @@ try {
     foreach (['/pages_admin/index.php', '/pages_admin/perfis.php', '/pages_laboratorista/index.php', '/api/admin_pedidos_usuario.php', '/api/pedido_arquivar_lab.php'] as $path) {
         verificar(requisicao($student, $path)['status'] === 403, 'aluno não acessa: ' . $path);
     }
-    foreach (['/pages_admin/index.php', '/pages_admin/perfis.php', '/pages_aluno/profile.php', '/api/carrinho_add.php'] as $path) {
+    foreach (['/pages_admin/index.php', '/pages_admin/perfis.php', '/api/carrinho_add.php'] as $path) {
         verificar(requisicao($lab, $path)['status'] === 403, 'laboratorista não acessa: ' . $path);
     }
     verificar(requisicao($lab, '/pages_laboratorista/index.php')['status'] === 200, 'laboratorista acessa seu painel');
@@ -167,7 +242,8 @@ try {
 
     verificar(requisicao($admin, '/pages_admin/perfis.php', $post)['status'] === 303, 'administrador promove aluno a laboratorista');
     verificar(requisicao($student, '/pages_laboratorista/index.php')['status'] === 200, 'sessão já aberta recebe novo acesso');
-    verificar(requisicao($student, '/pages_aluno/profile.php')['status'] === 403, 'perfil promovido perde recursos exclusivos de aluno');
+    verificar(requisicao($student, '/pages_aluno/carrinho.php')['status'] === 403, 'perfil promovido perde recursos exclusivos de aluno');
+    verificar(requisicao($student, '/perfil.php')['status'] === 200, 'perfil pessoal continua acessível após promoção');
 
     foreach (['laboratorista', 'admin', 'estudante'] as $role) {
         $r = requisicao($admin, '/pages_admin/perfis.php', array_replace($post, ['tipo_perfil' => $role]));
@@ -237,18 +313,18 @@ try {
     }
     $listaAvisos = requisicao($admin, '/pages_admin/controlar_aluno.php?q=' . rawurlencode($prefix));
     verificar($listaAvisos['status'] === 200 && !str_contains($listaAvisos['body'], 'Banco de dados indisponível'), 'lista de avisos carrega usuários dos três perfis com busca');
-    foreach (['admin', 'laboratorista', 'estudante'] as $grupo) {
+    foreach (['outro_admin', 'laboratorista', 'estudante'] as $grupo) {
         verificar(str_contains($listaAvisos['body'], 'id="card-' . $users[$grupo]['id'] . '"'), 'avisos inclui perfil ' . $grupo);
     }
     $buscaAvisos = '/pages_admin/controlar_aluno.php?q=' . rawurlencode($prefix);
     $r = requisicao($admin, $buscaAvisos . '&perfis[]=estudante');
     verificar(str_contains($r['body'], 'id="card-' . $users['estudante']['id'] . '"')
         && !str_contains($r['body'], 'id="card-' . $users['laboratorista']['id'] . '"')
-        && !str_contains($r['body'], 'id="card-' . $users['admin']['id'] . '"'), 'filtro Aluno mantém somente o perfil selecionado');
+        && !str_contains($r['body'], 'id="card-' . $users['outro_admin']['id'] . '"'), 'filtro Aluno mantém somente o perfil selecionado');
     $r = requisicao($admin, $buscaAvisos . '&perfis[]=estudante&perfis[]=laboratorista');
     verificar(str_contains($r['body'], 'id="card-' . $users['estudante']['id'] . '"')
         && str_contains($r['body'], 'id="card-' . $users['laboratorista']['id'] . '"')
-        && !str_contains($r['body'], 'id="card-' . $users['admin']['id'] . '"'), 'filtro permite selecionar vários perfis');
+        && !str_contains($r['body'], 'id="card-' . $users['outro_admin']['id'] . '"'), 'filtro permite selecionar vários perfis');
     preg_match('/name="csrf_avisos" value="([a-f0-9]+)"/', $listaAvisos['body'], $m);
     $avisosToken = $m[1] ?? '';
     verificar(strlen($avisosToken) === 64, 'gestão de avisos fornece proteção CSRF');
@@ -270,7 +346,7 @@ try {
     verificar($r['status'] === 422 && count(usuariosFixadosAvisos($pdo, $users['admin']['id'])) === 3, 'servidor rejeita quarto fixado mesmo com busca ativa');
     verificar(usuariosFixadosAvisos($pdo, $users['outro_admin']['id']) === [], 'fixações são individuais por administrador');
     $r = requisicao($admin, $buscaAvisos);
-    verificar(strpos($r['body'], 'id="card-' . $users['estudante']['id'] . '"') < strpos($r['body'], 'id="card-' . $users['admin']['id'] . '"'), 'fixado persiste no topo ao recarregar');
+    verificar(strpos($r['body'], 'id="card-' . $users['estudante']['id'] . '"') < strpos($r['body'], 'id="card-' . $users['bloqueado']['id'] . '"'), 'fixado persiste no topo ao recarregar');
     $r = requisicao($admin, $buscaAvisos . '&perfis[]=laboratorista');
     verificar(str_contains($r['body'], 'id="card-' . $users['laboratorista']['id'] . '"') && !str_contains($r['body'], 'id="card-' . $users['estudante']['id'] . '"'), 'fixações respeitam filtros sem remover fixados ocultos');
     $r = requisicao($admin, '/pages_admin/controlar_aluno.php', array_replace($pinPost, ['fixado' => '0']));
@@ -374,6 +450,12 @@ try {
     $r = requisicao($admin, '/index.php');
     verificar($r['status'] === 200 && str_contains($r['body'], 'adminPreviewConfig'), 'catálogo do aluno abre para administrador sem redirecionar ao painel');
     verificar(perfil($pdo, $users['admin']['id']) === 'admin', 'visualização não altera o perfil no banco');
+    $r = requisicao($admin, '/perfil.php');
+    preg_match('/id="adminPreviewConfig" type="application\/json">(.*?)<\/script>/s', $r['body'], $configPerfil);
+    verificar($r['status'] === 200 && !json_decode($configPerfil[1] ?? '{}', true)['ativo'], 'perfil do administrador não é confundido com visualização de aluno');
+    $r = requisicao($admin, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil['admin'], 'descricao' => 'Perfil pessoal durante visualização', 'email' => 'admin@example.test'], true);
+    verificar($r['status'] === 200 && json_decode($r['body'], true)['ok'], 'administrador edita seu perfil mesmo após visualizar outro painel');
+
     $pdo->prepare('INSERT INTO Categoria (nome) VALUES (?)')->execute([$prefix . ' catálogo temporário']);
     $previewCategoria = (int) $pdo->lastInsertId();
     $pdo->prepare('INSERT INTO Componente (id_cat, nome, qtd_disponivel) VALUES (?, ?, 3)')->execute([$previewCategoria, $prefix . ' componente temporário']);
@@ -430,6 +512,12 @@ try {
         $pdo->prepare("DELETE FROM Pedido WHERE id_user IN ({$placeholders})")->execute($ids);
         $pdo->prepare("DELETE FROM Log_Auditoria WHERE id_user IN ({$placeholders})")->execute($ids);
         $pdo->prepare("DELETE FROM Usuario WHERE id_user IN ({$placeholders})")->execute($ids);
+    }
+    if ($fotoTeste !== null && is_file($fotoTeste)) unlink($fotoTeste);
+    foreach ($ids as $id) {
+        foreach (glob(__DIR__ . '/../public/assets/img/perfil/user_' . $id . '_*') ?: [] as $avatarTeste) {
+            unlink($avatarTeste);
+        }
     }
     foreach ($clients as $c) { curl_close($c); }
 }

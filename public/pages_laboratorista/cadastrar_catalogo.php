@@ -459,6 +459,7 @@ require_once '../includes/header.php';
             </button>
 
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

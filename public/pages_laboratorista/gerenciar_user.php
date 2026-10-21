@@ -178,10 +178,11 @@ try {
     $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_nome VARCHAR(150) NULL');
     $pdo->exec('ALTER TABLE Usuario ADD COLUMN IF NOT EXISTS pre_bloqueado_por_tipo VARCHAR(30) NULL');
 
+    $atorId = (int) ($_SESSION['auth_user']['id'] ?? 0);
     $sql    = "SELECT id_user, nome, matricula, bloqueado, foto_perfil, pre_bloqueado_manual, pre_bloqueio_motivo, pre_bloqueado_por_nome, pre_bloqueado_por_tipo
                FROM   Usuario
-               WHERE  tipo_perfil = 'estudante'";
-    $params = [];
+               WHERE  tipo_perfil = 'estudante' AND id_user <> :ator_id";
+    $params = ['ator_id' => $atorId];
 
     if ($search !== '') {
         $sql .= ' AND (nome LIKE :q_nome OR matricula LIKE :q_matricula)';
@@ -670,6 +671,7 @@ require_once '../includes/header.php';
             </button>
 
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

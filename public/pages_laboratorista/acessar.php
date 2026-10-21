@@ -609,6 +609,13 @@ try {
 
     $usuarioCols   = $getCols($pdo, 'Usuario');
     $fotoPerfilSql = in_array('foto_perfil', $usuarioCols, true) ? 'u.foto_perfil' : 'NULL';
+    $matriculaSql = in_array('matricula', $usuarioCols, true) ? 'u.matricula' : 'NULL';
+    $turmaSql = in_array('turma', $usuarioCols, true) ? 'u.turma' : 'NULL';
+    $selectDatasPreview = [];
+    foreach (['data_retirada_prevista', 'data_retirada_real', 'data_devolucao_real'] as $colunaData) {
+        $selectDatasPreview[] = (in_array($colunaData, $pedidoCols, true) ? 'p.' . $colunaData : 'NULL') . ' AS ' . $colunaData;
+    }
+    $selectDatasPreview = implode(', ', $selectDatasPreview);
 
     if ($statusCol === null) {
         throw new RuntimeException('Coluna de status do pedido não encontrada.');
@@ -671,6 +678,9 @@ try {
             {$selectDataCriacaoRaw},
             u.nome AS nome_estudante,
             {$fotoPerfilSql} AS foto_perfil_estudante,
+            {$matriculaSql} AS matricula_estudante,
+            {$turmaSql} AS turma_estudante,
+            {$selectDatasPreview},
             {$selectResponsavelId},
             {$selectResponsavelNome},
             {$selectObsAluno},
@@ -693,8 +703,9 @@ try {
         $ids          = array_column($pedidos, 'id_pedido');
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         try {
+            $qtdAprovadaSql = in_array('qtd_aprovada', $getCols($pdo, 'Item_Pedido'), true) ? 'ip.qtd_aprovada' : 'NULL';
             $stmtItens = $pdo->prepare("
-                SELECT ip.id_pedido, ip.qtd_solicitada, c.id_comp, c.nome AS nome_comp, c.imagem_url
+                SELECT ip.id_pedido, ip.qtd_solicitada, {$qtdAprovadaSql} AS qtd_aprovada, c.id_comp, c.nome AS nome_comp, c.imagem_url
                 FROM Item_Pedido ip
                 JOIN Componente c ON c.id_comp = ip.id_comp
                 WHERE ip.id_pedido IN ({$placeholders})
@@ -974,7 +985,7 @@ $status_map = [
         border-radius: 10px;
         height: 38px;
         padding: 0 12px;
-        color: #ffffff;
+        color: var(--texto-principal);
         font-size: 0.82rem;
         font-weight: 700;
         display: inline-flex;
@@ -1513,6 +1524,104 @@ $status_map = [
     }
     .btn-fechar-preview:hover { border-color: var(--borda-foco); color: var(--texto-principal); }
 
+    /* Detalhes do pedido: cabeçalho e rodapé fixos, conteúdo com rolagem. */
+    body.preview-pedido-aberto { overflow: hidden; }
+    #modalPreview .preview-box {
+        max-width: 660px;
+        max-height: calc(100vh - 40px);
+        max-height: calc(100dvh - 40px);
+        display: flex;
+        flex-direction: column;
+    }
+    #modalPreview .preview-header {
+        align-items: stretch;
+        gap: 20px;
+        padding: 24px;
+        flex-shrink: 0;
+    }
+    .preview-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .preview-eyebrow {
+        font-size: 0.78rem;
+        color: var(--texto-suave);
+        margin-bottom: 5px;
+    }
+    .preview-title { font-size: 1.3rem; font-weight: 700; color: var(--texto-principal); margin: 0; }
+    .preview-requester { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .preview-requester-info { min-width: 0; }
+    #modalPreview .preview-avatar,
+    #modalPreview .preview-avatar-placeholder { width: 48px; height: 48px; flex-shrink: 0; }
+    #modalPreview .preview-nome { margin: 0; overflow-wrap: anywhere; }
+    .preview-cadastro { color: var(--texto-suave); font-size: 0.8rem; margin-top: 5px; overflow-wrap: anywhere; }
+    #modalPreview [hidden] { display: none !important; }
+    #modalPreview .preview-body {
+        max-height: none;
+        min-height: 0;
+        padding: 24px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: var(--borda-foco) var(--bg-superficie-tabela);
+        color-scheme: inherit;
+    }
+    #modalPreview .preview-body::-webkit-scrollbar { width: 6px; }
+    #modalPreview .preview-body::-webkit-scrollbar-thumb { background: var(--borda-foco); border-radius: 6px; }
+    #modalPreview .preview-body::-webkit-scrollbar-track { background: var(--bg-superficie-tabela); }
+    .preview-section + .preview-section { border-top: 1px solid var(--borda-padrao); padding-top: 22px; margin-top: 22px; }
+    #modalPreview .preview-subtitle {
+        color: var(--texto-secundario);
+        font-size: 0.75rem;
+        margin: 0 0 14px;
+    }
+    .preview-summary {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px 24px;
+        margin: 0;
+    }
+    .preview-summary dt { color: var(--texto-suave); font-size: 0.79rem; margin-bottom: 6px; }
+    .preview-summary dd { color: var(--texto-forte); font-size: 0.9rem; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+    .preview-section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .preview-item-count { color: var(--texto-suave); font-size: 0.78rem; text-align: right; }
+    #modalPreview .preview-items-list { padding-bottom: 0; }
+    #modalPreview .preview-item { padding: 14px; gap: 14px; }
+    #modalPreview a.preview-item { text-decoration: none; color: inherit; }
+    #modalPreview a.preview-item:hover { border-color: var(--borda-foco); }
+    #modalPreview .preview-item-nome {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        overflow-wrap: anywhere;
+        line-height: 1.5;
+        margin: 0;
+    }
+    #modalPreview .preview-item-qtd { color: var(--texto-suave); font-size: 0.8rem; line-height: 1.5; margin-top: 6px; }
+    #modalPreview .preview-msg-box { padding: 14px; font-size: 0.9rem; line-height: 1.65; }
+    #modalPreview .preview-empty { color: var(--texto-suave); padding: 12px 0; }
+    #modalPreview .preview-close {
+        padding: 16px 24px;
+        border-top: 1px solid var(--borda-padrao);
+        background: var(--bg-subpainel);
+        flex-shrink: 0;
+    }
+    #modalPreview :focus-visible { outline: 2px solid var(--borda-destaque); outline-offset: 3px; }
+    @media (max-width: 480px) {
+        #modalPreview { padding: 12px; }
+        #modalPreview .preview-box { max-height: calc(100dvh - 24px); border-radius: 18px; }
+        #modalPreview .preview-header,
+        #modalPreview .preview-body { padding: 20px; }
+        #modalPreview .preview-close { padding: 14px 20px; }
+        .preview-summary { grid-template-columns: 1fr; gap: 16px; }
+        #modalPreview .preview-item { align-items: flex-start; padding: 12px; gap: 12px; }
+        #modalPreview .preview-item-img,
+        #modalPreview .preview-item-placeholder { width: 44px; height: 44px; }
+    }
+
     .btn-confirmar-renov,
     .btn-discordar-renov {
         padding: 9px 18px;
@@ -1520,7 +1629,7 @@ $status_map = [
         border: none;
         font-size: 0.85rem;
         font-weight: 700;
-        color: #ffffff;
+        color: var(--texto-principal);
         cursor: pointer;
         font-family: inherit;
         transition: filter 0.15s;
@@ -1789,6 +1898,7 @@ $status_map = [
             </button>
 
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1835,35 +1945,57 @@ $status_map = [
 </div>
 
 <!-- ══════════════════ MODAL — PREVIEW PEDIDO ══════════════════ -->
-<div class="preview-overlay" id="modalPreview" role="dialog" aria-modal="true" aria-label="Detalhes do pedido">
+<div class="preview-overlay" id="modalPreview" role="dialog" aria-modal="true" aria-labelledby="previewTitulo" aria-hidden="true">
     <div class="preview-box">
-        <div class="preview-header" id="previewHeader">
-            <!-- populado pelo JS -->
-        </div>
-        <div class="preview-body">
-            <p class="preview-subtitle">Itens solicitados</p>
-            <div class="preview-items-list" id="previewItems">
-                <!-- populado pelo JS -->
+        <div class="preview-header">
+            <div class="preview-title-row">
+                <div>
+                    <p class="preview-eyebrow">Detalhes do pedido</p>
+                    <h2 class="preview-title" id="previewTitulo">Pedido</h2>
+                </div>
+                <span class="status-badge" id="previewStatus"></span>
             </div>
-
-            <div class="preview-msg-wrap" id="previewMsgWrap">
-                <p class="preview-msg-title">Mensagem do aluno</p>
-                <div id="previewMensagemAluno" class="preview-msg-empty">Sem mensagem enviada.</div>
-            </div>
-
-            <div class="preview-msg-wrap" id="previewExtensaoWrap" style="display:none;">
-                <p class="preview-msg-title">Intervenção de data</p>
-                <div id="previewIntervencao" class="preview-msg-box"></div>
-                <div id="previewDataSeteMais" class="preview-date-highlight"></div>
-
-                <div class="preview-msg-wrap" style="padding-bottom:0;margin-top:12px;">
-                    <p class="preview-msg-title">Proposta</p>
-                    <div id="previewProposta" class="preview-msg-box"></div>
+            <div class="preview-requester">
+                <div id="previewFoto"></div>
+                <div class="preview-requester-info">
+                    <p class="preview-eyebrow">Solicitado por</p>
+                    <p class="preview-nome" id="previewNome"></p>
+                    <p class="preview-cadastro" id="previewCadastro" hidden></p>
                 </div>
             </div>
         </div>
+        <div class="preview-body">
+            <section class="preview-section" aria-labelledby="previewResumoTitulo">
+                <h3 class="preview-subtitle" id="previewResumoTitulo">Resumo do pedido</h3>
+                <dl class="preview-summary">
+                    <div><dt>Solicitado em</dt><dd id="previewCriacao"></dd></div>
+                    <div><dt>Prazo solicitado</dt><dd id="previewPrazo"></dd></div>
+                    <div><dt>Devolução prevista</dt><dd id="previewDevolucao"></dd></div>
+                    <div><dt>Laboratorista responsável</dt><dd id="previewResponsavel"></dd></div>
+                    <div id="previewDataPropostaWrap" hidden><dt>Data proposta pelo estudante</dt><dd id="previewDataProposta"></dd></div>
+                    <div id="previewRetiradaPrevistaWrap" hidden><dt>Retirada prevista</dt><dd id="previewRetiradaPrevista"></dd></div>
+                    <div id="previewRetiradaRealWrap" hidden><dt>Retirado em</dt><dd id="previewRetiradaReal"></dd></div>
+                    <div id="previewDevolucaoRealWrap" hidden><dt>Devolvido em</dt><dd id="previewDevolucaoReal"></dd></div>
+                </dl>
+            </section>
+            <section class="preview-section" aria-labelledby="previewItensTitulo">
+                <div class="preview-section-heading">
+                    <h3 class="preview-subtitle" id="previewItensTitulo">Itens solicitados</h3>
+                    <span class="preview-item-count" id="previewItensTotal"></span>
+                </div>
+                <div class="preview-items-list" id="previewItems"></div>
+            </section>
+            <section class="preview-section" id="previewJustificativaWrap" aria-labelledby="previewJustificativaTitulo" hidden>
+                <h3 class="preview-subtitle" id="previewJustificativaTitulo">Justificativa do prazo</h3>
+                <div id="previewJustificativa" class="preview-msg-box"></div>
+            </section>
+            <section class="preview-section" id="previewMsgWrap" aria-labelledby="previewMensagemTitulo" hidden>
+                <h3 class="preview-subtitle" id="previewMensagemTitulo">Observações do pedido</h3>
+                <div id="previewMensagemAluno" class="preview-msg-box"></div>
+            </section>
+        </div>
         <div class="preview-close">
-            <button class="btn-fechar-preview" onclick="fecharPreview()">Fechar</button>
+            <button type="button" class="btn-fechar-preview" id="previewFechar" onclick="fecharPreview()">Fechar</button>
         </div>
     </div>
 </div>
@@ -2048,6 +2180,19 @@ $status_map = [
             $prazoCarrinho = '';
             $dataCarrinhoFmt = '';
             $propostaCarrinho = '';
+            $resumoPreview = htmlspecialchars(json_encode([
+                'numero' => $numFmt,
+                'status' => $statusInfo['label'],
+                'status_classe' => $statusInfo['class'],
+                'matricula' => $p['matricula_estudante'] ?? '',
+                'turma' => $p['turma_estudante'] ?? '',
+                'data_criacao' => $dataCriacaoRaw,
+                'data_devolucao_prevista' => $dataPrevistaRaw,
+                'data_retirada_prevista' => $p['data_retirada_prevista'] ?? '',
+                'data_retirada_real' => $p['data_retirada_real'] ?? '',
+                'data_devolucao_real' => $p['data_devolucao_real'] ?? '',
+                'responsavel' => $nomeLabRespRaw,
+            ], JSON_INVALID_UTF8_SUBSTITUTE), ENT_QUOTES);
             if (preg_match('/Prazo solicitado pelo estudante:\s*([^\.]+)(?:\.|$)/u', $obsPrazo, $mPrazoCarrinho)) {
                 $prazoCarrinho = trim((string) ($mPrazoCarrinho[1] ?? ''));
             }
@@ -2211,8 +2356,10 @@ $status_map = [
 
                 <!-- Olho: ver itens do pedido -->
                 <button
+                    type="button"
                     class="btn-eye"
                     onclick="abrirPreview(this)"
+                    data-resumo="<?= $resumoPreview ?>"
                     data-itens="<?= $itensJson ?>"
                     data-foto="<?= $fotoEstud ?>"
                     data-nome="<?= $nomeEstud ?>"
@@ -2220,7 +2367,7 @@ $status_map = [
                     data-prazo-carrinho="<?= htmlspecialchars($prazoCarrinho, ENT_QUOTES) ?>"
                     data-data-carrinho="<?= htmlspecialchars($dataCarrinhoFmt, ENT_QUOTES) ?>"
                     data-proposta-carrinho="<?= htmlspecialchars($propostaCarrinho, ENT_QUOTES) ?>"
-                    aria-label="Ver itens do pedido"
+                    aria-label="Ver detalhes do pedido #<?= htmlspecialchars($numFmt) ?>"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2484,8 +2631,11 @@ function svgIcon(string $name): string {
     }
 
     /* ── Modal preview de itens ──────────── */
+    let previewTrigger = null;
+
     function abrirPreview(btn) {
         const itens = JSON.parse(btn.getAttribute('data-itens') || '[]');
+        const resumo = JSON.parse(btn.getAttribute('data-resumo') || '{}');
         const foto = btn.getAttribute('data-foto') || '';
         const nome = btn.getAttribute('data-nome') || 'Sem nome';
         const msgAluno = (btn.getAttribute('data-msg') || '').trim();
@@ -2493,13 +2643,35 @@ function svgIcon(string $name): string {
         const dataCarrinho = (btn.getAttribute('data-data-carrinho') || '').trim();
         const propostaCarrinho = (btn.getAttribute('data-proposta-carrinho') || '').trim();
 
-        /* Monta o header */
-        const headerHtml = foto
-            ? `<img src="${foto}" alt="${nome}" class="preview-avatar">`
-            : '<div class="preview-avatar-placeholder">👤</div>';
+        document.getElementById('previewTitulo').textContent = resumo.numero ? `Pedido #${resumo.numero}` : 'Pedido';
+        const statusEl = document.getElementById('previewStatus');
+        statusEl.textContent = resumo.status || 'Não informado';
+        statusEl.className = 'status-badge ' + (resumo.status_classe || 'pendente');
+        document.getElementById('previewNome').textContent = nome;
+        document.getElementById('previewFoto').innerHTML = foto
+            ? `<img src="${escapeHtml(foto)}" alt="" class="preview-avatar">`
+            : '<div class="preview-avatar-placeholder" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></div>';
 
-        document.getElementById('previewHeader').innerHTML = 
-            headerHtml + `<p class="preview-nome">${escapeHtml(nome)}</p>`;
+        const cadastro = [resumo.matricula ? `Matrícula: ${resumo.matricula}` : '', resumo.turma ? `Turma: ${resumo.turma}` : ''].filter(Boolean);
+        document.getElementById('previewCadastro').textContent = cadastro.join(' · ');
+        document.getElementById('previewCadastro').hidden = cadastro.length === 0;
+
+        document.getElementById('previewCriacao').textContent = formatDateBr(resumo.data_criacao) || 'Não informada';
+        document.getElementById('previewPrazo').textContent = prazoCarrinho || 'Não informado';
+        document.getElementById('previewDevolucao').textContent = formatDateBr(resumo.data_devolucao_prevista) || 'A definir';
+        document.getElementById('previewResponsavel').textContent = resumo.responsavel || 'Aguardando atendimento';
+
+        const datasOpcionais = {
+            previewDataProposta: formatDateBr(dataCarrinho) !== formatDateBr(resumo.data_devolucao_prevista) ? dataCarrinho : '',
+            previewRetiradaPrevista: resumo.data_retirada_prevista,
+            previewRetiradaReal: resumo.data_retirada_real,
+            previewDevolucaoReal: resumo.data_devolucao_real,
+        };
+        Object.entries(datasOpcionais).forEach(([id, valor]) => {
+            const data = formatDateBr(valor);
+            document.getElementById(id).textContent = data;
+            document.getElementById(id + 'Wrap').hidden = data === '';
+        });
 
         /* Monta os itens */
         let itensHtml = '';
@@ -2509,11 +2681,11 @@ function svgIcon(string $name): string {
                     ? `<img src="${escapeHtml(item.imagem_url)}" alt="${escapeHtml(item.nome_comp)}" class="preview-item-img">`
                     : '<div class="preview-item-placeholder">📦</div>';
                 return `
-                    <a href="./catalogo.php?id=${item.id_comp}" class="preview-item" style="text-decoration: none; color: inherit; cursor: pointer;">
+                    <a href="./catalogo.php?id=${encodeURIComponent(item.id_comp)}" class="preview-item">
                         ${imgHtml}
                         <div class="preview-item-info">
                             <p class="preview-item-nome">${escapeHtml(item.nome_comp)}</p>
-                            <p class="preview-item-qtd">Quantidade: ${item.qtd_solicitada}</p>
+                            <p class="preview-item-qtd">Quantidade solicitada: ${escapeHtml(String(item.qtd_solicitada))}${item.qtd_aprovada != null ? ` · Aprovada: ${escapeHtml(String(item.qtd_aprovada))}` : ''}</p>
                         </div>
                     </a>
                 `;
@@ -2523,51 +2695,46 @@ function svgIcon(string $name): string {
         }
 
         document.getElementById('previewItems').innerHTML = itensHtml;
+        document.getElementById('previewItensTotal').textContent = `${itens.length} ${itens.length === 1 ? 'material' : 'materiais'}`;
 
-        const msgWrap = document.getElementById('previewMsgWrap');
-        const extWrap = document.getElementById('previewExtensaoWrap');
-        const temExtensaoCarrinho = prazoCarrinho !== '' || dataCarrinho !== '' || propostaCarrinho !== '';
+        const temPrazoEstruturado = prazoCarrinho !== '' || dataCarrinho !== '' || propostaCarrinho !== '';
+        const mostrarJustificativa = propostaCarrinho !== '' || /7\s*\+/.test(prazoCarrinho);
+        document.getElementById('previewJustificativaWrap').hidden = !mostrarJustificativa;
+        document.getElementById('previewJustificativa').textContent = propostaCarrinho || 'Não informada pelo estudante.';
+        document.getElementById('previewMsgWrap').hidden = temPrazoEstruturado || msgAluno === '';
+        document.getElementById('previewMensagemAluno').textContent = msgAluno;
 
-        const msgEl = document.getElementById('previewMensagemAluno');
-        if (temExtensaoCarrinho) {
-            msgWrap.style.display = 'none';
-            extWrap.style.display = 'block';
-
-            const prazoTexto = prazoCarrinho !== '' ? prazoCarrinho : 'prazo estendido';
-            document.getElementById('previewIntervencao').innerHTML = escapeHtml(`O aluno, ${nome} está querendo ${prazoTexto}.`);
-
-            const dataEl = document.getElementById('previewDataSeteMais');
-            if (dataCarrinho !== '') {
-                const dataBr = formatDateBr(dataCarrinho);
-                dataEl.style.display = 'block';
-                dataEl.textContent = `DATA QUE O ALUNO QUER: ${dataBr}`;
-            } else {
-                dataEl.style.display = 'none';
-                dataEl.textContent = '';
-            }
-
-            const propostaTxt = propostaCarrinho !== ''
-                ? `Segue a proposta do aluno ${nome}, para aumento da data: ${propostaCarrinho}`
-                : `Segue a proposta do aluno ${nome}, para aumento da data: sem justificativa informada.`;
-            document.getElementById('previewProposta').innerHTML = escapeHtml(propostaTxt);
-        } else if (msgAluno !== '') {
-            msgWrap.style.display = 'block';
-            extWrap.style.display = 'none';
-            msgEl.className = 'preview-msg-box';
-            msgEl.innerHTML = escapeHtml(msgAluno);
-        } else {
-            msgWrap.style.display = 'block';
-            extWrap.style.display = 'none';
-            msgEl.className = 'preview-msg-empty';
-            msgEl.textContent = 'Sem mensagem enviada.';
-        }
-
-        document.getElementById('modalPreview').classList.add('open');
+        previewTrigger = btn;
+        const modal = document.getElementById('modalPreview');
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        modal.querySelector('.preview-body').scrollTop = 0;
+        document.body.classList.add('preview-pedido-aberto');
+        document.getElementById('previewFechar').focus();
     }
 
     function fecharPreview() {
-        document.getElementById('modalPreview').classList.remove('open');
+        const modal = document.getElementById('modalPreview');
+        if (!modal.classList.contains('open')) return;
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('preview-pedido-aberto');
+        if (previewTrigger) previewTrigger.focus();
     }
+
+    document.getElementById('modalPreview').addEventListener('keydown', function (e) {
+        if (e.key !== 'Tab') return;
+        const controles = this.querySelectorAll('a[href], button');
+        const primeiro = controles[0];
+        const ultimo = controles[controles.length - 1];
+        if (e.shiftKey && document.activeElement === primeiro) {
+            e.preventDefault();
+            ultimo.focus();
+        } else if (!e.shiftKey && document.activeElement === ultimo) {
+            e.preventDefault();
+            primeiro.focus();
+        }
+    });
 
     function abrirRenovacaoPedido(btn) {
         const idPedido = Number(btn.getAttribute('data-pedido') || '0');
@@ -2719,9 +2886,9 @@ function svgIcon(string $name): string {
 
     function formatDateBr(rawDate) {
         const txt = String(rawDate || '').trim();
-        if (!txt) return '';
+        if (!txt || txt.startsWith('0000-00-00')) return '';
 
-        const isoMatch = txt.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const isoMatch = txt.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T]\d{2}:\d{2}:\d{2})?$/);
         if (isoMatch) {
             return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
         }

@@ -36,7 +36,7 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
         $previewArquivo = basename($previewScript);
         $previewLab = str_contains($previewScript, '/pages_laboratorista/');
         $previewRestrito = $previewLab && !in_array($previewArquivo, ['index.php', 'catalogo.php', 'cadastrar_catalogo.php', 'cadastrar_categoria.php', 'ajuda.php'], true);
-        $previewAluno = str_contains($previewScript, '/pages_aluno/') || (($_SESSION['admin_visualizacao'] ?? '') === 'estudante' && !$previewLab && !str_contains($previewScript, '/pages_admin/'));
+        $previewAluno = $previewArquivo !== 'perfil.php' && (str_contains($previewScript, '/pages_aluno/') || (($_SESSION['admin_visualizacao'] ?? '') === 'estudante' && !$previewLab && !str_contains($previewScript, '/pages_admin/')));
         $previewAtivo = $previewLab || $previewAluno;
     ?>
     <script id="adminPreviewConfig" type="application/json"><?= json_encode(['labRestrito' => $previewRestrito, 'aluno' => $previewAluno, 'ativo' => $previewAtivo, 'modo' => $previewLab ? 'Laboratorista' : 'Estudante', 'mensagem' => AVISO_PERMISSAO_ADMIN, 'voltar' => $basePath . '/pages_admin/index.php'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>

@@ -22,7 +22,7 @@ try {
         $stmt = $pdo->prepare("
             SELECT id_not, titulo, mensagem, tipo, humor, lida, data, id_pedido
             FROM Notificacao
-            WHERE id_user = :id_user AND tipo = 'aviso_adm'
+            WHERE id_user = :id_user AND tipo IN ('aviso_adm', 'aviso')
             ORDER BY data DESC
         ");
         $stmt->execute(['id_user' => $id_usuario]);
@@ -56,13 +56,7 @@ try {
         font-size: 2rem;
         font-weight: 800;
         color: var(--texto-principal);
-        margin-bottom: 8px;
-    }
-
-    .page-sub {
-        font-size: 0.9rem;
-        color: var(--texto-auxiliar);
-        margin-bottom: 36px;
+        margin-bottom: 32px;
     }
 
     .notif-list { display: flex; flex-direction: column; gap: 12px; }
@@ -204,6 +198,7 @@ try {
                 </div>
             </button>
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="./notificacao.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -244,7 +239,6 @@ try {
     </nav>
 
     <h1 class="page-title">Avisos do Administrador</h1>
-    <p class="page-sub">Notificações enviadas pelo administrador sobre pedidos dos usuários.</p>
 
     <?php if (!$db_ok): ?>
         <div class="error-banner">Banco de dados indisponível no momento.</div>
@@ -269,11 +263,29 @@ try {
         ?>
         <div class="notif-card <?= $lida ? '' : 'nao-lida' ?>" id="notif-<?= $idNot ?>">
             <div class="notif-icon">
+                <?php if (!empty($n['humor']) && in_array($n['humor'], ['feliz', 'neutro', 'triste'], true)):
+                    [$corHumor, $bocaHumor] = match ($n['humor']) {
+                        'feliz'  => ['var(--cor-sucesso)', '<path d="M9 14c.8 1 5.2 1 6 0"/>'],
+                        'triste' => ['var(--cor-erro)', '<path d="M9 15c.8-1 5.2-1 6 0"/>'],
+                        default  => ['var(--cor-alerta)', '<line x1="9" y1="14" x2="15" y2="14"/>'],
+                    };
+                ?>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="<?= $corHumor ?>" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:<?= $corHumor ?>">
+                    <rect x="2" y="3" width="20" height="16" rx="3"/>
+                    <circle cx="8" cy="10" r="1" fill="<?= $corHumor ?>"/>
+                    <circle cx="16" cy="10" r="1" fill="<?= $corHumor ?>"/>
+                    <?= $bocaHumor ?>
+                    <line x1="12" y1="19" x2="12" y2="21"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                </svg>
+                <?php else: ?>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
+                <?php endif; ?>
             </div>
 
             <div class="notif-body">

@@ -21,7 +21,7 @@ try {
 
     $stmtNot = $pdo->prepare('
         SELECT id_not FROM Notificacao
-        WHERE id_not = ? AND id_user = ? AND tipo = \'aviso_adm\'
+        WHERE id_not = ? AND id_user = ? AND tipo IN (\'aviso_adm\', \'aviso\')
     ');
     $stmtNot->execute([$id, $id_usuario]);
 

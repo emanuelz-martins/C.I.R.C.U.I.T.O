@@ -2,6 +2,7 @@
 require_once '../includes/auth_check.php';
 checkAccess(['admin']);
 require_once '../../src/config/database.php';
+require_once '../includes/perfil_pessoal.php';
 require_once '../includes/pre_bloqueio_aluno.php';
 require_once '../../src/services/avisos_fixados.php';
 $_SESSION['csrf_avisos'] ??= bin2hex(random_bytes(32));
@@ -262,37 +263,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
 
-        /* ── Editar usuário ── */
+        /* ── Editar usuário (mesmos campos e regras do modal + em perfil.php; login nunca é alterado) ── */
         if ($_POST['action'] === 'edit_user') {
-            $nome      = trim($_POST['nome']      ?? '');
-            $login     = trim($_POST['login']     ?? '');
-            $email     = trim($_POST['email']     ?? '');
-            $turma     = trim($_POST['turma']     ?? '');
-            $descricao = trim($_POST['descricao'] ?? '');
+            foreach (['nome', 'email', 'matricula', 'descricao', 'turma'] as $campo) {
+                if (isset($_POST[$campo]) && !is_string($_POST[$campo])) {
+                    http_response_code(422);
+                    echo json_encode(['ok' => false, 'error' => 'Dados do perfil inválidos.', 'erro' => 'Dados do perfil inválidos.']);
+                    exit;
+                }
+            }
 
-            if ($nome === '' || $login === '') {
-                echo json_encode(['ok' => false, 'error' => 'Nome e login são obrigatórios.']);
-                exit;
-            }
-            if (mb_strlen($login) > 100) {
-                http_response_code(422);
-                echo json_encode(['ok' => false, 'error' => 'O login deve ter até 100 caracteres.']);
-                exit;
-            }
             $identidadeStmt = $pdo->prepare('SELECT google_sub, email FROM Usuario WHERE id_user = ?');
             $identidadeStmt->execute([$id_user]);
             $identidadeAtual = $identidadeStmt->fetch();
             if (!$identidadeAtual) {
                 http_response_code(404);
-                echo json_encode(['ok' => false, 'error' => 'Usuário não encontrado.']);
+                echo json_encode(['ok' => false, 'error' => 'Usuário não encontrado.', 'erro' => 'Usuário não encontrado.']);
                 exit;
             }
-            if ($identidadeAtual['google_sub'] !== null) $email = (string) $identidadeAtual['email'];
+            $contaGoogle = $identidadeAtual['google_sub'] !== null;
 
             /* verifica quais colunas existem em Usuario */
             $colStmt = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
             $colStmt->execute(['t' => 'Usuario']);
             $userCols = $colStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $setParts = [];
+            $params   = ['id' => $id_user];
+
+            if (array_key_exists('nome', $_POST)) {
+                $nome = trim($_POST['nome']);
+                if ($nome === '' || mb_strlen($nome, 'UTF-8') > 150) {
+                    http_response_code(422);
+                    echo json_encode(['ok' => false, 'error' => 'Informe seu nome completo, com até 150 caracteres.', 'erro' => 'Informe seu nome completo, com até 150 caracteres.']);
+                    exit;
+                }
+                $setParts[]     = 'nome = :nome';
+                $params['nome'] = $nome;
+            }
+
+            if (array_key_exists('matricula', $_POST) && in_array('matricula', $userCols, true)) {
+                $matricula = trim($_POST['matricula']);
+                if (mb_strlen($matricula, 'UTF-8') > 50) {
+                    http_response_code(422);
+                    echo json_encode(['ok' => false, 'error' => 'A matrícula deve ter até 50 caracteres.', 'erro' => 'A matrícula deve ter até 50 caracteres.']);
+                    exit;
+                }
+                $setParts[]          = 'matricula = :matricula';
+                $params['matricula'] = $matricula ?: null;
+            }
+
+            if (!$contaGoogle && array_key_exists('email', $_POST) && in_array('email', $userCols, true)) {
+                $email = trim($_POST['email'] ?? '');
+                if ($email !== '' && (mb_strlen($email, 'UTF-8') > 150 || !filter_var($email, FILTER_VALIDATE_EMAIL))) {
+                    http_response_code(422);
+                    echo json_encode(['ok' => false, 'error' => 'Informe um e-mail válido.', 'erro' => 'Informe um e-mail válido.']);
+                    exit;
+                }
+                $setParts[]      = 'email = :email';
+                $params['email'] = $email ?: null;
+            }
+
+            if (array_key_exists('turma', $_POST) && in_array('turma', $userCols, true)) {
+                $setParts[]      = 'turma = :turma';
+                $params['turma'] = trim($_POST['turma'] ?? '') ?: null;
+            }
+
+            if (array_key_exists('descricao', $_POST) && in_array('descricao', $userCols, true)) {
+                $descricao = str_replace(["\r\n", "\r"], "\n", $_POST['descricao']);
+                if (mb_strlen($descricao, 'UTF-8') > PERFIL_DESCRICAO_LIMITE) {
+                    http_response_code(422);
+                    $msgLim = 'A descrição deve ter até ' . PERFIL_DESCRICAO_LIMITE . ' caracteres.';
+                    echo json_encode(['ok' => false, 'error' => $msgLim, 'erro' => $msgLim]);
+                    exit;
+                }
+                $setParts[]          = 'descricao = :descricao';
+                $params['descricao'] = trim($descricao) ?: null;
+            }
 
             $appUrlPath = (string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH);
             $appUrlPath = rtrim($appUrlPath, '/');
@@ -306,29 +353,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $mime         = $finfo->file($_FILES['foto']['tmp_name']);
 
                 if (!in_array($mime, $allowedMimes, true)) {
-                    echo json_encode(['ok' => false, 'error' => 'Tipo de imagem inválido.']);
+                    echo json_encode(['ok' => false, 'error' => 'Formato inválido. Use JPG, PNG, WEBP ou GIF.', 'erro' => 'Formato inválido. Use JPG, PNG, WEBP ou GIF.']);
                     exit;
                 }
 
                 if ($_FILES['foto']['size'] > 5 * 1024 * 1024) {
-                    echo json_encode(['ok' => false, 'error' => 'A imagem deve ter no máximo 5MB.']);
+                    echo json_encode(['ok' => false, 'error' => 'Arquivo muito grande (máx. 5 MB).', 'erro' => 'Arquivo muito grande (máx. 5 MB).']);
                     exit;
                 }
 
-                $extMap = [
-                    'image/jpeg' => 'jpg',
-                    'image/png'  => 'png',
-                    'image/webp' => 'webp',
-                    'image/gif'  => 'gif',
-                ];
-                $ext       = $extMap[$mime];
-                $filename  = 'user_' . $id_user . '_' . uniqid() . '.' . $ext;
+                $ext       = match($mime) { 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', default => 'jpg' };
+                $filename  = 'user_' . $id_user . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
                 $uploadDir = __DIR__ . '/../assets/img/perfil/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
                 $destPath  = $uploadDir . $filename;
 
                 if (!move_uploaded_file($_FILES['foto']['tmp_name'], $destPath)) {
-                    echo json_encode(['ok' => false, 'error' => 'Falha ao salvar a imagem.']);
+                    echo json_encode(['ok' => false, 'error' => 'Falha ao salvar a imagem.', 'erro' => 'Falha ao salvar a imagem.']);
                     exit;
                 }
 
@@ -351,36 +392,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 $novaFoto = $publicUrlBase . '/assets/img/perfil/' . $filename;
+                if (in_array('foto_perfil', $userCols, true)) {
+                    $setParts[]            = 'foto_perfil = :foto_perfil';
+                    $params['foto_perfil'] = $novaFoto;
+                }
             }
 
-            /* monta UPDATE dinâmico */
-            $setParts = ['nome = :nome', 'login = :login'];
-            $params   = ['nome' => $nome, 'login' => $login, 'id' => $id_user];
-
-            if (in_array('email', $userCols, true)) {
-                $setParts[]      = 'email = :email';
-                $params['email'] = $email;
-            }
-            if (array_key_exists('turma', $_POST) && in_array('turma', $userCols, true)) {
-                $setParts[]      = 'turma = :turma';
-                $params['turma'] = $turma;
-            }
-            if (in_array('descricao', $userCols, true)) {
-                $setParts[]          = 'descricao = :descricao';
-                $params['descricao'] = $descricao;
-            }
-            if ($novaFoto !== null && in_array('foto_perfil', $userCols, true)) {
-                $setParts[]             = 'foto_perfil = :foto_perfil';
-                $params['foto_perfil']  = $novaFoto;
+            if (!empty($setParts)) {
+                $sql = 'UPDATE Usuario SET ' . implode(', ', $setParts) . ' WHERE id_user = :id';
+                $pdo->prepare($sql)->execute($params);
             }
 
-            $sql = 'UPDATE Usuario SET ' . implode(', ', $setParts) . ' WHERE id_user = :id';
-            $pdo->prepare($sql)->execute($params);
+            $dadosStmt = $pdo->prepare('SELECT nome, email, matricula, descricao FROM Usuario WHERE id_user = ?');
+            $dadosStmt->execute([$id_user]);
+            $perfilSalvo = $dadosStmt->fetch(PDO::FETCH_ASSOC);
 
-            $responseData = ['ok' => true];
-            if ($novaFoto !== null) $responseData['foto'] = $novaFoto;
+            if ($id_user === (int) ($_SESSION['auth_user']['id'] ?? 0)) {
+                if ($novaFoto !== null) {
+                    $_SESSION['auth_user']['foto_perfil'] = $novaFoto;
+                }
+                if (isset($perfilSalvo['nome'])) {
+                    $_SESSION['auth_user']['nome'] = $perfilSalvo['nome'];
+                }
+            }
 
-            echo json_encode($responseData);
+            echo json_encode(['ok' => true, 'foto' => $novaFoto, 'perfil' => $perfilSalvo]);
             exit;
         }
 
@@ -416,12 +452,13 @@ try {
     $userCols = $colStmt->fetchAll(PDO::FETCH_COLUMN);
 
     $selectCols = ['id_user', 'nome', 'login', 'tipo_perfil', 'bloqueado', 'foto_perfil'];
-    foreach (['matricula', 'email', 'turma', 'descricao', 'pre_bloqueado_manual', 'pre_bloqueio_motivo', 'pre_bloqueado_por_nome', 'pre_bloqueado_por_tipo'] as $col) {
+    foreach (['matricula', 'email', 'turma', 'descricao', 'google_sub', 'pre_bloqueado_manual', 'pre_bloqueio_motivo', 'pre_bloqueado_por_nome', 'pre_bloqueado_por_tipo'] as $col) {
         if (in_array($col, $userCols, true)) $selectCols[] = $col;
     }
 
-    $sql    = 'SELECT ' . implode(', ', $selectCols) . " FROM Usuario WHERE tipo_perfil IN ('estudante', 'laboratorista', 'admin')";
-    $params = [];
+    $atorId = (int) ($_SESSION['auth_user']['id'] ?? 0);
+    $sql    = 'SELECT ' . implode(', ', $selectCols) . " FROM Usuario WHERE tipo_perfil IN ('estudante', 'laboratorista', 'admin') AND id_user <> :ator_id";
+    $params = ['ator_id' => $atorId];
 
     if ($perfisFiltro) {
         $marcadores = [];
@@ -487,7 +524,7 @@ try {
     $db_ok    = true;
 } catch (Throwable) { /* BD indisponível */ }
 
-$page_title = 'Gerenciar Avisos';
+$page_title = 'Mandar Avisos';
 require_once '../includes/header.php';
 ?>
 
@@ -912,89 +949,111 @@ require_once '../includes/header.php';
     .toast.success { border-color: var(--borda-sucesso); color: var(--cor-sucesso); }
     .toast.error   { border-color: var(--borda-erro); color: var(--cor-erro-claro); }
 
-    /* ── Seletor de rosto ───────────────────── */
-    .face-picker {
+    /* ── Seletor de rosto (compacto e discreto) ── */
+    .face-row {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 10px;
-        margin-top: 4px;
+        flex-wrap: wrap;
+        margin-top: -4px;
+    }
+
+    .face-row-label {
+        font-size: 0.76rem !important;
+        font-weight: 500 !important;
+        color: var(--texto-placeholder) !important;
+        margin-bottom: 0 !important;
+    }
+
+    .face-picker {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
 
     .face-btn {
-        flex: 1;
-        padding: 10px 6px;
-        background-color: var(--bg-subpainel);
-        border: 1.5px solid var(--borda-padrao);
-        border-radius: 10px;
+        padding: 4px 10px;
+        background-color: transparent;
+        border: 1px solid var(--borda-sutil);
+        border-radius: 999px;
         cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        transition: border-color 0.15s, background-color 0.15s;
-        color: var(--texto-suave);
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .face-btn svg { width: 32px; height: 32px; }
-
-    .face-btn:hover { background-color: var(--bg-modal); }
-
-    .face-btn[data-humor="feliz"].selected  { border-color: var(--cor-sucesso); background-color: var(--bg-sucesso-sutil); color: var(--cor-sucesso); }
-    .face-btn[data-humor="triste"].selected { border-color: var(--cor-erro); background-color: var(--bg-erro-sutil); color: var(--cor-erro); }
-    .face-btn[data-humor="neutro"].selected { border-color: var(--cor-alerta); background-color: var(--bg-alerta-sutil); color: var(--cor-alerta); }
-
-    /* ── Preview de foto ────────────────────── */
-    .foto-preview-wrap {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .foto-preview {
-        width: 60px;
-        height: 60px;
-        border-radius: 10px;
-        background-color: var(--bg-controle);
-        border: 1px solid var(--borda-controle);
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .foto-preview img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .foto-preview svg {
-        width: 28px;
-        height: 28px;
-        color: var(--texto-placeholder);
-    }
-
-    .btn-foto-label {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 18px;
-        background-color: var(--bg-controle);
-        border: 1px solid var(--borda-controle);
-        border-radius: 10px;
-        color: var(--texto-principal);
-        font-size: 0.85rem;
+        gap: 5px;
+        transition: border-color 0.15s, background-color 0.15s, color 0.15s, opacity 0.15s;
+        color: var(--texto-placeholder);
+        font-size: 0.72rem;
         font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.15s;
+        opacity: 0.75;
     }
 
-    .btn-foto-label:hover { background-color: var(--bg-controle-hover); }
-    .btn-foto-label svg   { width: 16px; height: 16px; color: var(--texto-suave); }
+    .face-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
-    #editFotoInput { display: none; }
+    .face-btn:hover {
+        background-color: var(--bg-subpainel);
+        border-color: var(--borda-padrao);
+        color: var(--texto-secundario);
+        opacity: 1;
+    }
+
+    .face-btn[data-humor="feliz"].selected  { border-color: var(--cor-sucesso); background-color: var(--bg-sucesso-sutil); color: var(--cor-sucesso); opacity: 1; }
+    .face-btn[data-humor="triste"].selected { border-color: var(--cor-erro); background-color: var(--bg-erro-sutil); color: var(--cor-erro); opacity: 1; }
+    .face-btn[data-humor="neutro"].selected { border-color: var(--cor-alerta); background-color: var(--bg-alerta-sutil); color: var(--cor-alerta); opacity: 1; }
+
+    /* ── Modal Editar Perfil (idêntico ao modal + de perfil.php) ── */
+    .perfil-foto-btn, .perfil-btn-cancel, .perfil-close {
+        background: var(--bg-controle); border: 1px solid var(--borda-controle); color: var(--texto-principal);
+        cursor: pointer; font: inherit; transition: background 0.15s;
+    }
+    .perfil-foto-btn:hover, .perfil-btn-cancel:hover, .perfil-close:hover { background: var(--bg-controle-hover); }
+    .perfil-overlay { display: none; position: fixed; inset: 0; background: var(--overlay-modal); z-index: 200; align-items: center; justify-content: center; padding: 16px; }
+    .perfil-overlay.open { display: flex; }
+    .perfil-modal { background: var(--bg-modal); border: 1px solid var(--borda-card); border-radius: 20px; padding: 28px; width: 100%; max-width: 660px; display: flex; flex-direction: column; gap: 22px; max-height: calc(100dvh - 32px); overflow-y: auto; box-shadow: var(--sombra-modal); }
+    .perfil-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .perfil-modal h2 { font-size: 1.5rem; font-weight: 800; color: var(--texto-principal); margin: 0 0 6px; }
+    .perfil-modal-header p { font-size: .875rem; line-height: 1.5; color: var(--texto-secundario); }
+    .perfil-close { width: 32px; height: 32px; border-radius: 50%; font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .perfil-foto-row { display: flex; align-items: center; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid var(--borda-sutil); }
+    .perfil-avatar-preview { width: 80px; height: 80px; border-radius: 16px; background: var(--bg-controle); border: 1px solid var(--borda-controle); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .perfil-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .perfil-avatar-preview svg { width: 38px; height: 38px; color: var(--texto-placeholder); }
+    .perfil-foto-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+    .perfil-foto-title { font-size: .9rem; font-weight: 600; color: var(--texto-principal); }
+    .perfil-foto-controls .perfil-help { width: 100%; }
+    .perfil-foto-btn { border-radius: 9px; padding: 8px 14px; font-size: .8rem; font-weight: 600; }
+    .perfil-fields { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px 16px; }
+    .perfil-fields > div { min-width: 0; }
+    .perfil-field-full { grid-column: 1 / -1; }
+    .perfil-modal label { display: block; font-size: .85rem; font-weight: 600; color: var(--texto-secundario); margin-bottom: 8px; }
+    .perfil-modal input:not([type="hidden"]):not([type="file"]), .perfil-modal textarea {
+        width: 100%; background: var(--bg-campo-interno); border: 1.5px solid var(--borda-card); border-radius: 10px;
+        color: var(--texto-principal); font: .95rem/1.5 'Segoe UI', Arial, sans-serif; outline: none; padding: 10px 13px; transition: border-color .2s;
+    }
+    .perfil-modal textarea { resize: none; min-height: 100px; }
+    .perfil-modal input::placeholder, .perfil-modal textarea::placeholder { color: var(--texto-placeholder); }
+    .perfil-modal input:focus, .perfil-modal textarea:focus { border-color: var(--borda-foco); }
+    .perfil-modal input[readonly] { color: var(--texto-secundario); background: var(--bg-controle); }
+    .perfil-help, .perfil-counter { color: var(--texto-secundario); font-size: .75rem; line-height: 1.5; }
+    .perfil-fields p.perfil-help { margin-top: 6px; }
+    .perfil-description-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; }
+    .perfil-counter { margin-left: auto; font-variant-numeric: tabular-nums; }
+    .perfil-counter.over-limit { color: var(--cor-erro); }
+    .perfil-modal-actions { display: flex; gap: 12px; justify-content: flex-end; border-top: 1px solid var(--borda-sutil); padding-top: 20px; }
+    .perfil-btn-cancel, .perfil-btn-save { padding: 11px 20px; border-radius: 10px; font-size: .875rem; font-weight: 600; }
+    .perfil-btn-save { background: var(--bg-acao-primaria); color: var(--texto-acao-primaria); border: 1px solid transparent; cursor: pointer; }
+    .perfil-btn-save:hover { background: var(--bg-acao-primaria-hover); }
+    .perfil-btn-save:disabled { opacity: .5; cursor: not-allowed; }
+    .perfil-notice { padding: 10px 14px; border-radius: 8px; font-size: .85rem; display: none; }
+    .perfil-notice.ok { background: var(--bg-sucesso-sutil); border: 1px solid var(--borda-sucesso); color: var(--cor-sucesso); display: block; }
+    .perfil-notice.erro { background: var(--bg-erro-sutil); border: 1px solid var(--borda-erro); color: var(--cor-erro-claro); display: block; }
+    @media (max-width: 640px) {
+        .perfil-fields { grid-template-columns: minmax(0, 1fr); }
+        .perfil-modal { padding: 22px; gap: 20px; }
+        .perfil-modal h2 { font-size: 1.3rem; }
+        .perfil-modal-actions { gap: 10px; }
+        .perfil-btn-cancel, .perfil-btn-save { flex: 1; padding: 11px 12px; }
+    }
 </style>
 </head>
 <body>
@@ -1018,6 +1077,7 @@ require_once '../includes/header.php';
             </button>
 
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1047,7 +1107,7 @@ require_once '../includes/header.php';
     <input type="hidden" id="avisosCsrf" name="csrf_avisos" value="<?= htmlspecialchars($_SESSION['csrf_avisos'], ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="page-header">
-        <h1 class="page-title">Gerenciar Avisos</h1>
+        <h1 class="page-title">Mandar Avisos</h1>
         <a href="./index.php" class="btn-back" aria-label="Voltar">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1100,8 +1160,15 @@ require_once '../includes/header.php';
     <div class="user-list">
         <?php foreach ($usuarios as $u): ?>
         <?php
-            $emailVal     = $u['email']     ?? '';
-            $descricaoVal = $u['descricao'] ?? '';
+            $emailVal     = (string) ($u['email']     ?? '');
+            $matriculaVal = (string) ($u['matricula'] ?? '');
+            $descricaoVal = (string) ($u['descricao'] ?? '');
+            $contaGoogle  = ($u['google_sub'] ?? null) !== null;
+            $funcaoNotice = match ($u['tipo_perfil'] ?? '') {
+                'laboratorista' => 'Laboratorista',
+                'admin'         => 'Admin',
+                default         => 'Estudante',
+            };
             $cardClass = '';
             if ($u['bloqueado']) $cardClass .= ' bloqueado';
             $preBloqueadoManual = (int) ($u['pre_bloqueado_manual'] ?? 0) === 1;
@@ -1206,13 +1273,38 @@ require_once '../includes/header.php';
                         <?php endif; ?>
                     </button>
 
-                    <button onclick="openNoticeModal(<?= $u['id_user'] ?>, '<?= htmlspecialchars(addslashes($u['nome'])) ?>')">
+                    <button
+                        type="button"
+                        id="btn-notice-<?= (int) $u['id_user'] ?>"
+                        data-funcao="<?= htmlspecialchars($funcaoNotice, ENT_QUOTES, 'UTF-8') ?>"
+                        onclick="openNoticeModal(<?= (int) $u['id_user'] ?>, '<?= htmlspecialchars(addslashes($u['nome'])) ?>', '<?= htmlspecialchars(addslashes($funcaoNotice)) ?>')"
+                    >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
                         Mandar aviso
+                    </button>
+
+                    <button
+                        type="button"
+                        id="btn-edit-<?= (int) $u['id_user'] ?>"
+                        data-user-id="<?= (int) $u['id_user'] ?>"
+                        data-nome="<?= htmlspecialchars((string) $u['nome'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-email="<?= htmlspecialchars($emailVal, ENT_QUOTES, 'UTF-8') ?>"
+                        data-matricula="<?= htmlspecialchars($matriculaVal, ENT_QUOTES, 'UTF-8') ?>"
+                        data-descricao="<?= htmlspecialchars($descricaoVal, ENT_QUOTES, 'UTF-8') ?>"
+                        data-foto="<?= htmlspecialchars((string) ($u['foto_perfil'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        data-google="<?= $contaGoogle ? '1' : '0' ?>"
+                        onclick="openEditModal(this)"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                        Editar
                     </button>
 
                     <button
@@ -1228,22 +1320,6 @@ require_once '../includes/header.php';
                             <line x1="12" y1="16" x2="12.01" y2="16"/>
                         </svg>
                         <?= $preBloqueadoManual ? 'Remover bloqueio' : 'Bloquear' ?>
-                    </button>
-
-                    <button onclick="openEditModal(
-                        <?= $u['id_user'] ?>,
-                        '<?= htmlspecialchars(addslashes($u['nome'])) ?>',
-                        '<?= htmlspecialchars(addslashes($u['login'])) ?>',
-                        '<?= htmlspecialchars(addslashes($emailVal)) ?>',
-                        '<?= htmlspecialchars(addslashes($descricaoVal)) ?>',
-                        '<?= htmlspecialchars(addslashes($u['foto_perfil'] ?? '')) ?>'
-                    )">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                        Editar
                     </button>
 
                 </div>
@@ -1308,8 +1384,8 @@ require_once '../includes/header.php';
             ></textarea>
         </div>
 
-        <div>
-            <label>Rosto da notificação <span style="color:var(--texto-placeholder);font-weight:400">(opcional)</span></label>
+        <div class="face-row">
+            <label class="face-row-label">Rosto da notificação (opcional)</label>
             <div class="face-picker" id="facePicker">
                 <button type="button" class="face-btn" data-humor="feliz" onclick="selectFace(this)">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -1357,59 +1433,62 @@ require_once '../includes/header.php';
     </div>
 </div>
 
-<!-- ══════════════════ MODAL EDITAR ══════════════════ -->
-<div class="modal-overlay" id="editModal" onclick="closeEditModalOnBackdrop(event)">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
-        <h2 class="modal-title" id="editModalTitle">Editar usuário</h2>
-        <p class="modal-recipient">Para: <span id="editRecipient">—</span></p>
+<!-- ══════════════════ MODAL EDITAR (idêntico ao + de perfil.php) ══════════════════ -->
+<div class="perfil-overlay" id="editModal" onclick="closeEditModalOnBackdrop(event)">
+    <form class="perfil-modal" id="editForm" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" onsubmit="event.preventDefault(); saveEdit();">
+        <div class="perfil-modal-header">
+            <div>
+                <h2 id="editModalTitle">Editar meu perfil</h2>
+                <p>Suas informações pessoais, em um só lugar.</p>
+            </div>
+            <button type="button" class="perfil-close" onclick="closeEditModal()" aria-label="Fechar edição de perfil">×</button>
+        </div>
+        <input type="file" id="editFotoInput" accept="image/jpeg,image/png,image/webp,image/gif" hidden onchange="onFotoChange(this)">
 
-        <div>
-            <label>Foto de perfil</label>
-            <div class="foto-preview-wrap">
-                <div class="foto-preview" id="fotoPreviewWrap">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" id="fotoPreviewSvg">
-                        <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                    </svg>
-                    <img id="fotoPreviewImg" src="" alt="Preview" style="display:none">
-                </div>
-                <label class="btn-foto-label" for="editFotoInput">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    Escolher foto
-                </label>
-                <input type="file" id="editFotoInput" accept="image/jpeg,image/png,image/webp,image/gif" onchange="onFotoChange(this)">
+        <div class="perfil-foto-row">
+            <div class="perfil-avatar-preview" id="fotoPreviewWrap">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" id="fotoPreviewSvg">
+                    <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                </svg>
+                <img id="fotoPreviewImg" src="" alt="Foto de perfil atual" style="display:none">
+            </div>
+            <div class="perfil-foto-controls">
+                <span class="perfil-foto-title">Foto de perfil</span>
+                <button type="button" class="perfil-foto-btn" onclick="document.getElementById('editFotoInput').click()">Trocar foto</button>
+                <p class="perfil-help">JPG, PNG, WEBP ou GIF. Até 5 MB.</p>
             </div>
         </div>
 
-        <div>
-            <label for="editNome">Nome</label>
-            <input type="text" id="editNome" placeholder="Nome completo" maxlength="255" required>
+        <div class="perfil-fields">
+            <div class="perfil-field-full">
+                <label for="editNome">Nome completo</label>
+                <input type="text" id="editNome" name="nome" maxlength="150" autocomplete="name" required placeholder="Seu nome completo">
+            </div>
+            <div>
+                <label for="editEmail">E-mail</label>
+                <input type="email" id="editEmail" name="email" maxlength="150" autocomplete="email" placeholder="seu@email.com">
+                <p class="perfil-help" id="editGoogleHint" hidden>Preenchido pela sua conta Google.</p>
+            </div>
+            <div>
+                <label for="editMatricula">Matrícula</label>
+                <input type="text" id="editMatricula" name="matricula" maxlength="50" placeholder="Sua matrícula">
+            </div>
+            <div class="perfil-field-full">
+                <label for="editDescricao">Descrição</label>
+                <textarea id="editDescricao" name="descricao" rows="3" data-limite="<?= PERFIL_DESCRICAO_LIMITE ?>" aria-describedby="editDescricaoContador" placeholder="Conte um pouco sobre você..."></textarea>
+                <div class="perfil-description-meta">
+                    <span class="perfil-help">Uma breve apresentação sobre você.</span>
+                    <span class="perfil-counter" id="editDescricaoContador" aria-live="polite">0/<?= PERFIL_DESCRICAO_LIMITE ?> caracteres</span>
+                </div>
+            </div>
         </div>
 
-        <div>
-            <label for="editLogin">Login</label>
-            <input type="text" id="editLogin" placeholder="Login da conta" maxlength="100">
+        <div id="editNotice" class="perfil-notice" role="status"></div>
+        <div class="perfil-modal-actions">
+            <button type="button" class="perfil-btn-cancel" onclick="closeEditModal()">Cancelar</button>
+            <button type="submit" class="perfil-btn-save" id="btnSave">Salvar alterações</button>
         </div>
-
-        <div>
-            <label for="editEmail">E-mail</label>
-            <input type="email" id="editEmail" placeholder="email@exemplo.com" maxlength="255">
-        </div>
-
-        <div>
-            <label for="editDescricao">Descrição</label>
-            <textarea id="editDescricao" placeholder="Breve descrição do aluno…" rows="3" maxlength="1000" style="min-height:80px"></textarea>
-        </div>
-
-        <div class="modal-actions">
-            <button class="btn-cancel" onclick="closeEditModal()">Cancelar</button>
-            <button class="btn-send" id="btnSave" onclick="saveEdit()">Salvar</button>
-        </div>
-    </div>
+    </form>
 </div>
 
 <!-- Toast -->
@@ -1705,11 +1784,15 @@ function selectFace(btn) {
     }
 }
 
-function openNoticeModal(id, nome) {
+function openNoticeModal(id, nome, funcao) {
     closeAllMenus();
     currentUserId = id;
     selectedHumor = '';
-    document.getElementById('noticeRecipient').textContent = nome;
+    const nomeAtualEl = document.getElementById('nome-' + id);
+    const nomeExibido = (nomeAtualEl ? nomeAtualEl.textContent.trim() : '') || nome || '';
+    const btnNotice = document.getElementById('btn-notice-' + id);
+    const funcaoExibida = funcao || (btnNotice && btnNotice.dataset.funcao) || 'Estudante';
+    document.getElementById('noticeRecipient').textContent = funcaoExibida + ' ' + nomeExibido;
     document.getElementById('noticeTitulo').value          = '';
     document.getElementById('noticeMensagem').value        = '';
     document.querySelectorAll('#facePicker .face-btn').forEach(b => b.classList.remove('selected'));
@@ -1769,25 +1852,29 @@ function sendNotice() {
     });
 }
 
-/* ── Modal de edição ─────────────────────────────── */
+/* ── Modal de edição (idêntico ao + de perfil.php) ─────────────────────────────── */
 let editUserId = null;
+let editFotoSalva = '';
+const editDescricaoLimite = <?= PERFIL_DESCRICAO_LIMITE ?>;
+const editDescricaoInput = document.getElementById('editDescricao');
 
-function openEditModal(id, nome, login, email, descricao, foto) {
-    closeAllMenus();
-    editUserId = id;
+function atualizarContadorEditDescricao(limitar = false) {
+    const caracteres = Array.from(editDescricaoInput.value);
+    if (limitar && caracteres.length > editDescricaoLimite) {
+        editDescricaoInput.value = caracteres.slice(0, editDescricaoLimite).join('');
+    }
+    const tamanho = Array.from(editDescricaoInput.value).length;
+    const contador = document.getElementById('editDescricaoContador');
+    contador.textContent = tamanho + '/' + editDescricaoLimite + ' caracteres';
+    contador.classList.toggle('over-limit', tamanho > editDescricaoLimite);
+}
+editDescricaoInput.addEventListener('input', () => atualizarContadorEditDescricao(true));
 
-    document.getElementById('editRecipient').textContent = nome;
-    document.getElementById('editNome').value            = nome;
-    document.getElementById('editLogin').value           = login;
-    document.getElementById('editEmail').value           = email;
-    document.getElementById('editDescricao').value       = descricao;
-    document.getElementById('editFotoInput').value       = '';
-
+function mostrarEditFotoPreview(url) {
     const previewImg = document.getElementById('fotoPreviewImg');
     const previewSvg = document.getElementById('fotoPreviewSvg');
-
-    if (foto) {
-        previewImg.src           = foto;
+    if (url) {
+        previewImg.src           = url;
         previewImg.style.display = '';
         previewSvg.style.display = 'none';
     } else {
@@ -1795,12 +1882,61 @@ function openEditModal(id, nome, login, email, descricao, foto) {
         previewImg.style.display = 'none';
         previewSvg.style.display = '';
     }
+}
+
+function openEditModal(triggerOrId, nomeArg, _loginArg, emailArg, descricaoArg, fotoArg) {
+    closeAllMenus();
+    let id, nome, email, matricula, descricao, foto, contaGoogle;
+    if (triggerOrId && typeof triggerOrId === 'object' && triggerOrId.dataset) {
+        id          = Number(triggerOrId.dataset.userId);
+        nome        = triggerOrId.dataset.nome || '';
+        email       = triggerOrId.dataset.email || '';
+        matricula   = triggerOrId.dataset.matricula || '';
+        descricao   = triggerOrId.dataset.descricao || '';
+        foto        = triggerOrId.dataset.foto || '';
+        contaGoogle = triggerOrId.dataset.google === '1';
+    } else {
+        id          = Number(triggerOrId);
+        nome        = nomeArg || '';
+        email       = emailArg || '';
+        matricula   = '';
+        descricao   = descricaoArg || '';
+        foto        = fotoArg || '';
+        contaGoogle = false;
+    }
+
+    editUserId    = id;
+    editFotoSalva = foto;
+
+    document.getElementById('editForm').reset();
+    document.getElementById('editNome').value      = nome;
+    document.getElementById('editEmail').value     = email;
+    document.getElementById('editMatricula').value = matricula;
+    editDescricaoInput.value                       = descricao;
+    document.getElementById('editFotoInput').value = '';
+
+    const emailInput = document.getElementById('editEmail');
+    const googleHint = document.getElementById('editGoogleHint');
+    if (contaGoogle) {
+        emailInput.readOnly = true;
+        emailInput.setAttribute('aria-describedby', 'editGoogleHint');
+        googleHint.hidden = false;
+    } else {
+        emailInput.readOnly = false;
+        emailInput.removeAttribute('aria-describedby');
+        googleHint.hidden = true;
+    }
+
+    mostrarEditFotoPreview(foto);
+    document.getElementById('editNotice').className = 'perfil-notice';
+    atualizarContadorEditDescricao();
 
     document.getElementById('editModal').classList.add('open');
     setTimeout(() => document.getElementById('editNome').focus(), 50);
 }
 
 function closeEditModal() {
+    if (document.getElementById('btnSave').disabled) return;
     document.getElementById('editModal').classList.remove('open');
     editUserId = null;
 }
@@ -1810,45 +1946,48 @@ function closeEditModalOnBackdrop(e) {
 }
 
 function onFotoChange(input) {
+    if (!input.files || !input.files[0]) return;
     const file = input.files[0];
-    if (!file) return;
-
-    const previewImg = document.getElementById('fotoPreviewImg');
-    const previewSvg = document.getElementById('fotoPreviewSvg');
-
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+        input.value = '';
+        mostrarEditFotoPreview(editFotoSalva);
+        showToast('Use uma imagem JPG, PNG, WEBP ou GIF de até 5 MB.', 'error');
+        return;
+    }
     const reader = new FileReader();
-    reader.onload = function (ev) {
-        previewImg.src           = ev.target.result;
-        previewImg.style.display = '';
-        previewSvg.style.display = 'none';
-    };
+    reader.onload = ev => mostrarEditFotoPreview(ev.target.result);
     reader.readAsDataURL(file);
 }
 
 function saveEdit() {
     if (!editUserId) return;
+    const btn    = document.getElementById('btnSave');
+    const notice = document.getElementById('editNotice');
+    if (btn.disabled) return;
+    if (!document.getElementById('editForm').reportValidity()) return;
 
-    const nome      = document.getElementById('editNome').value.trim();
-    const login     = document.getElementById('editLogin').value.trim();
-    const email     = document.getElementById('editEmail').value.trim();
-    const descricao = document.getElementById('editDescricao').value.trim();
-    const fotoFile  = document.getElementById('editFotoInput').files[0];
-
-    if (!nome || !login) {
-        showToast('Nome e login são obrigatórios.', 'error');
+    if (Array.from(editDescricaoInput.value).length > editDescricaoLimite) {
+        notice.className = 'perfil-notice erro';
+        notice.textContent = 'A descrição deve ter até ' + editDescricaoLimite + ' caracteres.';
         return;
     }
 
-    const btn = document.getElementById('btnSave');
-    btn.disabled    = true;
-    btn.textContent = 'Salvando…';
+    const nome      = document.getElementById('editNome').value.trim();
+    const email     = document.getElementById('editEmail').value.trim();
+    const matricula = document.getElementById('editMatricula').value.trim();
+    const descricao = editDescricaoInput.value;
+    const fotoFile  = document.getElementById('editFotoInput').files[0];
+
+    btn.disabled      = true;
+    btn.textContent   = 'Salvando…';
+    notice.className  = 'perfil-notice';
 
     const fd = new FormData();
     fd.append('action',    'edit_user');
     fd.append('id_user',   editUserId);
     fd.append('nome',      nome);
-    fd.append('login',     login);
     fd.append('email',     email);
+    fd.append('matricula', matricula);
     fd.append('descricao', descricao);
     if (fotoFile) fd.append('foto', fotoFile);
 
@@ -1856,28 +1995,43 @@ function saveEdit() {
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
-            /* Atualiza o nome; o subtítulo mantém o perfil da conta. */
+            const perfil = data.perfil || {};
+            const novoNome = perfil.nome || nome;
             const nomeEl = document.getElementById('nome-' + editUserId);
-            if (nomeEl) nomeEl.textContent = nome;
+            if (nomeEl) nomeEl.textContent = novoNome;
 
-            /* atualiza avatar se nova foto retornada */
             if (data.foto) {
+                editFotoSalva = data.foto;
                 const avatarWrap = document.getElementById('avatar-' + editUserId);
                 if (avatarWrap) {
                     avatarWrap.innerHTML = `<img src="${data.foto}" alt="Foto">`;
                 }
             }
 
+            const btnEdit = document.getElementById('btn-edit-' + editUserId);
+            if (btnEdit) {
+                btnEdit.dataset.nome      = novoNome;
+                btnEdit.dataset.email     = perfil.email ?? email;
+                btnEdit.dataset.matricula = perfil.matricula ?? matricula;
+                btnEdit.dataset.descricao = perfil.descricao ?? descricao;
+                if (data.foto) btnEdit.dataset.foto = data.foto;
+            }
+
+            btn.disabled = false;
             closeEditModal();
-            showToast('Dados salvos com sucesso!', 'success');
+            showToast('Perfil atualizado com sucesso!', 'success');
         } else {
-            showToast('Erro: ' + data.error, 'error');
+            notice.className = 'perfil-notice erro';
+            notice.textContent = data.erro || data.error || 'Erro ao salvar.';
         }
     })
-    .catch(() => showToast('Falha de comunicação.', 'error'))
+    .catch(() => {
+        notice.className = 'perfil-notice erro';
+        notice.textContent = 'Falha de comunicação. Tente novamente.';
+    })
     .finally(() => {
         btn.disabled    = false;
-        btn.textContent = 'Salvar';
+        btn.textContent = 'Salvar alterações';
     });
 }
 

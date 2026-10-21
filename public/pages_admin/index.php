@@ -352,6 +352,7 @@ try {
             </button>
 
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -478,7 +479,7 @@ try {
             <span class="func-label">Gerenciar<br>perfis de acesso</span>
         </a>
 
-        <!-- 5. Gerenciar avisos -->
+        <!-- 5. Mandar avisos -->
         <a class="func-card" href="./controlar_aluno.php">
             <div class="func-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -489,7 +490,7 @@ try {
                     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
             </div>
-            <span class="func-label">Gerenciar<br>Avisos</span>
+            <span class="func-label">Mandar<br>Avisos</span>
         </a>
 
     </div>

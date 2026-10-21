@@ -18,12 +18,15 @@ try {
     $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS humor VARCHAR(10) NULL DEFAULT NULL');
     $pdo->exec('ALTER TABLE Notificacao ADD COLUMN IF NOT EXISTS id_pedido INT NULL');
 
-    $stmt = $pdo->query("
+    $atorId = (int) ($_SESSION['auth_user']['id'] ?? 0);
+    $stmt = $pdo->prepare("
         SELECT id_user, nome, tipo_perfil, bloqueado
         FROM Usuario
         WHERE tipo_perfil IN ('estudante','laboratorista')
+          AND id_user <> :ator_id
         ORDER BY nome ASC
     ");
+    $stmt->execute(['ator_id' => $atorId]);
     $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $db_ok = true;
 } catch (Throwable) {}
@@ -392,6 +395,7 @@ try {
                 </div>
             </button>
             <div class="dropdown" role="menu">
+                <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
