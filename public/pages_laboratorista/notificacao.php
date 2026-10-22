@@ -3,6 +3,7 @@ require_once '../includes/auth_check.php';
 checkAccess(['laboratorista', 'admin']);
 
 require_once '../../src/config/database.php';
+require_once '../../src/services/notificacoes.php';
 
 $page_title = 'Notificações';
 require_once '../includes/header.php';
@@ -105,7 +106,16 @@ try {
         margin-top: 6px;
     }
 
+    .notif-remetente {
+        margin: 0 0 6px;
+        font-size: 0.82rem;
+        color: var(--texto-secundario);
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+
     .notif-msg {
+        margin: 0;
         font-size: 0.88rem;
         color: var(--texto-suave);
         line-height: 1.6;
@@ -260,6 +270,7 @@ try {
             $idNot    = (int) $n['id_not'];
             $idPedido = (int) ($n['id_pedido'] ?? 0);
             $data     = $n['data'] ? date('d/m/Y \à\s H:i', strtotime($n['data'])) : '';
+            $texto    = separarRemetenteNotificacao((string) $n['mensagem']);
         ?>
         <div class="notif-card <?= $lida ? '' : 'nao-lida' ?>" id="notif-<?= $idNot ?>">
             <div class="notif-icon">
@@ -296,7 +307,10 @@ try {
                     <?php endif; ?>
                 </div>
 
-                <p class="notif-msg"><?= nl2br(htmlspecialchars($n['mensagem'])) ?></p>
+                <?php if ($texto['remetente'] !== ''): ?>
+                <p class="notif-remetente"><?= htmlspecialchars($texto['remetente'], ENT_QUOTES, 'UTF-8') ?></p>
+                <?php endif; ?>
+                <p class="notif-msg"><?= htmlspecialchars(trim($texto['mensagem']), ENT_QUOTES, 'UTF-8') ?></p>
 
                 <?php if ($idPedido): ?>
                 <a class="notif-pedido-link" href="./acessar.php?pedido=<?= $idPedido ?>" target="_blank">
