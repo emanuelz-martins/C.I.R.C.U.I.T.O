@@ -4,6 +4,9 @@ checkAccess(['laboratorista', 'admin']);
 
 require_once '../../src/config/database.php';
 
+// Invalida o rascunho após cadastrar, mantendo-o durante atualizações e erros.
+$_SESSION['catalogo_rascunho_versao'] ??= bin2hex(random_bytes(16));
+
 /* ── Diretório de upload ─────────────────────── */
 $upload_dir      = __DIR__ . '/../assets/img/componentes/';
 $appUrlPath = (string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH);
@@ -197,6 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->prepare($sql)->execute($params);
 
+            $_SESSION['catalogo_rascunho_versao'] = bin2hex(random_bytes(16));
             header('Location: ./catalogo.php?cadastro=ok');
             exit;
 
@@ -342,6 +346,8 @@ require_once '../includes/header.php';
         color: var(--texto-suave);
     }
 
+    .upload-remover { background: none; border: none; color: var(--texto-suave); font: inherit; font-size: .82rem; cursor: pointer; }
+
     /* ── Campos do formulário ─────────────── */
     .form-group { margin-bottom: 24px; }
 
@@ -395,19 +401,53 @@ require_once '../includes/header.php';
 
     .form-textarea {
         min-height: 130px;
-        resize: vertical;
+        resize: none;
         line-height: 1.6;
     }
 
-    /* ── Linha de dois campos ─────────────── */
-    .form-row {
+    /* ── Controles de quantidade ──────────── */
+    .quantity-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
         margin-bottom: 24px;
     }
-
-    .form-row .form-group { margin-bottom: 0; }
+    .quantity-field {
+        min-width: 0;
+        padding: 18px;
+        border: 1px solid var(--borda-padrao);
+        border-radius: 14px;
+        background: var(--bg-superficie-tabela);
+    }
+    .quantity-field .form-label { font-size: .875rem; margin-bottom: 4px; }
+    .quantity-hint { display: block; color: var(--texto-secundario); font-size: .75rem; margin-bottom: 16px; }
+    .quantity-control {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
+        align-items: center;
+        background: var(--bg-modal);
+        border: 1.5px solid var(--borda-padrao);
+        border-radius: 10px;
+        overflow: hidden;
+        transition: border-color .15s;
+    }
+    .quantity-control:focus-within { border-color: var(--borda-foco); }
+    .quantity-control button {
+        display: flex; align-items: center; justify-content: center;
+        height: 48px; border: 0; background: transparent; color: var(--texto-principal);
+        font: 1.4rem/1 'Segoe UI', Arial, sans-serif; cursor: pointer;
+        touch-action: manipulation;
+    }
+    .quantity-control button:hover:not(:disabled) { background: var(--bg-controle-hover); }
+    .quantity-control button:disabled { opacity: .3; cursor: default; }
+    .quantity-control button:focus-visible { outline: 2px solid var(--borda-foco); outline-offset: -4px; border-radius: 8px; }
+    .quantity-input {
+        width: 100%; min-width: 0; padding: 8px 0; border: 0; outline: none;
+        background: transparent; color: var(--texto-principal); text-align: center;
+        font: 700 1.125rem 'Segoe UI', Arial, sans-serif; font-variant-numeric: tabular-nums;
+        appearance: textfield; -moz-appearance: textfield;
+    }
+    .quantity-input::-webkit-inner-spin-button, .quantity-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
     /* ── Botão de cadastro ────────────────── */
     .btn-cadastrar {
@@ -432,7 +472,7 @@ require_once '../includes/header.php';
     /* ── Responsivo ───────────────────────── */
     @media (max-width: 640px) {
         .main       { padding: 32px 20px 80px; }
-        .form-row   { grid-template-columns: 1fr; }
+        .quantity-grid { grid-template-columns: 1fr; }
         .page-title { font-size: 2.2rem; }
     }
 </style>
@@ -545,8 +585,9 @@ require_once '../includes/header.php';
                 <button
                     type="button"
                     style="background:none;border:none;color:var(--texto-suave);font-size:0.82rem;cursor:pointer;margin-top:4px"
-                    onclick="limparImagem(event)"
+                    onclick="document.getElementById('inputImagem').click()"
                 >Trocar imagem</button>
+                <button type="button" class="upload-remover" onclick="limparImagem(event)">Remover imagem</button>
             </div>
         </div>
 
@@ -594,49 +635,34 @@ require_once '../includes/header.php';
             >
         </div>
 
-        <!-- Quantidades lado a lado -->
-        <div class="form-row">
-            <div class="form-group">
-                <label class="form-label" for="inputQtdDisponivel">
-                    Quantidade em estoque
-                    <span class="label-hint">(total atual do item)</span>
-                </label>
-                <input
-                    type="number"
-                    class="form-input"
-                    id="inputQtdDisponivel"
-                    name="qtd_disponivel"
-                    min="0"
-                    value="<?= (int)($form['qtd_disponivel'] ?? 0) ?>"
-                >
+        <!-- Quantidades -->
+        <div class="quantity-grid">
+            <div class="quantity-field">
+                <label class="form-label" for="inputQtdDisponivel">Em estoque</label>
+                <span class="quantity-hint" id="inputQtdDisponivelHint">Total disponível</span>
+                <div class="quantity-control">
+                    <button type="button" data-step="-1" aria-label="Diminuir quantidade em estoque" <?= (int)($form['qtd_disponivel'] ?? 0) <= 0 ? 'disabled' : '' ?>>−</button>
+                    <input type="number" class="quantity-input" id="inputQtdDisponivel" name="qtd_disponivel" min="0" step="1" inputmode="numeric" aria-describedby="inputQtdDisponivelHint" value="<?= (int)($form['qtd_disponivel'] ?? 0) ?>">
+                    <button type="button" data-step="1" aria-label="Aumentar quantidade em estoque">+</button>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label class="form-label" for="inputQtdMax">Quantidade máxima por usuário</label>
-                <input
-                    type="number"
-                    class="form-input"
-                    id="inputQtdMax"
-                    name="qtd_max_user"
-                    placeholder="Ex:"
-                    min="0"
-                    value="<?= (int)($form['qtd_max_user'] ?? 1) ?>"
-                >
+            <div class="quantity-field">
+                <label class="form-label" for="inputQtdMax">Máximo por usuário</label>
+                <span class="quantity-hint" id="inputQtdMaxHint">Limite individual</span>
+                <div class="quantity-control">
+                    <button type="button" data-step="-1" aria-label="Diminuir quantidade máxima por usuário" <?= (int)($form['qtd_max_user'] ?? 1) <= 0 ? 'disabled' : '' ?>>−</button>
+                    <input type="number" class="quantity-input" id="inputQtdMax" name="qtd_max_user" min="0" step="1" inputmode="numeric" aria-describedby="inputQtdMaxHint" value="<?= (int)($form['qtd_max_user'] ?? 1) ?>">
+                    <button type="button" data-step="1" aria-label="Aumentar quantidade máxima por usuário">+</button>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label class="form-label" for="inputQtdMin">
-                    Quantidade mínima em estoque
-                    <span class="label-hint">(limite para aviso de reposição)</span>
-                </label>
-                <input
-                    type="number"
-                    class="form-input"
-                    id="inputQtdMin"
-                    name="qtd_minima"
-                    min="0"
-                    value="<?= (int)($form['qtd_minima'] ?? 0) ?>"
-                >
+            <div class="quantity-field">
+                <label class="form-label" for="inputQtdMin">Estoque mínimo</label>
+                <span class="quantity-hint" id="inputQtdMinHint">Aviso de reposição</span>
+                <div class="quantity-control">
+                    <button type="button" data-step="-1" aria-label="Diminuir quantidade mínima em estoque" <?= (int)($form['qtd_minima'] ?? 0) <= 0 ? 'disabled' : '' ?>>−</button>
+                    <input type="number" class="quantity-input" id="inputQtdMin" name="qtd_minima" min="0" step="1" inputmode="numeric" aria-describedby="inputQtdMinHint" value="<?= (int)($form['qtd_minima'] ?? 0) ?>">
+                    <button type="button" data-step="1" aria-label="Aumentar quantidade mínima em estoque">+</button>
+                </div>
             </div>
         </div>
 
@@ -677,78 +703,14 @@ require_once '../includes/header.php';
         if (navUser && !navUser.contains(e.target)) navUser.classList.remove('open');
     });
 
-    /* ── Preview de imagem ───────────────── */
-    function previewImagem(input) {
-        if (!input.files || !input.files[0]) return;
-        const file   = input.files[0];
-        const reader = new FileReader();
-
-        reader.onload = function (e) {
-            document.getElementById('previewImg').src       = e.target.result;
-            document.getElementById('previewNome').textContent =
-                file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
-            document.getElementById('uploadDefault').style.display = 'none';
-            document.getElementById('uploadPreview').style.display = 'flex';
-        };
-
-        reader.readAsDataURL(file);
-    }
-
-    function limparImagem(e) {
-        e.stopPropagation();
-        const input = document.getElementById('inputImagem');
-        input.value = '';
-        document.getElementById('uploadDefault').style.display = '';
-        document.getElementById('uploadPreview').style.display = 'none';
-    }
-
-    /* ── Drag & drop ─────────────────────── */
-    (function () {
-        const area = document.getElementById('uploadArea');
-
-        area.addEventListener('dragover', function (e) {
-            e.preventDefault();
-            area.classList.add('dragover');
-        });
-
-        area.addEventListener('dragleave', function () {
-            area.classList.remove('dragover');
-        });
-
-        area.addEventListener('drop', function (e) {
-            e.preventDefault();
-            area.classList.remove('dragover');
-            const dt    = e.dataTransfer;
-            const files = dt.files;
-            if (!files.length) return;
-            const input = document.getElementById('inputImagem');
-            /* Cria um DataTransfer para atribuir ao input */
-            const newDt = new DataTransfer();
-            newDt.items.add(files[0]);
-            input.files = newDt.files;
-            previewImagem(input);
-        });
-    })();
-
-    /* ── Validação client-side ───────────── */
-    document.getElementById('formCadastro').addEventListener('submit', function (e) {
-        const nome   = document.getElementById('inputNome').value.trim();
-        const id_cat = document.getElementById('inputCat').value;
-        const descCurta = document.getElementById('inputDescCurta').value.trim();
-        const descCompleta = document.getElementById('inputDescCompleta').value.trim();
-        const erros  = [];
-
-        if (!nome)   erros.push('Nome do item é obrigatório.');
-        if (!id_cat) erros.push('Selecione uma categoria.');
-        if (descCurta.length > 500) erros.push('Especificações Técnicas devem ter no máximo 500 caracteres.');
-        if (descCompleta.length > 500) erros.push('Descrição completa deve ter no máximo 500 caracteres.');
-
-        if (erros.length) {
-            e.preventDefault();
-            alert(erros.join('\n'));
-        }
-    });
 </script>
+
+<script id="cadastroItemConfig" type="application/json"><?= json_encode([
+    'usuario' => (string) ($_SESSION['auth_user']['id'] ?? ''),
+    'versao' => $_SESSION['catalogo_rascunho_versao'],
+    'restaurarCampos' => $_SERVER['REQUEST_METHOD'] !== 'POST',
+], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script src="<?= htmlspecialchars($basePath . '/assets/js/cadastro-item.js', ENT_QUOTES, 'UTF-8') ?>" defer></script>
 
 </body>
 </html>

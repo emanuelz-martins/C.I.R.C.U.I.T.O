@@ -124,7 +124,8 @@ require_once '../includes/header.php';
     .item-img {
         width: 100%;
         aspect-ratio: 4/3;
-        object-fit: cover;
+        object-fit: contain;
+        padding: 16px;
         border-radius: 12px;
         background-color: var(--bg-midia);
         display: block;

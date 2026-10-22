@@ -183,6 +183,8 @@ require_once 'includes/header.php';
             transition: background-color 0.15s;
         }
 
+        .carousel-btn[hidden] { display: none; }
+
         .carousel-btn:hover { background-color: var(--bg-controle-ativo); }
         .carousel-btn.prev { left: -20px; }
         .carousel-btn.next { right: -20px; }
@@ -220,7 +222,8 @@ require_once 'includes/header.php';
         .card-img {
             width: 100%;
             aspect-ratio: 4/3;
-            object-fit: cover;
+            object-fit: contain;
+            padding: 12px;
             background-color: var(--bg-midia);
             display: block;
         }
@@ -490,7 +493,7 @@ require_once 'includes/header.php';
         <h3 class="category-title"><?= htmlspecialchars($categoria['nome']) ?></h3>
 
         <div class="carousel-wrapper">
-            <button class="carousel-btn prev"
+            <button type="button" class="carousel-btn prev" hidden
                     onclick="scrollCarousel('carousel-<?= $categoria['id'] ?>', -1)"
                     aria-label="Anterior">&#8249;</button>
 
@@ -541,7 +544,7 @@ require_once 'includes/header.php';
                 <?php endforeach; ?>
             </div>
 
-            <button class="carousel-btn next"
+            <button type="button" class="carousel-btn next" hidden
                     onclick="scrollCarousel('carousel-<?= $categoria['id'] ?>', 1)"
                     aria-label="Próximo">&#8250;</button>
         </div>
@@ -563,10 +566,26 @@ require_once 'includes/header.php';
 </footer>
 
 <script>
-    /* Scroll do carrossel */
     function scrollCarousel(id, direction) {
-        document.getElementById(id).scrollBy({ left: direction * 272, behavior: 'smooth' });
+        const track = document.getElementById(id);
+        track.scrollBy({ left: direction * 272, behavior: 'smooth' });
     }
+
+    document.querySelectorAll('.carousel-wrapper').forEach(wrapper => {
+        const track = wrapper.querySelector('.carousel-track');
+        const previous = wrapper.querySelector('.prev');
+        const next = wrapper.querySelector('.next');
+        const atualizarSetas = () => {
+            const limite = Math.max(0, track.scrollWidth - track.clientWidth);
+            previous.hidden = track.scrollLeft <= 2;
+            next.hidden = limite <= 2 || track.scrollLeft >= limite - 2;
+        };
+        track.addEventListener('scroll', atualizarSetas, { passive: true });
+        window.addEventListener('resize', atualizarSetas);
+        window.addEventListener('pageshow', atualizarSetas);
+        new ResizeObserver(atualizarSetas).observe(track);
+        atualizarSetas();
+    });
 </script>
 
 </body>
