@@ -4,6 +4,7 @@ checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
 require_once '../includes/pre_bloqueio_aluno.php';
+require_once '../../src/services/notificacoes.php';
 
 header('Content-Type: application/json');
 
@@ -76,7 +77,7 @@ try {
             WHERE id_not = :id AND id_user = :uid
         ');
         $stmt->execute(['id' => $id, 'uid' => $id_usuario]);
-        echo json_encode(['ok' => true]);
+        echo json_encode(['ok' => true, 'resumo' => resumoNotificacoesNaoLidas($pdo, (int) $id_usuario, (string) $_SESSION['auth_user']['perfil'])]);
 
     } elseif ($acao === 'excluir') {
         $stmt = $pdo->prepare('
@@ -84,7 +85,7 @@ try {
             WHERE id_not = :id AND id_user = :uid
         ');
         $stmt->execute(['id' => $id, 'uid' => $id_usuario]);
-        echo json_encode(['ok' => true]);
+        echo json_encode(['ok' => true, 'resumo' => resumoNotificacoesNaoLidas($pdo, (int) $id_usuario, (string) $_SESSION['auth_user']['perfil'])]);
 
     } elseif ($acao === 'responder_atraso') {
         http_response_code(400);

@@ -4,6 +4,7 @@ checkAccess(['estudante', 'admin']);
 
 require_once '../../src/config/database.php';
 require_once '../includes/pre_bloqueio_aluno.php';
+require_once '../../src/services/notificacoes.php';
 
 $page_title = 'Notificações';
 require_once '../includes/header.php';
@@ -51,7 +52,7 @@ try {
         $todas = $stmt->fetchAll();
 
         foreach ($todas as $n) {
-            if ($n['tipo'] === 'aviso') {
+            if (in_array($n['tipo'], ['aviso', 'aviso_adm'], true)) {
                 $notificacoes['avisos'][]     = $n;
             } else {
                 $notificacoes['automaticas'][] = $n;
@@ -118,342 +119,46 @@ function formatarMensagemNotificacao(string $mensagem): string {
 ?>
 
 <style>
-    /* ══════════════════════════════════════════
-       CONTEÚDO PRINCIPAL
-    ══════════════════════════════════════════ */
-    .main {
-        padding: 40px 40px 80px;
-        max-width: 1100px;
-        margin: 0 auto;
-    }
-
-    /* ── Cabeçalho da página ──────────────── */
-    .page-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 36px;
-    }
-
-    .page-title {
-        font-size: 3rem;
-        font-weight: 800;
-        color: var(--texto-principal);
-        line-height: 1.1;
-    }
-
-    .btn-back {
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        background-color: var(--bg-controle);
-        border: 1px solid var(--borda-controle);
-        color: var(--texto-principal);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        transition: background-color 0.15s;
-        flex-shrink: 0;
-    }
-
-    .btn-back:hover { background-color: var(--bg-controle-hover); }
-
-    .btn-back svg {
-        width: 20px;
-        height: 20px;
-    }
-
-    /* ── Subtítulo de seção ───────────────── */
-    .section-title {
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: var(--texto-principal);
-        margin-bottom: 20px;
-    }
-
-    /* ── Lista de notificações ────────────── */
-    .notif-list {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-    }
-
-    .notif-card {
-        background-color: var(--bg-superficie);
-        border: 1px solid var(--borda-card);
-        border-radius: 16px;
-        padding: 20px 24px;
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-    }
-
-    /* ── Ícone do robô ────────────────────── */
-    .notif-icon {
-        width: 60px;
-        height: 60px;
-        border: 2px solid var(--borda-controle);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        color: var(--texto-principal);
-    }
-
-    .notif-icon svg {
-        width: 36px;
-        height: 36px;
-    }
-
-    /* ── Texto da notificação ─────────────── */
-    .notif-body {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .notif-titulo {
-        font-size: 1rem;
-        font-weight: 700;
-        color: var(--texto-principal);
-        margin-bottom: 4px;
-    }
-
-    .notif-mensagem {
-        font-size: 0.85rem;
-        color: var(--texto-suave);
-        margin-bottom: 4px;
-        line-height: 1.5;
-    }
-
-    .notif-mensagem strong { color: var(--texto-principal); }
-    .notif-mensagem em     { font-style: italic; color: var(--texto-medio); }
-
-    .notif-data {
-        font-size: 0.78rem;
-        color: var(--texto-auxiliar);
-    }
-
-    /* ── Ações ────────────────────────────── */
-    .notif-actions {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-shrink: 0;
-    }
-
-    .status-badge {
-        padding: 10px 18px;
-        border-radius: 8px;
-        font-size: 0.82rem;
-        font-weight: 700;
-        white-space: nowrap;
-        text-align: center;
-        min-width: 110px;
-    }
-
-    .status-badge.pronto-para-retirada { background-color: var(--status-pronto-bg); color: var(--status-pronto-texto); }
-    .status-badge.em-separacao         { background-color: var(--status-separacao-bg); color: var(--status-separacao-texto); }
-    .status-badge.enviado              { background-color: var(--status-pendente-bg); color: var(--status-pendente-texto); }
-    .status-badge.negado               { background-color: var(--status-cancelado-bg); color: var(--status-cancelado-texto); }
-    .status-badge.em-andamento         { background-color: var(--status-andamento-bg); color: var(--status-andamento-texto); }
-    .status-badge.finalizado           { background-color: var(--status-finalizado-bg); color: var(--status-finalizado-texto); }
-
-    .btn-details {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        background-color: var(--bg-controle);
-        border: 1px solid var(--borda-controle);
-        color: var(--texto-principal);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        transition: background-color 0.15s;
-        flex-shrink: 0;
-    }
-
-    .btn-details:hover { background-color: var(--bg-controle-hover); }
-
-    .btn-details svg {
-        width: 20px;
-        height: 20px;
-    }
-
-    /* ── Vazio ────────────────────────────── */
-    .notif-empty {
-        text-align: center;
-        padding: 40px 0;
-        color: var(--texto-auxiliar);
-        font-size: 1rem;
-    }
-
-    /* ── Título de seção com ícone ────────── */
-    .section-title {
-        display: flex;
-        align-items: center;
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: var(--texto-principal);
-        margin-bottom: 16px;
-    }
-
-    /* ── Badge de contagem ────────────────── */
-    .count-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 22px;
-        height: 22px;
-        padding: 0 6px;
-        background-color: var(--bg-controle);
-        border: 1px solid var(--borda-controle);
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: var(--texto-suave);
-        margin-left: 10px;
-    }
-
-    /* ── Ponto "não lida" ─────────────────── */
-    .dot-new {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        background: var(--cor-primaria);
-        border-radius: 50%;
-        margin-left: 6px;
-        vertical-align: middle;
-        flex-shrink: 0;
-    }
-
-    /* ── Card lida (esmaecida) ────────────── */
-    .notif-card.lida { opacity: 0.6; }
-
-    /* ── Variante aviso (borda âmbar) ─────── */
-    .notif-card.notif-aviso {
-        border-color: var(--borda-alerta-sutil);
-    }
-
-    .notif-card.notif-aviso .notif-icon.icon-aviso {
-        border-color: var(--borda-alerta);
-        color: var(--cor-alerta);
-    }
-
-    /* ── Botões de ação da notificação ─────── */
-    .btn-notif {
-        width: 38px;
-        height: 38px;
-        border-radius: 9px;
-        border: 1px solid var(--borda-controle);
-        background-color: var(--bg-controle);
-        color: var(--texto-suave);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-    }
-
-    .btn-notif svg { width: 18px; height: 18px; pointer-events: none; }
-
-    .btn-notif:hover { background-color: var(--bg-controle-hover); color: var(--texto-principal); }
-
-    .btn-notif.btn-lida:hover  { background-color: var(--bg-info-hover); border-color: var(--cor-primaria); color: var(--cor-primaria); }
-    .btn-notif.btn-lida.active { background-color: var(--bg-info-hover); border-color: var(--cor-primaria); color: var(--cor-primaria); opacity: 1 !important; }
-
-    .btn-notif.btn-excluir:hover { background-color: var(--bg-erro-hover); border-color: var(--cor-erro); color: var(--cor-erro); }
-
-    /* card sendo removido */
-    .notif-card.removendo {
-        opacity: 0;
-        transform: translateX(20px);
-        transition: opacity 0.3s ease, transform 0.3s ease;
-    }
-
-    /* ── Cores do ícone por humor ─────────── */
-    .notif-icon.humor-feliz  { border-color: var(--borda-sucesso); color: var(--cor-sucesso); }
-    .notif-icon.humor-triste { border-color: var(--borda-erro); color: var(--cor-erro); }
-    .notif-icon.humor-neutro { border-color: var(--borda-alerta); color: var(--cor-alerta); }
-
-    .notif-resposta {
-        margin-top: 10px;
-        padding: 10px;
-        border: 1px solid var(--borda-erro);
-        border-radius: 10px;
-        background-color: var(--bg-erro-sutil);
-    }
-
-    .notif-resposta label {
-        display: block;
-        color: var(--texto-erro);
-        font-size: 0.78rem;
-        font-weight: 700;
-        margin-bottom: 6px;
-    }
-
-    .notif-resposta textarea {
-        width: 100%;
-        min-height: 72px;
-        border-radius: 8px;
-        border: 1px solid var(--borda-controle);
-        background-color: var(--bg-campo-profundo);
-        color: var(--texto-principal);
-        font-size: 0.84rem;
-        padding: 8px 10px;
-        font-family: inherit;
-        resize: vertical;
-        outline: none;
-    }
-
-    .notif-resposta textarea:focus { border-color: var(--borda-foco); }
-
-    .notif-resposta-actions {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 8px;
-    }
-
-    .btn-responder {
-        border: none;
-        border-radius: 8px;
-        padding: 8px 12px;
-        background-color: var(--cor-erro-forte);
-        color: #ffffff;
-        font-size: 0.78rem;
-        font-weight: 700;
-        cursor: pointer;
-    }
-
-    .btn-responder:hover { background-color: var(--cor-erro-hover); }
-
-    .notif-resposta-erro {
-        margin-top: 6px;
-        color: var(--cor-erro-claro);
-        font-size: 0.75rem;
-        min-height: 14px;
-    }
-
-    .btn-notif[disabled] {
-        opacity: 0.35;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
-
-    .alert-fluxo {
-        background-color: var(--bg-erro-sutil);
-        border: 1px solid var(--borda-erro);
-        color: var(--texto-erro);
-        border-radius: 12px;
-        padding: 12px 16px;
-        margin-bottom: 20px;
-        font-size: 0.85rem;
+    .main { padding:40px 40px 80px; max-width:1100px; margin:0 auto; }
+    .page-header { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:32px; }
+    .page-title { font-size:3rem; font-weight:800; color:var(--texto-principal); line-height:1.1; }
+    .btn-back { width:44px; height:44px; display:grid; place-items:center; border-radius:50%; background:var(--bg-controle); border:1px solid var(--borda-controle); color:var(--texto-principal); flex-shrink:0; }
+    .btn-back svg { width:20px; height:20px; }
+    .notif-tabs { display:flex; gap:8px; padding:6px; margin-bottom:24px; border:1px solid var(--borda-card); border-radius:14px; background:var(--bg-superficie); width:fit-content; max-width:100%; }
+    .notif-tab { display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid transparent; border-radius:9px; padding:12px 18px; background:transparent; color:var(--texto-secundario); font:inherit; font-size:.9rem; font-weight:600; cursor:pointer; }
+    .notif-tab[aria-selected="true"] { background:var(--bg-controle); border-color:var(--borda-controle); color:var(--texto-principal); }
+    .count-badge { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 6px; border-radius:20px; background:var(--cor-primaria); color:#fff; font-size:.72rem; }
+    .notif-panel[hidden], .count-badge[hidden], .notif-empty[hidden] { display:none; }
+    .notif-list { display:grid; gap:14px; }
+    .notif-card { display:grid; grid-template-columns:48px minmax(0,1fr) auto; align-items:start; gap:20px; padding:24px; border:1px solid var(--borda-card); border-left:3px solid var(--cor-primaria); border-radius:16px; background:var(--bg-superficie); }
+    .notif-card.lida { border-left-color:var(--borda-card); }
+    .notif-icon { width:48px; height:48px; display:grid; place-items:center; border-radius:12px; background:var(--bg-controle); color:var(--texto-secundario); }
+    .notif-icon svg { width:30px; height:30px; }
+    .notif-body { min-width:0; }
+    .notif-titulo { display:flex; align-items:center; gap:10px; margin:0 0 10px; color:var(--texto-principal); font-size:1rem; font-weight:700; overflow-wrap:anywhere; }
+    .dot-new { width:7px; height:7px; flex-shrink:0; border-radius:50%; background:var(--cor-primaria); }
+    .notif-remetente { margin:0 0 8px; color:var(--texto-secundario); font-size:.8rem; line-height:1.5; overflow-wrap:anywhere; }
+    .notif-mensagem { margin:0; color:var(--texto-principal); font-size:.9rem; line-height:1.7; overflow-wrap:anywhere; }
+    .notif-data { display:block; margin-top:14px; color:var(--texto-secundario); font-size:.75rem; }
+    .notif-actions { display:flex; gap:8px; }
+    .btn-notif { display:grid; place-items:center; width:36px; height:36px; border-radius:10px; border:1px solid var(--borda-controle); background:var(--bg-controle); color:var(--texto-secundario); cursor:pointer; }
+    .btn-notif svg { width:18px; height:18px; }
+    .btn-notif:hover { color:var(--texto-principal); }
+    .btn-notif.active { color:var(--cor-primaria); }
+    .btn-excluir:hover { color:var(--cor-erro); }
+    .btn-notif:disabled { cursor:default; }
+    .btn-notif:focus-visible, .notif-tab:focus-visible { outline:2px solid var(--cor-primaria); outline-offset:3px; }
+    .notif-empty { padding:48px 24px; text-align:center; color:var(--texto-secundario); background:var(--bg-superficie); border:1px solid var(--borda-card); border-radius:16px; font-size:.9rem; }
+    .alert-fluxo, .notif-error { padding:16px 20px; margin-bottom:24px; border-radius:12px; border:1px solid var(--borda-erro-sutil); color:var(--cor-erro); background:var(--bg-superficie); }
+    .notif-error:empty { display:none; }
+    @media (max-width:640px) {
+        .main { padding:28px 20px 56px; }
+        .page-title { font-size:2rem; }
+        .notif-tabs { width:100%; gap:4px; }
+        .notif-tab { flex:1; padding:10px 8px; gap:6px; font-size:.8rem; }
+        .notif-card { grid-template-columns:40px minmax(0,1fr); gap:12px; padding:18px; }
+        .notif-icon { width:40px; height:40px; }
+        .notif-actions { grid-column:2; justify-content:flex-end; }
     }
 </style>
 </head>
@@ -464,7 +169,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
 
     <a href="../index.php" class="nav-logo">C.I.R.C.U.I.T.O.</a>
 
-    <form class="nav-search" action="/index.php" method="GET">
+    <form class="nav-search" action="<?= htmlspecialchars($basePath) ?>/index.php" method="GET">
         <input
             type="text"
             name="q"
@@ -517,6 +222,7 @@ function formatarMensagemNotificacao(string $mensagem): string {
 
             <div class="dropdown" role="menu">
                 <?php require __DIR__ . '/../includes/menu_perfil.php'; ?>
+                <?php require __DIR__ . '/../includes/menu_notificacoes.php'; ?>
                 <a href="../logout.php" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -544,237 +250,62 @@ function formatarMensagemNotificacao(string $mensagem): string {
 </script>
 
 <!-- ══════════════════ CONTEÚDO ══════════════════ -->
-<main class="main">
-
-    <!-- Cabeçalho -->
+<main class="main" data-notificacoes-page data-action-url="../api/notificacao_action.php">
     <div class="page-header">
         <h1 class="page-title">Notificações</h1>
         <a href="javascript:history.back()" class="btn-back" aria-label="Voltar">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 18 9 12 15 6"/>
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </a>
     </div>
-
     <?php if ($erroFluxo === 'resposta_atraso'): ?>
-    <div class="alert-fluxo">
-        Você possui um pedido em atraso. Abra o aviso e, se quiser, responda ao laboratorista com seu relatório de atraso.
-    </div>
+    <div class="alert-fluxo">Você possui um pedido em atraso. Abra o aviso para consultar as orientações do laboratorista.</div>
     <?php endif; ?>
-
+    <p class="notif-error" role="alert" data-notif-error></p>
     <?php if (!$db_ok): ?>
-    <div style="background-color:var(--bg-superficie);border:1px solid var(--borda-erro-sutil);border-radius:16px;padding:40px;text-align:center;color:var(--texto-suave);">
-        <h2 style="color:var(--cor-erro);margin-bottom:8px;">Banco de dados indisponível</h2>
-        <p>Não foi possível carregar as notificações. Verifique a conexão com o MySQL.</p>
-    </div>
-    <?php else: ?>
-
-    <!-- ── Avisos diretos do laboratorista ──────────── -->
-    <h2 class="section-title">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:var(--cor-alerta);">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-        </svg>
-        Avisos do Laboratório
-        <?php if (!empty($notificacoes['avisos'])): ?>
-        <span class="count-badge"><?= count($notificacoes['avisos']) ?></span>
-        <?php endif; ?>
-    </h2>
-
-    <?php if (empty($notificacoes['avisos'])): ?>
-        <p class="notif-empty">Nenhum aviso do laboratorista por enquanto.</p>
-    <?php else: ?>
-    <div class="notif-list" style="margin-bottom:48px;">
-        <?php foreach ($notificacoes['avisos'] as $n):
-            $humor = $n['humor'] ?? '';
-            $humorClass = $humor ? 'humor-' . $humor : '';
+    <div class="notif-empty">Não foi possível carregar as notificações. Tente novamente.</div>
+    <?php else:
+        $grupos = ['avisos' => 'Avisos do laboratório', 'automaticas' => 'Pedidos'];
+        $grupoInicial = empty($notificacoes['avisos']) && !empty($notificacoes['automaticas']) ? 'automaticas' : 'avisos';
+    ?>
+    <div class="notif-tabs" role="tablist" aria-label="Tipos de notificação">
+        <?php foreach ($grupos as $grupo => $rotulo):
+            $naoLidas = count(array_filter($notificacoes[$grupo], static fn($n) => !$n['lida']));
         ?>
-        <div class="notif-card notif-aviso <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
-
-            <div class="notif-icon icon-aviso <?= $humorClass ?>">
-                <?php if ($humor): ?>
-                    <?= robotFaceSvg($humor) ?>
-                <?php else: ?>
-                <!-- Ícone de pessoa / laboratorista -->
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                </svg>
-                <?php endif; ?>
-            </div>
-
-            <div class="notif-body">
-                <p class="notif-titulo">
-                    <?= htmlspecialchars($n['titulo']) ?>
-                    <?php if (!$n['lida']): ?>
-                    <span class="dot-new"></span>
-                    <?php endif; ?>
-                </p>
-                <p class="notif-mensagem"><?= formatarMensagemNotificacao((string) ($n['mensagem'] ?? '')) ?></p>
-                <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
-            </div>
-
-            <div class="notif-actions">
-                <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
-                        title="Marcar como lida"
-                        onclick="marcarLida(this, <?= $n['id_not'] ?>)">
-                    <!-- Olho -->
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                </button>
-                <button class="btn-notif btn-excluir"
-                        title="Excluir notificação"
-                        onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
-                    <!-- Lixeira -->
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14H6L5 6"/>
-                        <path d="M10 11v6"/><path d="M14 11v6"/>
-                        <path d="M9 6V4h6v2"/>
-                    </svg>
-                </button>
-            </div>
-
-        </div>
+        <button type="button" class="notif-tab" role="tab" id="tab-<?= $grupo ?>" aria-controls="painel-<?= $grupo ?>" aria-selected="<?= $grupo === $grupoInicial ? 'true' : 'false' ?>" tabindex="<?= $grupo === $grupoInicial ? '0' : '-1' ?>">
+            <?= $rotulo ?><span class="count-badge" data-notificacoes-grupo="<?= $grupo === 'avisos' ? 'avisos' : 'pedidos' ?>" aria-label="<?= $naoLidas ?> não lidas" <?= $naoLidas ? '' : 'hidden' ?>><?= $naoLidas ?></span>
+        </button>
         <?php endforeach; ?>
     </div>
-    <?php endif; ?>
-
-    <!-- ── Notificações automáticas (pedidos) ────────── -->
-    <h2 class="section-title">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-             style="width:22px;height:22px;vertical-align:middle;margin-right:8px;color:var(--cor-primaria);">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8"  y1="2" x2="8"  y2="6"/>
-            <line x1="3"  y1="10" x2="21" y2="10"/>
-        </svg>
-        Notificações de Pedidos
-        <?php if (!empty($notificacoes['automaticas'])): ?>
-        <span class="count-badge"><?= count($notificacoes['automaticas']) ?></span>
-        <?php endif; ?>
-    </h2>
-
-    <?php if (empty($notificacoes['automaticas'])): ?>
-        <p class="notif-empty">Nenhuma notificação de pedido por enquanto.</p>
-    <?php else: ?>
-    <div class="notif-list">
-        <?php foreach ($notificacoes['automaticas'] as $n):
-            $humor = $n['humor'] ?? '';
-            $humorClass = $humor ? 'humor-' . $humor : '';
+    <?php foreach ($grupos as $grupo => $rotulo): ?>
+    <section class="notif-panel" id="painel-<?= $grupo ?>" role="tabpanel" aria-labelledby="tab-<?= $grupo ?>" tabindex="0" <?= $grupo === $grupoInicial ? '' : 'hidden' ?>>
+        <div class="notif-list">
+        <?php foreach ($notificacoes[$grupo] as $n):
+            $texto = separarRemetenteNotificacao((string) ($n['mensagem'] ?? ''));
+            $idNot = (int) $n['id_not'];
         ?>
-        <div class="notif-card <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $n['id_not'] ?>">
-
-            <div class="notif-icon <?= $humorClass ?>">
-                <?= robotFaceSvg($humor ?: null, $n['mensagem'], $n['tipo']) ?>
-            </div>
-
-            <div class="notif-body">
-                <p class="notif-titulo">
-                    <?= htmlspecialchars($n['titulo']) ?>
-                    <?php if (!$n['lida']): ?>
-                    <span class="dot-new"></span>
-                    <?php endif; ?>
-                </p>
-                <p class="notif-mensagem"><?= formatarMensagemNotificacao((string) ($n['mensagem'] ?? '')) ?></p>
-                <p class="notif-data"><?= date('d/m/Y H:i', strtotime($n['data'])) ?></p>
-            </div>
-
-            <div class="notif-actions">
-                <button class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>"
-                        title="Marcar como lida"
-                        onclick="marcarLida(this, <?= $n['id_not'] ?>)">
-                    <!-- Olho -->
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                </button>
-                <button class="btn-notif btn-excluir"
-                        title="Excluir notificação"
-                        onclick="excluirNotif(this, <?= $n['id_not'] ?>)">
-                    <!-- Lixeira -->
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14H6L5 6"/>
-                        <path d="M10 11v6"/><path d="M14 11v6"/>
-                        <path d="M9 6V4h6v2"/>
-                    </svg>
-                </button>
-            </div>
-
-        </div>
+            <article class="notif-card <?= $n['lida'] ? 'lida' : '' ?>" id="notif-<?= $idNot ?>" aria-labelledby="titulo-<?= $idNot ?>">
+                <div class="notif-icon" aria-hidden="true"><?= robotFaceSvg($n['humor'] ?: null, (string) $n['mensagem'], (string) $n['tipo']) ?></div>
+                <div class="notif-body">
+                    <h2 class="notif-titulo" id="titulo-<?= $idNot ?>"><?= htmlspecialchars($n['titulo'], ENT_QUOTES, 'UTF-8') ?><?php if (!$n['lida']): ?><span class="dot-new" role="img" aria-label="Não lida"></span><?php endif; ?></h2>
+                    <?php if ($texto['remetente'] !== ''): ?><p class="notif-remetente"><?= htmlspecialchars($texto['remetente'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+                    <p class="notif-mensagem"><?= formatarMensagemNotificacao($texto['mensagem']) ?></p>
+                    <time class="notif-data" datetime="<?= date('c', strtotime($n['data'])) ?>"><?= date('d/m/Y', strtotime($n['data'])) ?> às <?= date('H:i', strtotime($n['data'])) ?></time>
+                </div>
+                <div class="notif-actions">
+                    <button type="button" class="btn-notif btn-lida <?= $n['lida'] ? 'active' : '' ?>" data-acao="marcar_lida" data-id="<?= $idNot ?>" title="<?= $n['lida'] ? 'Lida' : 'Marcar como lida' ?>" aria-label="<?= $n['lida'] ? 'Lida' : 'Marcar como lida' ?>" <?= $n['lida'] ? 'disabled' : '' ?>>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button type="button" class="btn-notif btn-excluir" data-acao="excluir" data-id="<?= $idNot ?>" title="Excluir notificação" aria-label="Excluir notificação">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+                    </button>
+                </div>
+            </article>
         <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
-    <?php endif; ?>
-
+        </div>
+        <p class="notif-empty" <?= empty($notificacoes[$grupo]) ? '' : 'hidden' ?>><?= $grupo === 'avisos' ? 'Nenhum aviso do laboratório por enquanto.' : 'Nenhuma notificação de pedido por enquanto.' ?></p>
+    </section>
+    <?php endforeach; endif; ?>
 </main>
-
-<script>
-    async function notifAction(acao, id) {
-        const fd = new FormData();
-        fd.append('acao', acao);
-        fd.append('id', id);
-        const res = await fetch('../api/notificacao_action.php', { method: 'POST', body: fd });
-        return res.json();
-    }
-
-    async function marcarLida(btn, id) {
-        if (btn.classList.contains('active')) return;
-        const data = await notifAction('marcar_lida', id);
-        if (!data.ok) {
-            if (data.erro) alert(data.erro);
-            return;
-        }
-
-        const card = document.getElementById('notif-' + id);
-        card.classList.add('lida');
-        btn.classList.add('active');
-
-        // remove o ponto azul de "não lida"
-        const dot = card.querySelector('.dot-new');
-        if (dot) dot.remove();
-    }
-
-    async function excluirNotif(btn, id) {
-        const card = document.getElementById('notif-' + id);
-        const data = await notifAction('excluir', id);
-        if (!data.ok) {
-            if (data.erro) alert(data.erro);
-            return;
-        }
-
-        // decrementa o badge da seção correspondente
-        const lista = card.closest('.notif-list');
-        if (lista) {
-            const secao = lista.previousElementSibling;
-            if (secao) {
-                const badge = secao.querySelector('.count-badge');
-                if (badge) {
-                    const atual = parseInt(badge.textContent, 10);
-                    if (atual <= 1) badge.remove();
-                    else badge.textContent = atual - 1;
-                }
-            }
-        }
-
-        card.classList.add('removendo');
-        card.addEventListener('transitionend', () => card.remove(), { once: true });
-    }
-
-</script>
+<script src="<?= htmlspecialchars($basePath) ?>/assets/js/notificacoes.js" defer></script>
 </body>
 </html>

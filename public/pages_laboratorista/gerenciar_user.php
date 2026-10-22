@@ -141,6 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit;
             }
 
+            $mensagem = 'Laboratorista ' . (string) $_SESSION['auth_user']['nome'] . " te enviou:\n\n" . $mensagem;
+
             /* verifica se coluna humor existe */
             $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
             $notCols->execute(['t' => 'Notificacao']);

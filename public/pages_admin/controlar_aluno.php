@@ -244,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             $remetente        = 'Admin ' . ($_SESSION['auth_user']['nome'] ?? 'Administrador');
-            $mensagemFormatada = $remetente . ' te enviou: ' . $mensagem;
+            $mensagemFormatada = $remetente . " te enviou:\n\n" . $mensagem;
 
             /* verifica se coluna humor existe */
             $notCols = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');

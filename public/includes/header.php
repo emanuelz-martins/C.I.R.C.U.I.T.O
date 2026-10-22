@@ -166,6 +166,11 @@ $usuario_tipo_conta = $usuario_tipo_conta ?? (is_array($authUser) ? (string) ($a
             text-align: left;
         }
 
+        .nav-user-btn { position:relative; }
+        .nav-user-btn.has-unread-notifications::after { content:''; position:absolute; left:20px; top:0; width:8px; height:8px; border-radius:50%; background:#dc3545; box-shadow:0 0 0 2px var(--bg-pagina); }
+        .notif-count-badge { margin-left:auto; display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 5px; border-radius:20px; background:#dc3545; color:#fff; font-size:.7rem; font-weight:700; }
+        .notif-count-badge[hidden] { display:none; }
+
         .nav-user-btn svg {
             width: 26px;
             height: 26px;
