@@ -45,9 +45,14 @@ try {
 
     $sets   = [];
     $params = ['id' => $id_usuario];
-    $googleStmt = $pdo->prepare('SELECT google_sub FROM Usuario WHERE id_user = ?');
+    $googleStmt = $pdo->prepare('SELECT email FROM Usuario WHERE id_user = ?');
     $googleStmt->execute([$id_usuario]);
-    $contaGoogle = $googleStmt->fetchColumn() !== null;
+    $emailAtual = (string) ($googleStmt->fetchColumn() ?: '');
+    if (array_key_exists('email', $_POST) && trim($_POST['email']) !== $emailAtual) {
+        http_response_code(422);
+        echo json_encode(['ok' => false, 'erro' => 'Use a opção de confirmar ou trocar e-mail da conta.']);
+        exit;
+    }
 
     if (array_key_exists('nome', $_POST)) {
         $nome = trim($_POST['nome']);
@@ -57,6 +62,7 @@ try {
             exit;
         }
         $sets[] = 'nome = :nome';
+        if (contaNomeValido($nome)) $sets[] = 'nome_confirmado_em = UTC_TIMESTAMP()';
         $params['nome'] = $nome;
     }
     if (array_key_exists('matricula', $_POST)) {
@@ -68,16 +74,6 @@ try {
         }
         $sets[] = 'matricula = :matricula';
         $params['matricula'] = $matricula ?: null;
-    }
-    if (!$contaGoogle && array_key_exists('email', $_POST) && in_array('email', $cols, true)) {
-        $email = trim($_POST['email'] ?? '');
-        if ($email !== '' && (mb_strlen($email, 'UTF-8') > 150 || !filter_var($email, FILTER_VALIDATE_EMAIL))) {
-            http_response_code(422);
-            echo json_encode(['ok' => false, 'erro' => 'Informe um e-mail válido.']);
-            exit;
-        }
-        $sets[] = 'email = :email';
-        $params['email'] = $email ?: null;
     }
     if (array_key_exists('turma', $_POST) && in_array('turma', $cols, true)) {
         $sets[] = 'turma = :turma';

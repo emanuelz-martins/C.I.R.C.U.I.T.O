@@ -282,6 +282,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit;
             }
             $contaGoogle = $identidadeAtual['google_sub'] !== null;
+            // Nem a edição administrativa pode marcar um endereço de terceiro como confirmado.
+            if (array_key_exists('email', $_POST) && trim($_POST['email']) !== (string) ($identidadeAtual['email'] ?? '')) {
+                http_response_code(422);
+                $avisoEmail = 'O e-mail deve ser confirmado pelo próprio usuário na opção E-mail da conta.';
+                echo json_encode(['ok' => false, 'error' => $avisoEmail, 'erro' => $avisoEmail]);
+                exit;
+            }
 
             /* verifica quais colunas existem em Usuario */
             $colStmt = $pdo->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t');
@@ -313,16 +320,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $params['matricula'] = $matricula ?: null;
             }
 
-            if (!$contaGoogle && array_key_exists('email', $_POST) && in_array('email', $userCols, true)) {
-                $email = trim($_POST['email'] ?? '');
-                if ($email !== '' && (mb_strlen($email, 'UTF-8') > 150 || !filter_var($email, FILTER_VALIDATE_EMAIL))) {
-                    http_response_code(422);
-                    echo json_encode(['ok' => false, 'error' => 'Informe um e-mail válido.', 'erro' => 'Informe um e-mail válido.']);
-                    exit;
-                }
-                $setParts[]      = 'email = :email';
-                $params['email'] = $email ?: null;
-            }
 
             if (array_key_exists('turma', $_POST) && in_array('turma', $userCols, true)) {
                 $setParts[]      = 'turma = :turma';
@@ -1466,7 +1463,7 @@ require_once '../includes/header.php';
             </div>
             <div>
                 <label for="editEmail">E-mail</label>
-                <input type="email" id="editEmail" name="email" maxlength="150" autocomplete="email" placeholder="seu@email.com">
+                <input type="email" id="editEmail" name="email" maxlength="150" readonly aria-describedby="editGoogleHint" placeholder="Nenhum e-mail confirmado">
                 <p class="perfil-help" id="editGoogleHint" hidden>Preenchido pela sua conta Google.</p>
             </div>
             <div>
@@ -1917,15 +1914,10 @@ function openEditModal(triggerOrId, nomeArg, _loginArg, emailArg, descricaoArg, 
 
     const emailInput = document.getElementById('editEmail');
     const googleHint = document.getElementById('editGoogleHint');
-    if (contaGoogle) {
-        emailInput.readOnly = true;
-        emailInput.setAttribute('aria-describedby', 'editGoogleHint');
-        googleHint.hidden = false;
-    } else {
-        emailInput.readOnly = false;
-        emailInput.removeAttribute('aria-describedby');
-        googleHint.hidden = true;
-    }
+    emailInput.readOnly = true;
+    emailInput.setAttribute('aria-describedby', 'editGoogleHint');
+    googleHint.hidden = false;
+    googleHint.textContent = contaGoogle ? 'Gerenciado pela conta Google.' : 'O usuário deve confirmar a troca de e-mail na própria conta.';
 
     mostrarEditFotoPreview(foto);
     document.getElementById('editNotice').className = 'perfil-notice';

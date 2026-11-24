@@ -39,6 +39,7 @@ $perfil_email     = '';
 $perfil_matricula = '';
 $perfil_descricao = '';
 $perfil_google = false;
+$perfil_email_verificado = false;
 
 try {
     $pdo = db();
@@ -50,7 +51,7 @@ try {
             $alunoPreBloqueado = ($statusPreBloqueio['pre_bloqueado'] ?? false) === true;
         }
 
-        $stmt = $pdo->prepare('SELECT nome, foto_perfil, email, matricula, descricao, google_sub FROM Usuario WHERE id_user = :id');
+        $stmt = $pdo->prepare('SELECT nome, foto_perfil, email, matricula, descricao, google_sub, email_verificado_em FROM Usuario WHERE id_user = :id');
         $stmt->execute(['id' => $id_usuario]);
         $row_up           = $stmt->fetch();
         $foto_perfil      = $row_up ? ($row_up['foto_perfil'] ?: null) : null;
@@ -59,6 +60,7 @@ try {
         $perfil_matricula = $row_up ? (string) ($row_up['matricula'] ?? '') : '';
         $perfil_descricao = $row_up ? (string)($row_up['descricao'] ?? '') : '';
         $perfil_google = $row_up && $row_up['google_sub'] !== null;
+        $perfil_email_verificado = $row_up && !empty($row_up['email_verificado_em']);
 
         /* Sincroniza sessão */
         $_SESSION['auth_user']['foto_perfil'] = $foto_perfil;
@@ -701,15 +703,16 @@ $usuario_role = $alunoPreBloqueado ? 'Aluno | Bloqueado para pedidos' : $usuario
             </div>
             <div>
                 <label for="perfilEmail">E-mail</label>
-                <input type="email" id="perfilEmail" name="email" value="<?= htmlspecialchars($perfil_email) ?>" maxlength="150" autocomplete="email" placeholder="seu@email.com" <?= $perfil_google ? 'readonly aria-describedby="perfilGoogleHint"' : '' ?>>
-                <?php if ($perfil_google): ?><p class="perfil-help" id="perfilGoogleHint">Preenchido pela sua conta Google.</p><?php endif; ?>
+                <input type="email" id="perfilEmail" value="<?= htmlspecialchars($perfil_email) ?>" maxlength="150" readonly aria-describedby="perfilEmailHint" placeholder="Nenhum e-mail confirmado">
+                <p class="perfil-help" id="perfilEmailHint"><?= $perfil_google ? 'Gerenciado pela sua conta Google.' : ($perfil_email_verificado ? 'E-mail confirmado.' : 'Confirme o endereço para receber mensagens da sua conta.') ?></p>
+                <?php if (!$perfil_google): ?><a class="perfil-email-link" href="<?= htmlspecialchars($basePath) ?>/conta_email.php"><?= $perfil_email_verificado ? 'Trocar e-mail da conta' : ($perfil_email ? 'Confirmar e-mail da conta' : 'Cadastrar e-mail da conta') ?></a><?php endif; ?>
             </div>
             <div>
-                <label for="perfilMatricula">Matrícula</label>
+                <label for="perfilMatricula">Matrícula <span class="perfil-help">(opcional)</span></label>
                 <input type="text" id="perfilMatricula" name="matricula" value="<?= htmlspecialchars($perfil_matricula) ?>" maxlength="50" placeholder="Sua matrícula">
             </div>
             <div class="perfil-field-full">
-                <label for="perfilDescricao">Descrição</label>
+                <label for="perfilDescricao">Descrição <span class="perfil-help">(opcional)</span></label>
                 <textarea id="perfilDescricao" name="descricao" rows="3" data-limite="<?= PERFIL_DESCRICAO_LIMITE ?>" aria-describedby="perfilDescricaoContador" placeholder="Conte um pouco sobre você..."><?= htmlspecialchars($perfil_descricao) ?></textarea>
                 <div class="perfil-description-meta">
                     <span class="perfil-help">Uma breve apresentação sobre você.</span>
@@ -775,6 +778,7 @@ $usuario_role = $alunoPreBloqueado ? 'Aluno | Bloqueado para pedidos' : $usuario
     .perfil-modal input[readonly] { color: var(--texto-secundario); background: var(--bg-controle); }
     .perfil-help, .perfil-counter { color: var(--texto-secundario); font-size: .75rem; line-height: 1.5; }
     .perfil-fields p.perfil-help { margin-top: 6px; }
+    .perfil-email-link { display: inline-block; margin-top: 10px; font-size: .8rem; color: var(--texto-principal); text-underline-offset: 3px; }
     .perfil-description-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; }
     .perfil-counter { margin-left: auto; font-variant-numeric: tabular-nums; }
     .perfil-counter.over-limit { color: var(--cor-erro); }

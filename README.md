@@ -161,6 +161,10 @@ O login oferece Google institucional, SIGAA e modo de teste local. A senha insti
 
 No acesso SIGAA, se o CPF ainda não existir no banco, o sistema cria a conta local como estudante. Apenas o administrador altera o perfil de acesso.
 
+No primeiro acesso SIGAA, o aluno confirma seu nome e um e-mail antes de acessar
+o painel. Matrícula, foto e descrição são opcionais. A troca posterior de e-mail
+exige nova autenticação e código. Veja [a configuração SMTP e o SQL separado](docs/EMAIL_CONTA.md).
+
 O CPF usado pelo SIGAA permanece no campo `login`, no formato `000.000.000-00`.
 Não há uma coluna `cpf`. Esse nome de campo não anonimiza o identificador.
 Contas Google não pedem CPF: usam a identidade estável da conta Google e salvam

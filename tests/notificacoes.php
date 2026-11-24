@@ -20,6 +20,11 @@ function conferir(bool $ok, string $descricao): void {
 }
 function pedir(CurlHandle $cliente, string $caminho, ?array $post = null): array {
     global $base;
+    if ($caminho === '/login.php' && $post !== null && !array_key_exists('csrf_login', $post)) {
+        [, , $pagina] = pedir($cliente, '/login.php');
+        preg_match('/name="csrf_login" value="([a-f0-9]+)"/', $pagina, $csrf);
+        $post['csrf_login'] = $csrf[1] ?? '';
+    }
     curl_setopt_array($cliente, [CURLOPT_URL => $base . $caminho, CURLOPT_HTTPHEADER => ['Accept: application/json']]);
     if ($post === null) curl_setopt($cliente, CURLOPT_HTTPGET, true);
     else curl_setopt_array($cliente, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($post)]);

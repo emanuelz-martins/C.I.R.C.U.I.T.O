@@ -51,7 +51,9 @@ try {
         executarSchema($pdo, $schema);
         conferirSchema(true, 'schema executa em banco ' . $cenario);
         $esperados = [
-            'Usuario' => ['forma_login','google_sub','foto_perfil','email','turma','descricao','pre_bloqueado_manual','pre_bloqueio_motivo','pre_bloqueado_por_nome','pre_bloqueado_por_tipo','pre_bloqueado_em'],
+            'Usuario' => ['forma_login','google_sub','foto_perfil','email','turma','descricao','pre_bloqueado_manual','pre_bloqueio_motivo','pre_bloqueado_por_nome','pre_bloqueado_por_tipo','pre_bloqueado_em','email_verificado_em','nome_confirmado_em','email_versao','cadastro_sigaa'],
+            'Email_Verificacao' => ['id_user','desafio','sessao_hash','email_novo','email_anterior','versao_anterior','codigo_hash','tentativas','expira_em','nome_confirmado'],
+            'Email_Limite' => ['chave','janela','usos','atualizado_em'],
             'Notificacao' => ['tipo','humor','id_pedido','id_nota_atraso','requer_resposta','resposta_pendente'],
             'Pedido' => ['id_laboratorista_responsavel','nome_laboratorista_responsavel','fluxo_livre_laboratoristas'],
         ];
@@ -71,6 +73,8 @@ try {
         conferirSchema(true, "$cenario: segunda execução não falha nem duplica colunas/índices");
         $linhas = $pdo->query('SELECT id_user,nome,login,hash_senha,tipo_perfil,foto_perfil,email FROM Usuario ORDER BY id_user')->fetchAll();
         conferirSchema($linhas === $originais, "$cenario: dados e perfis anteriores preservados");
+        conferirSchema((int) $pdo->query('SELECT COUNT(*) FROM Usuario WHERE email_verificado_em IS NOT NULL')->fetchColumn() === 0,
+            "$cenario: endereços antigos não são promovidos a verificados");
         $pdo->prepare("INSERT INTO Usuario(nome,login,hash_senha,google_sub,forma_login,foto_perfil) VALUES('Conta Google', ?, 'hash-teste', 'google-identidade-teste', 'google', ?)")->execute(['google-identificador', 'https://lh3.googleusercontent.com/' . str_repeat('a', 350)]);
         conferirSchema($pdo->query("SELECT tipo_perfil FROM Usuario WHERE google_sub='google-identidade-teste'")->fetchColumn() === 'estudante', "$cenario: nova conta Google começa como aluno");
         $duplicadoRecusado = false;
@@ -78,6 +82,17 @@ try {
             $pdo->exec("INSERT INTO Usuario(nome,login,hash_senha,google_sub) VALUES('Duplicada','outra-conta','hash','google-identidade-teste')");
         } catch (PDOException $e) { $duplicadoRecusado = $e->getCode() === '23000'; }
         conferirSchema($duplicadoRecusado, "$cenario: banco recusa identidade Google duplicada");
+        $pdo->exec("INSERT INTO Categoria(nome) VALUES('Categoria de descrição longa')");
+        $categoriaLonga = (int) $pdo->lastInsertId();
+        $descricaoLonga = str_repeat('Descrição técnica do componente. ', 30);
+        $pdo->prepare("INSERT INTO Componente(id_cat,nome,descricao) VALUES(?,'Componente de teste',?)")
+            ->execute([$categoriaLonga,$descricaoLonga]);
+        $componenteLongo = (int) $pdo->lastInsertId();
+        conferirSchema($pdo->query('SELECT descricao FROM Componente WHERE id_comp=' . $componenteLongo)->fetchColumn() === $descricaoLonga,
+            "$cenario: descrição acima de 255 caracteres é preservada integralmente");
+        executarSchema($pdo, $schema);
+        conferirSchema($pdo->query('SELECT descricao FROM Componente WHERE id_comp=' . $componenteLongo)->fetchColumn() === $descricaoLonga,
+            "$cenario: reaplicar o schema mantém a descrição longa");
     }
 } finally {
     $pdo->exec('USE information_schema');

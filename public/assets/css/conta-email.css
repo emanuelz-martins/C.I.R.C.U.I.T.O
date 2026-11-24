@@ -1,0 +1,38 @@
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 76px 16px 32px; background: var(--bg-pagina); color: var(--texto-principal); font-family: 'Segoe UI', Arial, sans-serif; }
+a, button { -webkit-tap-highlight-color: transparent; }
+.conta-card { width: min(100%, 580px); margin: 0 auto; padding: 36px; background: var(--bg-superficie); border: 1px solid var(--borda-padrao); border-radius: 22px; }
+.conta-voltar { position: absolute; top: 24px; left: 24px; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--borda-controle); border-radius: 50%; background: var(--bg-controle); color: var(--texto-principal); text-decoration: none; }
+.conta-voltar:hover { background: var(--bg-controle-hover); }
+.conta-voltar svg { width: 20px; height: 20px; pointer-events: none; }
+.conta-legenda { font-size: 11px; letter-spacing: .14em; font-weight: 600; color: var(--texto-secundario); margin: 0 0 12px; }
+h1 { font-size: clamp(25px, 5vw, 32px); line-height: 1.2; letter-spacing: -.8px; margin: 0 0 12px; }
+h2 { font-size: 19px; margin: 0 0 10px; }
+.conta-intro, .conta-ajuda, .conta-opcional, dialog p { color: var(--texto-secundario); font-size: 14px; line-height: 1.6; }
+.conta-intro { margin: 0; }
+.conta-etapas { display: flex; justify-content: space-between; padding: 18px 0; margin: 26px 0; list-style: none; border-block: 1px solid var(--borda-sutil); gap: 10px; }
+.conta-etapas li { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--texto-suave); }
+.conta-etapas [aria-current="step"] { color: var(--texto-principal); font-weight: 700; }
+form { display: flex; flex-direction: column; }
+label { color: var(--texto-secundario); font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
+label span { font-size: 11px; font-weight: 400; margin-left: 5px; }
+input { width: 100%; padding: 12px 14px; border: 1px solid var(--borda-campo); border-radius: 10px; background: var(--bg-campo-interno); color: var(--texto-principal); font: inherit; min-height: 46px; }
+input::placeholder { color: var(--texto-suave); }
+input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--anel-foco); outline-offset: 3px; }
+button { font: inherit; cursor: pointer; }
+.conta-primario { width: 100%; padding: 13px 16px; border: 0; border-radius: 10px; background: var(--bg-acao-primaria); color: var(--texto-acao-primaria); font-size: 14px; font-weight: 650; margin-top: 24px; }
+.conta-primario:hover { background: var(--bg-acao-primaria-hover); }
+button:disabled { opacity: .5; cursor: wait; }
+.conta-ajuda { margin: 10px 0 0; overflow-wrap: anywhere; }
+.conta-opcional { padding-top: 12px; margin-bottom: 0; }
+.conta-atual { font-size: 13px; color: var(--texto-secundario); overflow-wrap: anywhere; }
+.conta-atual strong { display: block; margin-top: 4px; color: var(--texto-principal); font-weight: 500; }
+.conta-codigo { max-width: 230px; letter-spacing: .3em; font-size: 23px; font-variant-numeric: tabular-nums; }
+.conta-acoes { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.conta-acoes button { padding: 4px 0; border: 0; background: transparent; color: var(--texto-secundario); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.conta-erro { border-left: 3px solid var(--cor-erro); color: var(--texto-principal); background: var(--bg-campo); padding: 12px 14px; font-size: 13px; line-height: 1.5; border-radius: 6px; margin-bottom: 20px; }
+dialog { width: min(100% - 32px, 470px); padding: 30px; border: 1px solid var(--borda-card); border-radius: 20px; color: var(--texto-principal); background: var(--bg-modal); box-shadow: var(--sombra-modal); }
+dialog::backdrop { background: var(--overlay-modal); }
+dialog p { margin: 14px 0 0; }
+@media (max-width: 520px) { body { padding-bottom: 24px; } .conta-card { padding: 24px; } .conta-voltar { left: 16px; } .conta-etapas li { font-size: 11px; gap: 4px; } }

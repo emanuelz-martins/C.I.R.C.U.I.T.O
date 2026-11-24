@@ -96,12 +96,12 @@ function sincronizarUsuarioGoogle(PDO $pdo, array $perfil): array
             throw new DomainException('Acesso indisponível. Entre em contato com o administrador.');
         }
         if (!$user) {
-            $pdo->prepare("INSERT INTO Usuario (nome, login, hash_senha, email, foto_perfil, google_sub, tipo_perfil, forma_login) VALUES (?, ?, ?, ?, ?, ?, 'estudante', 'google')")
+            $pdo->prepare("INSERT INTO Usuario (nome, login, hash_senha, email, foto_perfil, google_sub, tipo_perfil, forma_login, email_verificado_em, nome_confirmado_em) VALUES (?, ?, ?, ?, ?, ?, 'estudante', 'google', UTC_TIMESTAMP(), UTC_TIMESTAMP())")
                 ->execute([$perfil['nome'], 'google-' . hash('sha256', $perfil['sub']), password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT), $perfil['email'], $perfil['foto'], $perfil['sub']]);
             $id = (int) $pdo->lastInsertId();
         } else {
             $id = (int) $user['id_user'];
-            $pdo->prepare("UPDATE Usuario SET nome = ?, email = ?, foto_perfil = COALESCE(?, foto_perfil), forma_login = 'google' WHERE id_user = ?")
+            $pdo->prepare("UPDATE Usuario SET nome = ?, email = ?, foto_perfil = COALESCE(?, foto_perfil), forma_login = 'google', email_verificado_em = UTC_TIMESTAMP(), nome_confirmado_em = UTC_TIMESTAMP(), email_versao = email_versao + 1 WHERE id_user = ?")
                 ->execute([$perfil['nome'], $perfil['email'], $perfil['foto'], $id]);
         }
         $stmt = $pdo->prepare('SELECT * FROM Usuario WHERE id_user = ?');

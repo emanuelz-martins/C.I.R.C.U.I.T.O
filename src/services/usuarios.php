@@ -7,8 +7,8 @@ function registrarFormaLogin(PDO $pdo, int $usuarioId, string $forma): void
     if (!in_array($forma, ['google', 'teste', 'sigaa'], true)) {
         throw new InvalidArgumentException('Forma de login inválida.');
     }
-    $pdo->prepare('UPDATE Usuario SET forma_login = :forma WHERE id_user = :id')
-        ->execute(['forma' => $forma, 'id' => $usuarioId]);
+    $pdo->prepare("UPDATE Usuario SET cadastro_sigaa = IF(:sigaa = 'sigaa', 1, cadastro_sigaa), forma_login = :forma WHERE id_user = :id")
+        ->execute(['sigaa' => $forma, 'forma' => $forma, 'id' => $usuarioId]);
 }
 
 /** A autenticação identifica o usuário; somente o administrador define seu perfil. */

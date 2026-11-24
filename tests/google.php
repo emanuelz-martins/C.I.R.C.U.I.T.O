@@ -74,6 +74,7 @@ try {
     conferir($googleUser['tipo_perfil'] === 'estudante' && $googleUser['forma_login'] === 'google', 'conta Google nova começa como Aluno');
     conferir($googleUser['id_user'] !== $legado['id_user'], 'não vincula conta antiga apenas por e-mail não verificado');
     conferir($googleUser['foto_perfil'] === $perfil['foto'] && $googleUser['nome'] === $perfil['nome'], 'persiste nome, e-mail e foto no banco');
+    conferir(!empty($googleUser['email_verificado_em']) && !empty($googleUser['nome_confirmado_em']), 'identidade validada pelo Google dispensa código de e-mail adicional');
     foreach (['laboratorista', 'admin', 'estudante'] as $role) {
         $pdo->prepare('UPDATE Usuario SET tipo_perfil = ? WHERE id_user = ?')->execute([$role, $googleUser['id_user']]);
         $atualizado = sincronizarUsuarioGoogle($pdo, array_replace($perfil, ['nome' => 'Nome atualizado']));
@@ -107,8 +108,9 @@ try {
     [$status] = $pedir('/google_login.php', '{}', ['Content-Type: application/json', 'X-CSRF-Token: ' . $config['csrf']]);
     conferir($status === (googleClientId() === '' ? 503 : 400), 'endpoint exige configuração e credencial, mesmo com CSRF correto');
     $senhaTeste = bin2hex(random_bytes(16));
+    preg_match('/name="csrf_login" value="([a-f0-9]+)"/', $html, $csrfLogin);
     $pdo->prepare('UPDATE Usuario SET bloqueado = 0, hash_senha = ? WHERE id_user = ?')->execute([password_hash($senhaTeste, PASSWORD_DEFAULT), $googleUser['id_user']]);
-    [$status, $html] = $pedir('/login.php', http_build_query(['tipo_acesso' => 'teste', 'usuario' => $googleUser['login'], 'senha' => $senhaTeste]), ['Content-Type: application/x-www-form-urlencoded']);
+    [$status, $html] = $pedir('/login.php', http_build_query(['csrf_login' => $csrfLogin[1] ?? '', 'tipo_acesso' => 'teste', 'usuario' => $googleUser['login'], 'senha' => $senhaTeste]), ['Content-Type: application/x-www-form-urlencoded']);
     conferir($status === 200 && str_contains($html, 'Use Entrar com o Google'), 'conta Google não admite entrada pelo teste local');
     curl_close($http);
 } finally {

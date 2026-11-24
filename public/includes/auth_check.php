@@ -39,7 +39,8 @@ function checkAccess(string|array $allowed_roles): void
     }
 
     try {
-        $stmt = db()->prepare('SELECT nome, login, tipo_perfil, bloqueado FROM Usuario WHERE id_user = :id');
+        $stmt = db()->prepare('SELECT nome, login, tipo_perfil, bloqueado, forma_login, google_sub,
+            email, email_verificado_em, nome_confirmado_em, cadastro_sigaa FROM Usuario WHERE id_user = :id');
         $stmt->execute(['id' => (int) ($_SESSION['auth_user']['id'] ?? 0)]);
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (Throwable) {
@@ -67,5 +68,23 @@ function checkAccess(string|array $allowed_roles): void
 
     if (!in_array($usuario['tipo_perfil'], (array) $allowed_roles, true)) {
         negarAcesso(403, 'Acesso negado. Você não tem permissão para acessar esta página.');
+    }
+
+    // A regra vale também para requisições POST diretas: fechar o aviso não libera pedidos.
+    $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    if (contaCadastroPendente($usuario, $_SESSION['auth_user']['origem'] ?? null)
+        && !in_array(basename($script), ['conta_email.php', 'email_conta.php', 'logout.php'], true)) {
+        $base = rtrim((string) parse_url((string) env('APP_URL', '/'), PHP_URL_PATH), '/');
+        if (str_contains($script, '/api/') || str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')
+            || ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'error' => 'Complete seu nome e confirme seu e-mail antes de continuar.',
+                'mensagem' => 'Complete seu nome e confirme seu e-mail antes de continuar.', 'cadastro_pendente' => true,
+                'destino' => $base . '/conta_email.php'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        header('Location: ' . $base . '/conta_email.php');
+        exit;
     }
 }

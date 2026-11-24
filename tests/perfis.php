@@ -54,6 +54,11 @@ function cliente(): CurlHandle
 function requisicao(CurlHandle $c, string $path, ?array $post = null, bool $json = false, bool $corpoJson = false, bool $multipart = false): array
 {
     global $base;
+    if ($path === '/login.php' && $post !== null && !array_key_exists('csrf_login', $post)) {
+        $pagina = requisicao($c, '/login.php');
+        preg_match('/name="csrf_login" value="([a-f0-9]+)"/', $pagina['body'], $csrf);
+        $post['csrf_login'] = $csrf[1] ?? '';
+    }
     $headers = [];
     curl_setopt($c, CURLOPT_URL, $base . $path);
     $requestHeaders = $json ? ['Accept: application/json'] : [];
@@ -110,8 +115,8 @@ try {
         verificar(perfil($pdo, $id) === 'estudante', 'novo usuário começa como aluno: ' . $nome);
         verificar(formaLogin($pdo, $id) === null, 'conta sem login não recebe método presumido');
         $role = match ($nome) { 'admin', 'outro_admin' => 'admin', 'laboratorista' => 'laboratorista', 'invalido' => 'desconhecido', default => 'estudante' };
-        $pdo->prepare('UPDATE Usuario SET tipo_perfil = ?, hash_senha = ?, bloqueado = ? WHERE id_user = ?')
-            ->execute([$role, password_hash($password, PASSWORD_DEFAULT), $nome === 'bloqueado' ? 1 : 0, $id]);
+        $pdo->prepare('UPDATE Usuario SET tipo_perfil = ?, hash_senha = ?, bloqueado = ?, email = ?, email_verificado_em = UTC_TIMESTAMP(), nome_confirmado_em = UTC_TIMESTAMP() WHERE id_user = ?')
+            ->execute([$role, password_hash($password, PASSWORD_DEFAULT), $nome === 'bloqueado' ? 1 : 0, $nome . '@example.test', $id]);
         $users[$nome] = ['id' => $id, 'login' => $login, 'client' => cliente()];
         $r = requisicao($users[$nome]['client'], '/login.php', ['tipo_acesso' => 'teste', 'cpf' => $digits, 'senha' => $password]);
         verificar($r['status'] === ($nome === 'bloqueado' ? 200 : 302), 'login local: ' . $nome);
@@ -198,7 +203,7 @@ try {
     verificar($r['status'] === 200 && $limpo['descricao'] === null && $limpo['matricula'] === null, 'campos opcionais podem ser limpos');
     $pdo->prepare('UPDATE Usuario SET google_sub = ? WHERE id_user = ?')->execute(['perfil-teste-' . bin2hex(random_bytes(6)), $users['laboratorista']['id']]);
     $r = requisicao($lab, '/api/perfil_atualizar.php', ['csrf_perfil' => $tokensPerfil['laboratorista'], 'email' => 'alterado@example.test', 'descricao' => 'Descrição Google'], true);
-    verificar($r['status'] === 200 && $pdo->query('SELECT email FROM Usuario WHERE id_user = ' . $users['laboratorista']['id'])->fetchColumn() === 'laboratorista@example.test', 'e-mail verificado pelo Google não pode ser substituído');
+    verificar($r['status'] === 422 && $pdo->query('SELECT email FROM Usuario WHERE id_user = ' . $users['laboratorista']['id'])->fetchColumn() === 'laboratorista@example.test', 'e-mail verificado pelo Google não pode ser substituído');
     $pdo->prepare('UPDATE Usuario SET google_sub = NULL WHERE id_user = ?')->execute([$users['laboratorista']['id']]);
 
     foreach (['google', 'sigaa', 'teste'] as $forma) {

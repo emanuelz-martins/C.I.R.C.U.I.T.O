@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/usuarios.php';
+require_once __DIR__ . '/email_conta.php';
 
 function iniciarSessaoSegura(): void
 {
@@ -21,6 +22,7 @@ function criarSessaoUsuario(array $user, string $origem): string
     iniciarSessaoSegura();
     registrarFormaLogin(db(), (int) $user['id_user'], $origem);
     session_regenerate_id(true);
+    unset($_SESSION['email_autorizacao'], $_SESSION['csrf_email_conta'], $_SESSION['csrf_perfil_pessoal'], $_SESSION['aviso_cadastro_email'], $_SESSION['csrf_login']);
     unset($_SESSION['csrf_perfis'], $_SESSION['csrf_avisos'], $_SESSION['csrf_gerenciar_user'], $_SESSION['google_login'], $_SESSION['admin_visualizacao'], $_SESSION['csrf_visualizacao_admin']);
     $_SESSION['auth_user'] = [
         'id' => (int) $user['id_user'], 'nome' => (string) $user['nome'],
@@ -28,6 +30,12 @@ function criarSessaoUsuario(array $user, string $origem): string
         'email' => (string) ($user['email'] ?? ''),
         'foto_perfil' => $user['foto_perfil'] ?? null, 'origem' => $origem,
     ];
+    $atual = contaUsuario(db(), (int) $user['id_user']);
+    if (contaCadastroPendente($atual, $origem)) {
+        // O SIGAA acabou de autenticar a conta; não pede a senha de novo no primeiro acesso.
+        if ($origem === 'sigaa') emailAutorizar($atual);
+        return 'conta_email.php';
+    }
     return match ($user['tipo_perfil']) {
         'admin' => 'pages_admin/index.php',
         'laboratorista' => 'pages_laboratorista/index.php',

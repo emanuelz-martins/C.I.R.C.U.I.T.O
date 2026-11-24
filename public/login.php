@@ -5,6 +5,7 @@ require_once __DIR__ . '/../src/services/google.php';
 require_once __DIR__ . '/../src/config/sigaa.php';
 iniciarSessaoSegura();
 header('Cache-Control: no-store');
+$csrfLogin = $_SESSION['csrf_login'] ??= bin2hex(random_bytes(32));
 $error = (string) ($_SESSION['erro_google'] ?? '');
 unset($_SESSION['erro_google']);
 $accessType = 'sigaa';
@@ -23,13 +24,18 @@ function normalizarLogin(string $login): string
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrfRecebido = $_POST['csrf_login'] ?? '';
+    $csrfValido = is_string($csrfRecebido) && hash_equals($csrfLogin, $csrfRecebido);
     $tipo = (string) ($_POST['tipo_acesso'] ?? 'sigaa');
     $tipoValido = in_array($tipo, ['sigaa', 'teste'], true);
     $accessType = $tipoValido ? $tipo : 'sigaa';
     $loginInput = trim((string) ($_POST['usuario'] ?? $_POST['cpf'] ?? ''));
     $senhaInput = (string) ($_POST['senha'] ?? '');
     $cpf = preg_replace('/\D/', '', $loginInput);
-    if (!$tipoValido) {
+    if (!$csrfValido) {
+        http_response_code(403);
+        $error = 'Atualize a página e tente entrar novamente.';
+    } elseif (!$tipoValido) {
         http_response_code(400);
         $error = 'Esse tipo de acesso ainda não está disponível.';
     } elseif ($loginInput === '' || strlen($loginInput) > 100 || $senhaInput === '') {
@@ -165,6 +171,7 @@ $temaCssUrl = ($basePath !== '' ? $basePath : '') . '/assets/css/tema.css';
             <?php endif; ?>
 
             <form method="POST" action="login.php" autocomplete="on">
+                <input type="hidden" name="csrf_login" value="<?= htmlspecialchars($csrfLogin, ENT_QUOTES, 'UTF-8') ?>">
                 <fieldset class="account-selector" aria-describedby="accessHelp">
                     <legend>Outras formas de acesso</legend>
                     <div class="account-options">
